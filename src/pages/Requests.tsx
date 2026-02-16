@@ -376,25 +376,25 @@ ${form.idDocument}`;
           {/* Year Calendar 2026 */}
           <div className="pt-4">
             <h2 className="text-lg font-medium text-foreground mb-4">Calendario Institucional 2026</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6">
               {months2026.map((month) => (
-                <div key={month.getMonth()} className="rounded-xl border border-border bg-card p-2 shadow-sm">
+                <div key={month.getMonth()} className="rounded-xl border border-border bg-card p-2 shadow-sm overflow-hidden">
                   <Calendar
                     mode="single"
                     month={month}
-                    className="p-1 pointer-events-auto"
+                    className="p-0 pointer-events-auto w-full"
                     classNames={{
-                      months: "flex flex-col",
-                      month: "space-y-2",
+                      months: "flex flex-col w-full",
+                      month: "space-y-1 w-full",
                       caption: "flex justify-center pt-1 relative items-center",
                       caption_label: "text-xs font-semibold",
                       nav: "hidden",
-                      table: "w-full border-collapse",
-                      head_row: "flex",
-                      head_cell: "text-muted-foreground w-8 font-normal text-[10px]",
-                      row: "flex w-full mt-1",
-                      cell: "h-7 w-8 text-center text-[11px] p-0",
-                      day: "h-7 w-8 p-0 font-normal text-[11px] hover:bg-muted rounded-md",
+                      table: "w-full border-collapse table-fixed",
+                      head_row: "flex w-full",
+                      head_cell: "text-muted-foreground flex-1 text-center font-normal text-[10px]",
+                      row: "flex w-full mt-0.5",
+                      cell: "flex-1 aspect-square text-center text-[11px] p-0 relative",
+                      day: "h-full w-full p-0 font-normal text-[11px] hover:bg-muted rounded-md inline-flex items-center justify-center",
                       day_today: "bg-primary text-primary-foreground font-semibold",
                       day_outside: "text-muted-foreground opacity-30",
                       day_disabled: "text-muted-foreground opacity-50",
