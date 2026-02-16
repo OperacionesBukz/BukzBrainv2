@@ -17,7 +17,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // Check if session is expired (30 days)
+                const lastLoginKey = `last_login_${user.uid}`;
+                const lastLogin = localStorage.getItem(lastLoginKey);
+                const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+                const now = Date.now();
+
+                if (lastLogin) {
+                    const timeDiff = now - parseInt(lastLogin);
+                    if (timeDiff > thirtyDaysInMs) {
+                        try {
+                            await auth.signOut();
+                            localStorage.removeItem(lastLoginKey);
+                            setUser(null);
+                            setLoading(false);
+                            return; // Stop execution
+                        } catch (error) {
+                            console.error("Error signing out expired session:", error);
+                        }
+                    }
+                } else {
+                    // First login set time
+                    localStorage.setItem(lastLoginKey, now.toString());
+                }
+            }
+
             setUser(user);
             setLoading(false);
         });
