@@ -20,7 +20,7 @@ const Login = () => {
 
   useEffect(() => {
     if (user) {
-      navigate("/");
+      navigate("/dashboard");
     }
   }, [user, navigate]);
 
@@ -31,7 +31,7 @@ const Login = () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("¡Bienvenido!");
-      navigate("/");
+      navigate("/dashboard");
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       toast.error("Error: Credenciales inválidas o problema de conexión.");

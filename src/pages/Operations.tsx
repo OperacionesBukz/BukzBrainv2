@@ -67,7 +67,7 @@ const Operations = () => {
 
   useEffect(() => {
     if (user?.email === "librerias@bukz.co") {
-      navigate("/");
+      navigate("/dashboard");
       toast.error("No tienes permisos para acceder a este módulo");
     }
   }, [user, navigate]);

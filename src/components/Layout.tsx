@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { auth as firebaseAuth } from "@/lib/firebase";
 
 const navItems = [
-  { title: "Dashboard", path: "/", icon: Home },
+  { title: "Dashboard", path: "/dashboard", icon: Home },
   {
     title: "Operaciones",
     path: "/operations",
@@ -184,7 +184,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-4 bg-header px-6">
         {/* Logo */}
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 shrink-0"
         >
           <img
