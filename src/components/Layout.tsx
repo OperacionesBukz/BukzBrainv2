@@ -1,0 +1,228 @@
+import { ReactNode, useEffect } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import logoSrc from "@/assets/LOGO_BUKZ.png";
+import {
+  Home,
+  ListChecks,
+  BookOpen,
+  CalendarDays,
+  ClipboardList,
+  Menu,
+  LogOut,
+  FileText,
+  Store,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { auth as firebaseAuth } from "@/lib/firebase";
+
+const navItems = [
+  { title: "Dashboard", path: "/", icon: Home },
+  {
+    title: "Operaciones",
+    path: "/operations",
+    icon: ListChecks,
+    subItems: [
+      {
+        title: "Tareas entre áreas",
+        path: "/operations?tab=tasks",
+        icon: ClipboardList,
+      },
+      {
+        title: "Archivos",
+        path: "/operations?tab=files",
+        icon: FileText,
+      },
+    ],
+  },
+  { title: "Tareas", path: "/tasks", icon: ClipboardList },
+  { title: "Guías", path: "/instructions", icon: BookOpen },
+  { title: "Solicitudes", path: "/requests", icon: CalendarDays },
+  { title: "Solicitud Librerías", path: "/bookstore-requests", icon: Store },
+];
+
+export function Layout({ children }: { children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [user, loading, navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await firebaseAuth.signOut();
+      navigate("/login");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const userDisplayName =
+    user?.displayName || user?.email?.split("@")[0] || "Usuario";
+  const userInitials = userDisplayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  return (
+    <div className="flex min-h-screen w-full">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed top-0 bottom-0 left-0 z-30 flex flex-col bg-sidebar transition-all duration-300",
+          collapsed ? "w-16" : "w-60"
+        )}
+      >
+        {/* Nav push down to go under header */}
+        <div className="h-14 shrink-0" />
+        {/* Nav */}
+        <nav className="flex-1 space-y-1 p-2 pt-4">
+          {navItems
+            .filter((item) => {
+              if (item.path === "/operations" && user?.email === "librerias@bukz.co") return false;
+              return true;
+            })
+            .map((item) => {
+              const isActive = location.pathname === item.path;
+              const isOperations = item.path === "/operations";
+              const showSubItems =
+                isOperations &&
+                location.pathname.startsWith("/operations") &&
+                !collapsed;
+
+              return (
+                <div key={item.path} className="space-y-1">
+                  <NavLink
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme",
+                      isActive
+                        ? "bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        isActive && "text-foreground"
+                      )}
+                    />
+                    {!collapsed && <span>{item.title}</span>}
+                  </NavLink>
+
+                  {showSubItems && item.subItems && (
+                    <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {item.subItems.map((sub) => {
+                        const isSubActive =
+                          location.pathname + location.search === sub.path ||
+                          (sub.path === "/operations?tab=tasks" &&
+                            location.pathname === "/operations" &&
+                            !location.search);
+
+                        return (
+                          <NavLink
+                            key={sub.path}
+                            to={sub.path}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-theme",
+                              isSubActive
+                                ? "text-foreground"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            )}
+                          >
+                            <sub.icon className="h-3.5 w-3.5" />
+                            <span>{sub.title}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </nav>
+
+        {/* Bottom */}
+        <div className="p-2">
+          <div className="flex items-center justify-between px-2">
+            {!collapsed && <ThemeToggle />}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+              className="h-9 w-9 rounded-lg"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+
+      {/* Static top bar spanning full width */}
+      <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-4 bg-header px-6">
+        {/* Logo */}
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 shrink-0"
+        >
+          <img
+            src={logoSrc}
+            alt="BUKZ"
+            className="h-8 shrink-0 object-contain dark:invert transition-all duration-500 ease-out hover:scale-[1.02] hover:-translate-y-0.5 hover:brightness-[1.03] active:scale-100"
+          />
+        </button>
+        <div className="h-6 w-px bg-border/40 mx-2 hidden sm:block" />
+        <span className="text-xl font-bold tracking-tight text-foreground hidden sm:block">
+          Bukz<span className="text-primary italic drop-shadow-[0_0.8px_0.8px_rgba(0,0,0,0.8)] dark:drop-shadow-none">Brain</span>
+        </span>
+        <div className="flex-1" />
+        <GlobalSearch />
+        <div className="flex-1 flex items-center justify-end gap-3">
+          {collapsed && <ThemeToggle />}
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold">
+              {userInitials}
+            </div>
+            <span className="text-sm font-medium text-foreground hidden sm:inline">
+              {userDisplayName}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+            title="Cerrar sesión"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+
+      {/* Main content */}
+      <main
+        className={cn(
+          "flex-1 mt-14 transition-all duration-300 bg-sidebar",
+          collapsed ? "ml-16" : "ml-60"
+        )}
+      >
+        <div className="h-full bg-background rounded-tl-2xl p-6 animate-fade-in shadow-sm">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
