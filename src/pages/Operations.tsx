@@ -1,4 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   DragDropContext,
@@ -54,6 +56,7 @@ interface Task {
   subtasks: SubTask[];
   createdBy?: string;
   createdAt?: any;
+  order?: number;
 }
 
 const departments = ["General", "Finanzas", "Marketing", "TI", "RRHH", "Ventas"];
@@ -84,10 +87,14 @@ const Operations = () => {
         return {
           id: doc.id,
           ...data,
-          // Handle null timestamp from serverTimestamp() before it syncs
           createdAt: data.createdAt?.toDate?.() || new Date(),
+          order: data.order ?? data.createdAt?.toMillis?.() ?? Date.now(),
         };
       }) as Task[];
+
+      // Sort by order descending (newest/highest first)
+      taskList.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+
       setTasks(taskList);
     }, (error) => {
       console.error("Firestore subscription error:", error);
@@ -112,6 +119,7 @@ const Operations = () => {
         subtasks: [],
         createdBy: user?.email || "Usuario desconocido",
         createdAt: serverTimestamp(),
+        order: Date.now(),
       });
       setNewTaskTitle("");
       toast.success("Tarea agregada correctamente");
@@ -217,36 +225,157 @@ const Operations = () => {
     }
   };
 
+  const filtered = useMemo(() => tasks.filter((t) => filterDept === "All" || t.department === filterDept), [tasks, filterDept]);
+  const pendingTasks = useMemo(() => filtered.filter((t) => t.status !== "done"), [filtered]);
+  const completedTasks = useMemo(() => filtered.filter((t) => t.status === "done"), [filtered]);
+
   const onDragEnd = useCallback(
     async (result: DropResult) => {
       const { source, destination, draggableId } = result;
+
+      // Dropped outside the list
       if (!destination) return;
 
-      const sourceList = source.droppableId;
-      const destList = destination.droppableId;
+      // No movement
+      if (
+        source.droppableId === destination.droppableId &&
+        source.index === destination.index
+      ) {
+        return;
+      }
 
-      if (sourceList !== destList) {
-        try {
-          await updateDoc(doc(db, "tasks", draggableId), {
-            status: destList === "completed" ? "done" : "todo",
-          });
-        } catch (error) {
-          console.error("Error moving task:", error);
+      const sourceListId = source.droppableId;
+      const destListId = destination.droppableId;
+
+      // Identify the lists being manipulated
+      const isPendingSource = sourceListId === "pending";
+      const isPendingDest = destListId === "pending";
+
+      const sourceList = isPendingSource ? pendingTasks : completedTasks;
+      const destList = isPendingDest ? pendingTasks : completedTasks;
+
+      let newOrder = 0;
+
+      // Simple logic to find neighboring orders in the DESTINATION list for correct placement
+      // We calculate new order relative to the destination list's current items
+
+      const destItems = Array.from(destList);
+
+      // If dragging within the same list, visually we are effectively moving one item.
+      // But purely for order calculation, it's safer to treat it as "inserting at index X".
+      // If same list, remove the item first to see who the real neighbors are? 
+      // Actually standard approach:
+      // If moving Down (source < dest): we insert AFTER dest.index? No, logic is simpler:
+      // We want to be at index `destination.index` in the NEW array.
+      // So we need an order value between the item currently at `destination.index` and the one before it?
+
+      // Let's use array manipulation to find exact neighbors
+      let simulatedList = [...destItems];
+      if (sourceListId === destListId) {
+        const [removed] = simulatedList.splice(source.index, 1);
+        simulatedList.splice(destination.index, 0, removed);
+      } else {
+        // We don't have the object to insert but we can imagine a placeholder
+        // neighbors are at dest.index-1 and dest.index in the *original* destItems? Not quite.
+        // If we insert at 0, we are before item 0.
+        // If we insert at length, we are after last item.
+      }
+
+      if (sourceListId === destListId) {
+        // Same list logic from before works well enough if applied correctly
+        const items = Array.from(sourceList);
+        const [reorderedItem] = items.splice(source.index, 1);
+        items.splice(destination.index, 0, reorderedItem);
+
+        // Items are ordered DESC by order.
+        // item at dest.index-1 has HIGHER order.
+        // item at dest.index+1 has LOWER order.
+
+        const prevItem = items[destination.index - 1];
+        const nextItem = items[destination.index + 1];
+
+        const prevOrder = prevItem ? (prevItem.order ?? 0) : null;
+        const nextOrder = nextItem ? (nextItem.order ?? 0) : null;
+
+        if (prevItem && nextItem) {
+          newOrder = ((prevOrder ?? 0) + (nextOrder ?? 0)) / 2;
+        } else if (prevItem) {
+          // End of list (visually top is 0, bottom is N)
+          // Wait, index 0 is TOP. 
+          // If we are at index 0, prevItem is null.
+          // If we are at last index, nextItem is null.
+
+          // So if prevItem exists, we are BELOW it. Order must be LOWER.
+          newOrder = (prevOrder ?? 0) - 100000;
+        } else if (nextItem) {
+          // We are at TOP. Order must be HIGHER.
+          newOrder = (nextOrder ?? 0) + 100000;
+        } else {
+          newOrder = Date.now();
+        }
+      } else {
+        // Different list
+        const items = destList;
+        if (items.length === 0) {
+          newOrder = Date.now();
+        } else if (destination.index === 0) {
+          // Top
+          newOrder = (items[0].order ?? 0) + 100000;
+        } else if (destination.index >= items.length) {
+          // Bottom
+          newOrder = (items[items.length - 1].order ?? 0) - 100000;
+        } else {
+          // Middle
+          const above = items[destination.index - 1]; // Higher order
+          const below = items[destination.index];     // Lower order
+          newOrder = ((above.order ?? 0) + (below.order ?? 0)) / 2;
         }
       }
+
+      // 1. Optimistic Update Local State
+      setTasks((prevTasks) => {
+        // Find task
+        const taskIndex = prevTasks.findIndex(t => t.id === draggableId);
+        if (taskIndex === -1) return prevTasks;
+
+        const updatedTask = {
+          ...prevTasks[taskIndex],
+          order: newOrder,
+          status: (destListId === "completed" ? "done" : "todo") as "todo" | "done"
+        };
+
+        const newTasks = [...prevTasks];
+        newTasks[taskIndex] = updatedTask;
+
+        // Re-sort
+        newTasks.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+
+        return newTasks;
+      });
+
+      // 2. Fire and Forget Firestore Update (UI is already updated)
+      try {
+        const updates: Partial<Task> = {
+          order: newOrder,
+        };
+
+        if (sourceListId !== destListId) {
+          updates.status = destListId === "completed" ? "done" : "todo";
+        }
+
+        await updateDoc(doc(db, "tasks", draggableId), updates);
+      } catch (error) {
+        console.error("Error moving task:", error);
+        toast.error("Error al mover la tarea");
+        // Revert? simpler to just fetch again if needed, or let user retry.
+      }
     },
-    []
+    [pendingTasks, completedTasks]
   );
 
-  const matchesFilter = (t: Task) => filterDept === "All" || t.department === filterDept;
-
-  const filtered = tasks.filter(matchesFilter);
-  const pendingTasks = filtered.filter((t) => t.status !== "done");
-  const completedTasks = filtered.filter((t) => t.status === "done");
-
   const renderTaskCard = (task: Task, index: number, droppableId: string) => {
-    const completedSubs = task.subtasks.filter((s) => s.completed).length;
-    const totalSubs = task.subtasks.length;
+    const completedSubs = task.subtasks?.filter((s) => s.completed).length || 0;
+    const totalSubs = task.subtasks?.length || 0;
     const progress = totalSubs > 0 ? (completedSubs / totalSubs) * 100 : 0;
     const isDone = task.status === "done";
     const isExpanded = expandedTasks[task.id];
@@ -259,10 +388,11 @@ const Operations = () => {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             className={cn(
-              "rounded-xl border border-border transition-shadow",
+              "rounded-xl border border-border transition-colors",
               isDone ? "bg-success/10 border-success/30" : "bg-card",
-              snapshot.isDragging && "shadow-lg"
+              snapshot.isDragging && "shadow-lg scale-[1.02] ring-2 ring-primary/20 z-50"
             )}
+            style={provided.draggableProps.style}
           >
             {/* Task header */}
             <div className="flex items-center gap-2 px-4 py-3">
@@ -295,19 +425,22 @@ const Operations = () => {
                   )}
                 </button>
                 {task.notes && (
-                  <MessageSquare className="h-3 w-3 text-primary animate-pulse" />
+                  <MessageSquare className="h-3 w-3 text-foreground fill-yellow-400 animate-pulse" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <span className={cn(
-                  "text-sm font-medium",
-                  isDone ? "text-success line-through" : "text-foreground"
-                )}>
-                  {task.title}
-                </span>
-                <div className="flex items-center gap-2 mt-1.5 min-w-0">
+                <input
+                  value={task.title}
+                  onChange={(e) => updateTask(task.id, { title: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                  className={cn(
+                    "text-sm font-medium bg-transparent outline-none w-full",
+                    isDone ? "text-success line-through" : "text-foreground"
+                  )}
+                />
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 min-w-0">
                   {totalSubs > 0 && (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-1 min-w-[100px]">
                       <Progress value={progress} className="h-1.5 flex-1" />
                       <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                         {completedSubs}/{totalSubs}
@@ -319,6 +452,11 @@ const Operations = () => {
                       <UserIcon className="h-2.5 w-2.5" />
                       <span className="truncate max-w-[120px]">{task.createdBy}</span>
                     </div>
+                  )}
+                  {task.createdAt && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(task.createdAt, "dd MMM", { locale: es })}
+                    </span>
                   )}
                 </div>
               </div>
@@ -437,28 +575,30 @@ const Operations = () => {
 
         <TabsContent value="tasks" className="space-y-6 mt-0">
           {/* Add task */}
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               placeholder="Título de nueva tarea..."
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTask()}
-              className="flex-1"
+              className="flex-1 w-full"
             />
-            <select
-              value={newTaskDept}
-              onChange={(e) => setNewTaskDept(e.target.value)}
-              className="h-10 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {departments.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-            <Button onClick={addTask} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Agregar
-            </Button>
+            <div className="flex gap-2">
+              <select
+                value={newTaskDept}
+                onChange={(e) => setNewTaskDept(e.target.value)}
+                className="h-10 flex-1 sm:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={addTask} className="gap-1.5 flex-1 sm:flex-none">
+                <Plus className="h-4 w-4" /> Agregar
+              </Button>
+            </div>
           </div>
 
           {/* Filter */}
