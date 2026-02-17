@@ -4,7 +4,12 @@
       "Bash(dir:*)",
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
-      "mcp__Spotify__AppleScript___spotify_play_track"
+      "mcp__Spotify__AppleScript___spotify_play_track",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm run deploy:*)"
     ]
   }
 }
