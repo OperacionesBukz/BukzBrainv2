@@ -31,10 +31,13 @@ import {
     X,
     Check,
     Calendar,
-    Eye
+    Eye,
+    Search,
+    StickyNote
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
     Select,
@@ -88,6 +91,7 @@ interface RequestOrder {
     userEmail: string;
     status: string;
     createdAt: any;
+    note?: string;
     items: {
         productId: string;
         name: string;
@@ -112,6 +116,8 @@ const BookstoreRequests = () => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [selectedBranch, setSelectedBranch] = useState<string>("");
     const [activeTab, setActiveTab] = useState("order");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [orderNote, setOrderNote] = useState("");
 
     // Operations Management State
     const [newProductName, setNewProductName] = useState("");
@@ -300,6 +306,7 @@ const BookstoreRequests = () => {
                     code: item.code || "",
                     quantity: item.quantity
                 })),
+                note: orderNote.trim(),
                 status: "pending",
                 createdAt: serverTimestamp(),
             };
@@ -319,6 +326,7 @@ const BookstoreRequests = () => {
         <p><b>Sede:</b> ${selectedBranch}</p>
         <p><b>Solicitante:</b> ${user?.email}</p>
         <p><b>Fecha:</b> ${new Date().toLocaleDateString()}</p>
+        ${orderNote.trim() ? `<p><b>Nota:</b> ${orderNote.trim()}</p>` : ''}
         <br/>
         <table style="width: 100%; border-collapse: collapse; max-width: 600px;">
           <thead>
@@ -348,6 +356,7 @@ const BookstoreRequests = () => {
             toast.success("Solicitud enviada exitosamente a Operaciones");
             setCart([]);
             setSelectedBranch("");
+            setOrderNote("");
 
         } catch (error: any) {
             console.error("Error submitting order:", error);
@@ -427,6 +436,15 @@ const BookstoreRequests = () => {
                             <p><span className="font-semibold">Solicitante:</span> {selectedOrder?.userEmail}</p>
                             <p><span className="font-semibold">ID Pedido:</span> {selectedOrder?.id.slice(0, 8)}</p>
                         </div>
+
+                        {selectedOrder?.note && (
+                            <div className="text-sm bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg">
+                                <p className="font-semibold flex items-center gap-2 mb-1">
+                                    <StickyNote className="h-4 w-4" /> Nota
+                                </p>
+                                <p className="text-muted-foreground">{selectedOrder.note}</p>
+                            </div>
+                        )}
 
                         <div className="border rounded-md">
                             <Table>
@@ -657,8 +675,25 @@ const BookstoreRequests = () => {
 
                         <Separator />
 
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar producto..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+
                         <div className="grid gap-4 sm:grid-cols-2">
-                            {products.filter(p => p.isVisible) // Ordered by name from the useEffect query
+                            {products.filter(p => p.isVisible)
+                                .filter(p => {
+                                    if (!searchQuery.trim()) return true;
+                                    const q = searchQuery.toLowerCase();
+                                    return p.name.toLowerCase().includes(q) ||
+                                        (p.code && p.code.toLowerCase().includes(q)) ||
+                                        (p.category && p.category.toLowerCase().includes(q));
+                                })
                                 .map((product) => {
                                     const quantity = cart.find(i => i.id === product.id)?.quantity || 0;
                                     return (
@@ -741,6 +776,20 @@ const BookstoreRequests = () => {
                                     </div>
                                 </div>
                             )}
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-2">
+                                    <StickyNote className="h-4 w-4 text-muted-foreground" />
+                                    Nota (opcional)
+                                </label>
+                                <Textarea
+                                    placeholder="Agrega una nota o comentario a tu pedido..."
+                                    value={orderNote}
+                                    onChange={(e) => setOrderNote(e.target.value)}
+                                    rows={3}
+                                    className="resize-none"
+                                />
+                            </div>
 
                             <Button
                                 className="w-full mt-4"
