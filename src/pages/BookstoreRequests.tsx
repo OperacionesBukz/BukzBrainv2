@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { db } from "@/lib/firebase";
 import {
     collection,
@@ -111,6 +112,7 @@ const branches = [
 
 const BookstoreRequests = () => {
     const { user } = useAuth();
+    const isMobile = useIsMobile();
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]); // New state for backend categories
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -379,44 +381,94 @@ const BookstoreRequests = () => {
                 <CardDescription>Seguimiento de solicitudes recibidas</CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Sede</TableHead>
-                            <TableHead>Solicitante</TableHead>
-                            <TableHead className="text-center">Total Items</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Detalles</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                {!isMobile ? (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Sede</TableHead>
+                                <TableHead>Solicitante</TableHead>
+                                <TableHead className="text-center">Total Items</TableHead>
+                                <TableHead>Estado</TableHead>
+                                <TableHead className="text-right">Detalles</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {orders.map((order) => {
+                                const totalItems = order.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
+                                return (
+                                    <TableRow key={order.id}>
+                                        <TableCell className="whitespace-nowrap flex items-center gap-2">
+                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                            {formatDate(order.createdAt)}
+                                        </TableCell>
+                                        <TableCell>{order.branch}</TableCell>
+                                        <TableCell className="text-muted-foreground text-sm">{order.userEmail}</TableCell>
+                                        <TableCell className="text-center font-medium">{totalItems}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={order.status === 'pending' ? 'secondary' : 'default'}>
+                                                {order.status === 'pending' ? 'Pendiente' : order.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(order)}>
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <div className="space-y-3">
                         {orders.map((order) => {
                             const totalItems = order.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
                             return (
-                                <TableRow key={order.id}>
-                                    <TableCell className="whitespace-nowrap flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                                        {formatDate(order.createdAt)}
-                                    </TableCell>
-                                    <TableCell>{order.branch}</TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">{order.userEmail}</TableCell>
-                                    <TableCell className="text-center font-medium">{totalItems}</TableCell>
-                                    <TableCell>
+                                <div key={order.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm font-medium text-foreground">
+                                                {formatDate(order.createdAt)}
+                                            </span>
+                                        </div>
                                         <Badge variant={order.status === 'pending' ? 'secondary' : 'default'}>
                                             {order.status === 'pending' ? 'Pendiente' : order.status}
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(order)}>
+                                    </div>
+
+                                    <div className="text-sm space-y-1.5">
+                                        <div>
+                                            <span className="text-muted-foreground text-xs">Sede:</span>{" "}
+                                            <span className="font-medium text-foreground">{order.branch}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground text-xs">Solicitante:</span>{" "}
+                                            <span className="text-foreground text-xs">{order.userEmail}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground text-xs">Total Items:</span>{" "}
+                                            <span className="font-medium text-foreground">{totalItems}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end pt-2 border-t border-border/50">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setSelectedOrder(order)}
+                                            className="h-9 px-3 gap-2"
+                                        >
                                             <Eye className="h-4 w-4" />
+                                            Ver Detalles
                                         </Button>
-                                    </TableCell>
-                                </TableRow>
-                            )
+                                    </div>
+                                </div>
+                            );
                         })}
-                    </TableBody>
-                </Table>
+                    </div>
+                )}
                 {orders.length === 0 && (
                     <div className="text-center py-10 text-muted-foreground">
                         <History className="h-10 w-10 mx-auto mb-2 opacity-20" />
@@ -685,7 +737,7 @@ const BookstoreRequests = () => {
                             />
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
                             {products.filter(p => p.isVisible)
                                 .filter(p => {
                                     if (!searchQuery.trim()) return true;
@@ -815,7 +867,7 @@ const BookstoreRequests = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h1 className="text-3xl font-semibold text-foreground">Solicitud de Librerías</h1>
+                <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Solicitud de Librerías</h1>
                 <p className="mt-1 text-base text-muted-foreground">
                     {isOperations ? 'Gestiona el catálogo de productos y categorías' : 'Realiza solicitudes de insumos y productos para tu sede'}
                 </p>
