@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   FileText,
   ClipboardList,
-  User as UserIcon
+  User as UserIcon,
+  Upload,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -39,8 +41,15 @@ import {
   onSnapshot,
   query,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  setDoc
 } from "firebase/firestore";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "firebase/storage";
 
 interface SubTask {
   id: string;
@@ -60,7 +69,21 @@ interface Task {
   order?: number;
 }
 
+interface OperationsFile {
+  name: string;
+  url: string;
+  uploadedAt: any;
+  uploadedBy: string;
+  type: "creacion" | "actualizacion" | "ingresos-traslados";
+}
+
 const departments = ["General", "Finanzas", "Marketing", "TI", "RRHH", "Ventas"];
+
+const fileTypes = [
+  { type: "creacion" as const, label: "Archivo Creación de Productos", key: "creacion" },
+  { type: "actualizacion" as const, label: "Archivo Actualización de Productos", key: "actualizacion" },
+  { type: "ingresos-traslados" as const, label: "Plantilla para Ingresos/Traslados", key: "ingresos-traslados" },
+];
 
 const Operations = () => {
   const { user } = useAuth();
@@ -73,6 +96,9 @@ const Operations = () => {
       toast.error("No tienes permisos para acceder a este módulo");
     }
   }, [user, navigate]);
+
+  const isOperations = user?.email === "operaciones@bukz.co";
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -80,6 +106,16 @@ const Operations = () => {
   const [filterDept, setFilterDept] = useState("All");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "tasks";
+  const [files, setFiles] = useState<Record<string, OperationsFile | null>>({
+    creacion: null,
+    actualizacion: null,
+    "ingresos-traslados": null,
+  });
+  const [uploading, setUploading] = useState<Record<string, boolean>>({
+    creacion: false,
+    actualizacion: false,
+    "ingresos-traslados": false,
+  });
 
   useEffect(() => {
     const q = query(collection(db, "tasks"), orderBy("createdAt", "desc"));
@@ -104,6 +140,28 @@ const Operations = () => {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Listener para archivos de operaciones
+  useEffect(() => {
+    const unsubscribes = fileTypes.map((fileType) => {
+      const docRef = doc(db, "operations_files", fileType.key);
+      return onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setFiles((prev) => ({
+            ...prev,
+            [fileType.key]: docSnap.data() as OperationsFile,
+          }));
+        } else {
+          setFiles((prev) => ({
+            ...prev,
+            [fileType.key]: null,
+          }));
+        }
+      });
+    });
+
+    return () => unsubscribes.forEach((unsub) => unsub());
   }, []);
 
   const handleTabChange = (value: string) => {
@@ -224,6 +282,52 @@ const Operations = () => {
     } catch (error) {
       console.error("Error deleting subtask:", error);
       toast.error("Error al eliminar la subtarea");
+    }
+  };
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    fileType: "creacion" | "actualizacion" | "ingresos-traslados"
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading((prev) => ({ ...prev, [fileType]: true }));
+
+    try {
+      // Eliminar archivo anterior si existe
+      const existingFile = files[fileType];
+      if (existingFile) {
+        try {
+          const oldFileRef = ref(storage, `operations/${fileType}`);
+          await deleteObject(oldFileRef);
+        } catch (error) {
+          console.log("No se pudo eliminar archivo anterior:", error);
+        }
+      }
+
+      // Subir nuevo archivo
+      const storageRef = ref(storage, `operations/${fileType}_${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Guardar metadata en Firestore
+      const fileData: OperationsFile = {
+        name: file.name,
+        url: downloadURL,
+        uploadedAt: serverTimestamp(),
+        uploadedBy: user.email || "Usuario desconocido",
+        type: fileType,
+      };
+
+      await setDoc(doc(db, "operations_files", fileType), fileData);
+
+      toast.success("Archivo subido correctamente");
+    } catch (error: any) {
+      console.error("Error uploading file:", error);
+      toast.error("Error al subir archivo: " + error.message);
+    } finally {
+      setUploading((prev) => ({ ...prev, [fileType]: false }));
     }
   };
 
@@ -678,15 +782,152 @@ const Operations = () => {
           </DragDropContext>
         </TabsContent>
 
-        <TabsContent value="files" className="mt-0">
-          <div className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-border bg-muted/30">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <FileText className="h-6 w-6 text-primary" />
+        <TabsContent value="files" className="mt-0 space-y-6">
+          {/* Módulo de subida para operaciones */}
+          {isOperations && (
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Upload className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Subir Archivos</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Sube los archivos de operaciones para que todo el equipo pueda descargarlos
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {fileTypes.map((fileType) => (
+                  <div
+                    key={fileType.key}
+                    className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg border border-border bg-muted/30"
+                  >
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-foreground">
+                        {fileType.label}
+                      </h4>
+                      {files[fileType.key] && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Archivo actual: {files[fileType.key]?.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        id={`file-${fileType.key}`}
+                        onChange={(e) => handleFileUpload(e, fileType.type)}
+                        className="hidden"
+                        accept=".xlsx,.xls,.csv,.pdf"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          document.getElementById(`file-${fileType.key}`)?.click()
+                        }
+                        disabled={uploading[fileType.key]}
+                        className="gap-2"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {uploading[fileType.key]
+                          ? "Subiendo..."
+                          : files[fileType.key]
+                          ? "Reemplazar"
+                          : "Subir"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <h3 className="text-lg font-medium text-foreground">Módulo de Archivos</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-sm text-center">
-              El contenido de esta sección se subirá próximamente. Aquí podrás gestionar los documentos del equipo.
-            </p>
+          )}
+
+          {/* Módulo de descarga para todos los usuarios */}
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <Download className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Archivos Disponibles</h3>
+                <p className="text-sm text-muted-foreground">
+                  Descarga los archivos de operaciones que necesites
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {fileTypes.map((fileType) => {
+                const file = files[fileType.key];
+                return (
+                  <div
+                    key={fileType.key}
+                    className={cn(
+                      "flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg border",
+                      file
+                        ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                        : "border-border bg-muted/30"
+                    )}
+                  >
+                    <div className="flex items-start gap-3 flex-1">
+                      <FileText
+                        className={cn(
+                          "h-5 w-5 shrink-0 mt-0.5",
+                          file ? "text-emerald-600" : "text-muted-foreground"
+                        )}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-foreground">
+                          {fileType.label}
+                        </h4>
+                        {file ? (
+                          <div className="mt-1 space-y-0.5">
+                            <p className="text-xs text-muted-foreground truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Subido por: {file.uploadedBy}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            No hay archivo disponible
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {file && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => window.open(file.url, "_blank")}
+                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Download className="h-4 w-4" />
+                        Descargar
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {!fileTypes.some((ft) => files[ft.key]) && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground opacity-20 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  No hay archivos disponibles para descargar
+                </p>
+                {!isOperations && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    El equipo de operaciones subirá los archivos próximamente
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

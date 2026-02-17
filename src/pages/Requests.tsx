@@ -74,6 +74,7 @@ const Requests = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [dialogType, setDialogType] = useState<RequestType | null>(null);
   const [activeTab, setActiveTab] = useState("new-request");
+  const [emailRecipient, setEmailRecipient] = useState("rh@bukz.co");
   const [form, setForm] = useState({
     fullName: "",
     idDocument: "",
@@ -247,7 +248,8 @@ ${form.idDocument}`;
             userEmail: user.email,
             type_label: requestLabel,
             subject: subject,
-            email_body: body
+            email_body: body,
+            to_email: emailRecipient
           }),
         });
         toast.success("Solicitud enviada y notificación enviada por correo");
@@ -819,11 +821,28 @@ ${form.idDocument}`;
               </div>
             </div>
           </div>
-          <DialogFooter className="mt-6 pt-4 border-t">
-            <Button variant="ghost" size="lg" onClick={() => setDialogType(null)}>
-              Cancelar
-            </Button>
-            <Button size="lg" onClick={submitRequest}>Enviar Solicitud</Button>
+          <DialogFooter className="mt-6 pt-4 border-t flex-col sm:flex-row gap-4">
+            {/* Dropdown para usuario operaciones */}
+            {isOperations && (
+              <div className="flex items-center gap-2 mr-auto">
+                <label className="text-sm text-muted-foreground font-medium">Enviar a:</label>
+                <Select value={emailRecipient} onValueChange={setEmailRecipient}>
+                  <SelectTrigger className="w-[200px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rh@bukz.co">rh@bukz.co</SelectItem>
+                    <SelectItem value="operaciones@bukz.co">operaciones@bukz.co</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex gap-2 sm:ml-auto">
+              <Button variant="ghost" size="lg" onClick={() => setDialogType(null)}>
+                Cancelar
+              </Button>
+              <Button size="lg" onClick={submitRequest}>Enviar Solicitud</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

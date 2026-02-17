@@ -294,10 +294,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <div className="flex-1" />
 
-        {/* GlobalSearch - oculto en mobile para Fase 1 */}
-        <div className="hidden md:block">
+        {/* GlobalSearch - centrado en desktop, oculto en mobile */}
+        <div className="hidden md:flex md:justify-center md:flex-1 md:max-w-md">
           <GlobalSearch />
         </div>
+
+        <div className="flex-1" />
 
         <div className="flex items-center gap-2 md:gap-3">
           {/* ThemeToggle - solo si mobile o sidebar collapsed */}
