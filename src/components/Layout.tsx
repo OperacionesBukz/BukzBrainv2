@@ -262,7 +262,13 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Static top bar spanning full width */}
-      <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header px-3 md:px-6">
+      <header
+        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header px-3 md:px-6"
+        style={{
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+          height: 'calc(3.5rem + env(safe-area-inset-top))'
+        }}
+      >
         {/* Hamburger button - solo mobile */}
         {isMobile && (
           <Button
@@ -335,9 +341,12 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Main content */}
       <main
         className={cn(
-          "flex-1 mt-14 transition-all duration-300 bg-sidebar",
+          "flex-1 transition-all duration-300 bg-sidebar",
           isMobile ? "ml-0" : (collapsed ? "ml-16" : "ml-60")
         )}
+        style={{
+          marginTop: 'calc(3.5rem + env(safe-area-inset-top))'
+        }}
       >
         <div className="h-full bg-background rounded-tl-2xl p-4 md:p-6 animate-fade-in shadow-sm">
           {children}

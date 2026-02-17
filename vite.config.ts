@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt", "icons/*.png"],
+      injectRegister: 'auto',
       manifest: {
         name: "BukzBrain",
         short_name: "BukzBrain",
@@ -29,7 +30,7 @@ export default defineConfig(({ mode }) => ({
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/BukzBrainv2/",
-        start_url: "/BukzBrainv2/",
+        start_url: "/BukzBrainv2/?v=2",
         icons: [
           {
             src: "/BukzBrainv2/icons/icon-72x72.png",
