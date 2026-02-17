@@ -22,6 +22,7 @@ import {
 import { db } from "@/lib/firebase";
 import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -69,6 +70,7 @@ const requestTypeConfig: {
 
 const Requests = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [dialogType, setDialogType] = useState<RequestType | null>(null);
   const [activeTab, setActiveTab] = useState("new-request");
@@ -323,7 +325,7 @@ ${form.idDocument}`;
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">Solicitudes</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Solicitudes</h1>
           <p className="mt-1 text-base text-muted-foreground">
             Envía y gestiona tus permisos y vacaciones
           </p>
@@ -376,7 +378,7 @@ ${form.idDocument}`;
           {/* Year Calendar 2026 */}
           <div className="pt-4">
             <h2 className="text-lg font-medium text-foreground mb-4">Calendario Institucional 2026</h2>
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6">
+            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6">
               {months2026.map((month) => (
                 <div key={month.getMonth()} className="rounded-xl border border-border bg-card p-2 shadow-sm overflow-hidden">
                   <Calendar
@@ -391,10 +393,10 @@ ${form.idDocument}`;
                       nav: "hidden",
                       table: "w-full border-collapse table-fixed",
                       head_row: "flex w-full",
-                      head_cell: "text-muted-foreground flex-1 text-center font-normal text-[10px]",
+                      head_cell: "text-muted-foreground flex-1 text-center font-normal text-xs",
                       row: "flex w-full mt-0.5",
-                      cell: "flex-1 aspect-square text-center text-[11px] p-0 relative",
-                      day: "h-full w-full p-0 font-normal text-[11px] hover:bg-muted rounded-md inline-flex items-center justify-center",
+                      cell: "flex-1 aspect-square text-center text-xs p-0 relative",
+                      day: "h-full w-full p-0 font-normal text-xs hover:bg-muted rounded-md inline-flex items-center justify-center",
                       day_today: "bg-primary text-primary-foreground font-semibold",
                       day_outside: "text-muted-foreground opacity-30",
                       day_disabled: "text-muted-foreground opacity-50",
@@ -410,33 +412,34 @@ ${form.idDocument}`;
         <TabsContent value="tracking" className="mt-0 animate-in slide-in-from-bottom-4 duration-500">
           <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-muted/30 border-b border-border">
-                    <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tipo</th>
-                    {isOperations && <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Solicitante</th>}
-                    <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fechas</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Motivo</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado</th>
-                    {isOperations && <th className="px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Acciones</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {requests.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                        <div className="flex flex-col items-center gap-2">
-                          <History className="h-8 w-8 opacity-20" />
-                          <p>No hay solicitudes registradas.</p>
-                        </div>
-                      </td>
+              {!isMobile ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-muted/30 border-b border-border">
+                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tipo</th>
+                      {isOperations && <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Solicitante</th>}
+                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular</th>
+                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fechas</th>
+                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Motivo</th>
+                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</th>
+                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado</th>
+                      {isOperations && <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Acciones</th>}
                     </tr>
-                  ) : (
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {requests.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 md:px-6 py-12 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center gap-2">
+                            <History className="h-8 w-8 opacity-20" />
+                            <p>No hay solicitudes registradas.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
                     requests.map((request) => (
                       <tr key={request.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-muted text-foreground dark:bg-primary/10 dark:text-primary">
                               {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
@@ -449,26 +452,26 @@ ${form.idDocument}`;
                           </div>
                         </td>
                         {isOperations && (
-                          <td className="px-6 py-4">
+                          <td className="px-4 md:px-6 py-3 md:py-4">
                             <div className="flex flex-col text-sm">
                               <span className="font-medium text-foreground">{request.fullName || "Sin nombre"}</span>
                               <span className="text-xs text-muted-foreground">{request.branch || "Sin sede"}</span>
                             </div>
                           </td>
                         )}
-                        <td className="px-6 py-4 text-sm text-foreground">
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-foreground">
                           {request.phoneNumber || "—"}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="flex flex-col text-sm">
                             <span className="text-foreground">{request.startDate} al {request.endDate}</span>
-                            {request.returnDate && <span className="text-[11px] text-muted-foreground italic">Reingreso: {request.returnDate}</span>}
+                            {request.returnDate && <span className="text-xs text-muted-foreground italic">Reingreso: {request.returnDate}</span>}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-foreground max-w-xs truncate">
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-foreground max-w-xs truncate">
                           {request.reason || "—"}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="flex items-center gap-2">
                             {isOperations ? (
                               <DropdownMenu>
@@ -499,11 +502,11 @@ ${form.idDocument}`;
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-muted-foreground">
                           {request.createdAt?.toDate ? request.createdAt.toDate().toLocaleDateString() : "Reciente"}
                         </td>
                         {isOperations && (
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-4 md:px-6 py-3 md:py-4 text-right">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -519,6 +522,108 @@ ${form.idDocument}`;
                   )}
                 </tbody>
               </table>
+              ) : (
+                <div className="space-y-3 p-3">
+                  {requests.length === 0 ? (
+                    <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+                      <History className="h-8 w-8 opacity-20" />
+                      <p>No hay solicitudes registradas.</p>
+                    </div>
+                  ) : (
+                    requests.map((request) => (
+                      <div key={request.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                        {/* Header del card: tipo + badge status */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-muted text-foreground dark:bg-primary/10 dark:text-primary">
+                              {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
+                                request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
+                                  <Briefcase className="h-4 w-4" />}
+                            </div>
+                            <span className="text-sm font-medium text-foreground">
+                              {requestTypeConfig.find(t => t.value === request.type)?.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {isOperations ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="flex items-center gap-1.5 hover:opacity-80 transition-opacity outline-none">
+                                    {getStatusIcon(request.status)}
+                                    {getStatusBadge(request.status)}
+                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[140px]">
+                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "pending")} className="gap-2">
+                                    <Clock4 className="h-4 w-4 text-amber-500" /> Pendiente
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "approved")} className="gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Aprobar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "rejected")} className="gap-2 text-destructive focus:text-destructive">
+                                    <XCircle className="h-4 w-4" /> Rechazar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <>
+                                {getStatusIcon(request.status)}
+                                {getStatusBadge(request.status)}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Info del solicitante (solo si isOperations) */}
+                        {isOperations && (
+                          <div className="text-sm">
+                            <span className="font-medium text-foreground">{request.fullName || "Sin nombre"}</span>
+                            <span className="text-xs text-muted-foreground block">{request.branch || "Sin sede"}</span>
+                          </div>
+                        )}
+
+                        {/* Detalles */}
+                        <div className="text-sm space-y-1.5">
+                          <div>
+                            <span className="text-muted-foreground text-xs">Fechas:</span>{" "}
+                            <span className="font-medium text-foreground">{request.startDate} - {request.endDate}</span>
+                            {request.returnDate && <span className="text-xs text-muted-foreground block italic">Reingreso: {request.returnDate}</span>}
+                          </div>
+                          {request.phoneNumber && (
+                            <div>
+                              <span className="text-muted-foreground text-xs">Teléfono:</span>{" "}
+                              <span className="text-foreground">{request.phoneNumber}</span>
+                            </div>
+                          )}
+                          {request.reason && (
+                            <div className="text-xs text-muted-foreground line-clamp-2">
+                              <span className="font-medium">Motivo:</span> {request.reason}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Footer: fecha creación + botón eliminar */}
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                          <span className="text-xs text-muted-foreground">
+                            Enviado: {request.createdAt?.toDate ? request.createdAt.toDate().toLocaleDateString() : "Reciente"}
+                          </span>
+                          {isOperations && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteRequest(request.id)}
+                              className="h-9 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -526,14 +631,18 @@ ${form.idDocument}`;
 
       {/* Popup form dialog */}
       <Dialog open={!!dialogType} onOpenChange={(open) => !open && setDialogType(null)}>
-        <DialogContent className="sm:max-w-2xl lg:max-w-3xl">
+        <DialogContent className={cn(
+          isMobile
+            ? "w-full h-full max-w-full max-h-full m-0 rounded-none p-4"
+            : "sm:max-w-2xl lg:max-w-3xl"
+        )}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               {activeConfig && <activeConfig.icon className={cn("h-6 w-6", activeConfig.color)} />}
               Nueva solicitud: {activeConfig?.label}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-6 py-4 overflow-y-auto max-h-[75vh] px-1">
+          <div className="grid gap-4 md:gap-6 py-3 md:py-4 overflow-y-auto max-h-[calc(100vh-160px)] md:max-h-[75vh] px-1">
             {/* Personal Information Structure - Now for ALL request types */}
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">

@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -64,6 +65,7 @@ const priorityColor: Record<string, string> = {
 
 const Tasks = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("Media");
@@ -318,36 +320,39 @@ const Tasks = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold text-foreground">Tareas</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Tareas</h1>
         <p className="mt-1 text-base text-muted-foreground">
           Tu gestor de tareas personal (Privado)
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row gap-2">
         <Input
           placeholder="Nueva tarea..."
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
-          className="flex-1"
+          className="flex-1 w-full"
         />
         <select
           value={newTaskPriority}
           onChange={(e) => setNewTaskPriority(e.target.value)}
-          className="h-10 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+          className="h-10 flex-1 md:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {priorities.map((p) => (
             <option key={p} value={p}>{p}</option>
           ))}
         </select>
-        <Button onClick={addTask} className="gap-1.5">
+        <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
           <Plus className="h-4 w-4" /> Agregar
         </Button>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className={cn(
+          "grid gap-4 md:gap-6",
+          isMobile ? "grid-cols-1" : "lg:grid-cols-2"
+        )}>
           <div>
             <h2 className="text-sm font-medium text-muted-foreground mb-3">Pendientes ({pendingTasks.length})</h2>
             <Droppable droppableId="pending">

@@ -204,13 +204,13 @@ const Dashboard = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold text-foreground">Bienvenido</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Bienvenido</h1>
         <p className="mt-1 text-base text-muted-foreground">
           Esto es lo que está pasando en tu organización.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {modules.map((mod) => (
           <button
             key={mod.path}
@@ -236,7 +236,7 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
         <div>
           <h2 className="text-xl font-semibold text-foreground mb-4">Mis Tareas Activas</h2>
           <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
@@ -260,7 +260,7 @@ const Dashboard = () => {
                   </div>
                   <div className="flex items-center gap-4 flex-none">
                     <span className={cn(
-                      "text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border",
+                      "text-xs uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border",
                       priorityColor[task.priority] || "bg-muted text-muted-foreground"
                     )}>
                       {task.priority}
@@ -358,11 +358,11 @@ const Dashboard = () => {
                       <div>
                         <span className="text-sm font-medium text-foreground block truncate">{ret.provider}</span>
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
                             <CalendarDays className="h-2.5 w-2.5" />
                             <span>Entrega: {ret.deliveryDate}</span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             por {ret.createdBy?.split("@")[0]}
                           </span>
                         </div>

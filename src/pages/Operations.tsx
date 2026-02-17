@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   collection,
   addDoc,
@@ -63,6 +64,7 @@ const departments = ["General", "Finanzas", "Marketing", "TI", "RRHH", "Ventas"]
 
 const Operations = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -442,19 +444,19 @@ const Operations = () => {
                   {totalSubs > 0 && (
                     <div className="flex items-center gap-2 flex-1 min-w-[100px]">
                       <Progress value={progress} className="h-1.5 flex-1" />
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {completedSubs}/{totalSubs}
                       </span>
                     </div>
                   )}
                   {task.createdBy && (
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border">
                       <UserIcon className="h-2.5 w-2.5" />
                       <span className="truncate max-w-[120px]">{task.createdBy}</span>
                     </div>
                   )}
                   {task.createdAt && (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {format(task.createdAt, "dd MMM", { locale: es })}
                     </span>
                   )}
@@ -554,7 +556,7 @@ const Operations = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold text-foreground">Operaciones</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Operaciones</h1>
         <p className="mt-1 text-base text-muted-foreground">
           Gestión operativa y archivos del equipo
         </p>
@@ -575,7 +577,7 @@ const Operations = () => {
 
         <TabsContent value="tasks" className="space-y-6 mt-0">
           {/* Add task */}
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col md:flex-row gap-2">
             <Input
               placeholder="Título de nueva tarea..."
               value={newTaskTitle}
@@ -583,11 +585,11 @@ const Operations = () => {
               onKeyDown={(e) => e.key === "Enter" && addTask()}
               className="flex-1 w-full"
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full md:w-auto">
               <select
                 value={newTaskDept}
                 onChange={(e) => setNewTaskDept(e.target.value)}
-                className="h-10 flex-1 sm:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-10 flex-1 md:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {departments.map((d) => (
                   <option key={d} value={d}>
@@ -595,7 +597,7 @@ const Operations = () => {
                   </option>
                 ))}
               </select>
-              <Button onClick={addTask} className="gap-1.5 flex-1 sm:flex-none">
+              <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
                 <Plus className="h-4 w-4" /> Agregar
               </Button>
             </div>
@@ -621,7 +623,10 @@ const Operations = () => {
 
           {/* Two-column layout: Pending | Completed */}
           <DragDropContext onDragEnd={onDragEnd}>
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className={cn(
+              "grid gap-4 md:gap-6",
+              isMobile ? "grid-cols-1" : "lg:grid-cols-2"
+            )}>
               {/* Pending column */}
               <div>
                 <h2 className="text-sm font-medium text-muted-foreground mb-3">
