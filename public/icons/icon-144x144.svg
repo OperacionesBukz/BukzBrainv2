@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <!-- Fondo negro -->
+  <rect width="144" height="144" fill="#000000"/>
+
+  <!-- Texto BukzBrain -->
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    fill="#FFFFFF"
+    font-family="Arial, sans-serif"
+    font-weight="bold"
+    font-size="21.599999999999998">
+    BUKZ
+  </text>
+  <text
+    x="50%"
+    y="70%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    fill="#FFFFFF"
+    font-family="Arial, sans-serif"
+    font-size="14.4">
+    BRAIN
+  </text>
+</svg>
