@@ -30,9 +30,10 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { uploadToSupabase, signInSupabaseWithFirebase } from "@/lib/supabase";
 import {
   collection,
   addDoc,
@@ -45,12 +46,6 @@ import {
   serverTimestamp,
   setDoc
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject
-} from "firebase/storage";
 
 interface SubTask {
   id: string;
@@ -143,6 +138,15 @@ const Operations = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Authenticate with Supabase when user logs in
+  useEffect(() => {
+    if (user?.email) {
+      signInSupabaseWithFirebase(user.email).catch((error) => {
+        console.error("Error authenticating with Supabase:", error);
+      });
+    }
+  }, [user?.email]);
 
   // Listener para archivos de operaciones
   useEffect(() => {
@@ -301,31 +305,10 @@ const Operations = () => {
     setUploading((prev) => ({ ...prev, [fileType]: true }));
 
     try {
-      // Eliminar archivo anterior si existe
-      const existingFile = files[fileType];
-      if (existingFile) {
-        try {
-          const oldFileRef = ref(storage, `operations/${fileType}`);
-          await deleteObject(oldFileRef);
-        } catch (error) {
-          console.log("No se pudo eliminar archivo anterior:", error);
-        }
-      }
-
-      // Subir nuevo archivo
-      const storageRef = ref(storage, `operations/${fileType}_${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      // Subir a Supabase Storage
+      const fileData = await uploadToSupabase(file, fileType, user.email || "Usuario desconocido");
 
       // Guardar metadata en Firestore
-      const fileData: OperationsFile = {
-        name: file.name,
-        url: downloadURL,
-        uploadedAt: serverTimestamp(),
-        uploadedBy: user.email || "Usuario desconocido",
-        type: fileType,
-      };
-
       await setDoc(doc(db, "operations_files", fileType), fileData);
 
       toast.success("Archivo subido correctamente");
