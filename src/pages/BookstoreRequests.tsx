@@ -136,6 +136,7 @@ const BookstoreRequests = () => {
     const [selectedOrder, setSelectedOrder] = useState<RequestOrder | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
 
     const isOperations = user?.email === "operaciones@bukz.co";
 
@@ -374,6 +375,20 @@ const BookstoreRequests = () => {
         return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const handleDeleteOrder = async (orderId: string) => {
+        if (!confirm("¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.")) return;
+        setIsDeletingOrder(orderId);
+        try {
+            await deleteDoc(doc(db, "bookstore_requests", orderId));
+            if (selectedOrder?.id === orderId) setSelectedOrder(null);
+            toast.success("Pedido eliminado correctamente");
+        } catch (error: any) {
+            toast.error("Error al eliminar el pedido: " + error.message);
+        } finally {
+            setIsDeletingOrder(null);
+        }
+    };
+
     const renderOperationsOrdersView = () => (
         <Card>
             <CardHeader>
@@ -390,7 +405,7 @@ const BookstoreRequests = () => {
                                 <TableHead>Solicitante</TableHead>
                                 <TableHead className="text-center">Total Items</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead className="text-right">Detalles</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -411,9 +426,20 @@ const BookstoreRequests = () => {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(order)}>
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(order)}>
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:bg-destructive/10"
+                                                    onClick={() => handleDeleteOrder(order.id)}
+                                                    disabled={isDeletingOrder === order.id}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 )
@@ -453,7 +479,17 @@ const BookstoreRequests = () => {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-end pt-2 border-t border-border/50">
+                                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-9 px-3 gap-2 text-destructive hover:bg-destructive/10"
+                                            onClick={() => handleDeleteOrder(order.id)}
+                                            disabled={isDeletingOrder === order.id}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            {isDeletingOrder === order.id ? "Eliminando..." : "Eliminar"}
+                                        </Button>
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -522,8 +558,16 @@ const BookstoreRequests = () => {
                             </Table>
                         </div>
                     </div>
-                    <DialogFooter className="sm:justify-between">
-                        <Button variant="outline" className="w-full" onClick={() => setSelectedOrder(null)}>Cerrar</Button>
+                    <DialogFooter className="sm:justify-between gap-2">
+                        <Button
+                            variant="destructive"
+                            onClick={() => selectedOrder && handleDeleteOrder(selectedOrder.id)}
+                            disabled={isDeletingOrder === selectedOrder?.id}
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {isDeletingOrder === selectedOrder?.id ? "Eliminando..." : "Eliminar Pedido"}
+                        </Button>
+                        <Button variant="outline" onClick={() => setSelectedOrder(null)}>Cerrar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

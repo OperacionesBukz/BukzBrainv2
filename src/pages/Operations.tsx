@@ -91,7 +91,8 @@ const Operations = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user?.email === "librerias@bukz.co") {
+    const libraryEmails = ["librerias@bukz.co", "museo@bukz.co", "bogota109@bukz.co", "vivaenvigado@bukz.co", "lomas@bukz.co"];
+    if (libraryEmails.includes(user?.email || "")) {
       navigate("/dashboard");
       toast.error("No tienes permisos para acceder a este módulo");
     }
@@ -580,21 +581,6 @@ const Operations = () => {
             {/* Expanded content */}
             {isExpanded && (
               <div className="border-t border-border px-4 py-3 space-y-3">
-                {/* Notes */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MessageSquare className="h-3 w-3" /> Notas
-                  </div>
-                  <Textarea
-                    value={task.notes}
-                    onChange={(e) =>
-                      updateTask(task.id, { notes: e.target.value })
-                    }
-                    placeholder="Agregar notas..."
-                    className="min-h-[60px] text-sm resize-none"
-                  />
-                </div>
-
                 {/* Subtasks */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -647,6 +633,21 @@ const Operations = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageSquare className="h-3 w-3" /> Notas
+                  </div>
+                  <Textarea
+                    value={task.notes}
+                    onChange={(e) =>
+                      updateTask(task.id, { notes: e.target.value })
+                    }
+                    placeholder="Agregar notas..."
+                    className="min-h-[60px] text-sm resize-none"
+                  />
                 </div>
               </div>
             )}

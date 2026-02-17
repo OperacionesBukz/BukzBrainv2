@@ -104,7 +104,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <nav className="flex-1 space-y-1 p-2 pt-4">
           {navItems
             .filter((item) => {
-              if (item.path === "/operations" && user?.email === "librerias@bukz.co") return false;
+              const libraryEmails = ["librerias@bukz.co", "museo@bukz.co", "bogota109@bukz.co", "vivaenvigado@bukz.co", "lomas@bukz.co"];
+              if (item.path === "/operations" && libraryEmails.includes(user?.email || "")) return false;
               return true;
             })
             .map((item) => {
@@ -200,7 +201,8 @@ export function Layout({ children }: { children: ReactNode }) {
               <nav className="flex-1 space-y-1 p-2 pt-4 overflow-y-auto">
                 {navItems
                   .filter((item) => {
-                    if (item.path === "/operations" && user?.email === "librerias@bukz.co") return false;
+                    const libraryEmails = ["librerias@bukz.co", "museo@bukz.co", "bogota109@bukz.co", "vivaenvigado@bukz.co", "lomas@bukz.co"];
+              if (item.path === "/operations" && libraryEmails.includes(user?.email || "")) return false;
                     return true;
                   })
                   .map((item) => {

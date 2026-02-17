@@ -67,6 +67,7 @@ const Tasks = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("Media");
   const [loading, setLoading] = useState(true);
@@ -129,7 +130,10 @@ const Tasks = () => {
   };
 
   const toggleExpand = (id: string) => {
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, expanded: !t.expanded } : t)));
+    setExpandedTasks((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
@@ -186,6 +190,20 @@ const Tasks = () => {
     await updateTask(taskId, { subtasks: newSubtasks });
   };
 
+  const deleteSubtask = async (taskId: string, subtaskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newSubtasks = task.subtasks.filter((s) => s.id !== subtaskId);
+
+    try {
+      await updateTask(taskId, { subtasks: newSubtasks });
+    } catch (error) {
+      console.error("Error deleting subtask:", error);
+      toast.error("Error al eliminar la subtarea");
+    }
+  };
+
   const pendingTasks = tasks.filter((t) => t.status !== "done");
   const completedTasks = tasks.filter((t) => t.status === "done");
 
@@ -218,6 +236,7 @@ const Tasks = () => {
     const totalSubs = task.subtasks.length;
     const progress = totalSubs > 0 ? (completedSubs / totalSubs) * 100 : 0;
     const isDone = task.status === "done";
+    const isExpanded = expandedTasks[task.id];
 
     return (
       <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -245,7 +264,7 @@ const Tasks = () => {
                 {isDone ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
               </button>
               <button onClick={() => toggleExpand(task.id)} className="text-muted-foreground">
-                {task.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
               <div className="flex-1 min-w-0">
                 <span className={cn("text-sm font-medium", isDone ? "text-success line-through" : "text-foreground")}>
@@ -268,19 +287,8 @@ const Tasks = () => {
               </button>
             </div>
 
-            {task.expanded && (
+            {isExpanded && (
               <div className="border-t border-border px-4 py-3 space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MessageSquare className="h-3 w-3" /> Notas
-                  </div>
-                  <Textarea
-                    value={task.notes}
-                    onChange={(e) => updateTask(task.id, { notes: e.target.value })}
-                    placeholder="Agregar notas..."
-                    className="min-h-[60px] text-sm resize-none"
-                  />
-                </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Subtareas ({completedSubs}/{totalSubs})</span>
@@ -290,7 +298,7 @@ const Tasks = () => {
                   </div>
                   <div className="space-y-1">
                     {task.subtasks.map((sub) => (
-                      <div key={sub.id} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5">
+                      <div key={sub.id} className="group/sub flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5">
                         <input
                           type="checkbox"
                           checked={sub.completed}
@@ -305,9 +313,26 @@ const Tasks = () => {
                             sub.completed && "line-through text-muted-foreground"
                           )}
                         />
+                        <button
+                          onClick={() => deleteSubtask(task.id, sub.id)}
+                          className="opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </div>
                     ))}
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageSquare className="h-3 w-3" /> Notas
+                  </div>
+                  <Textarea
+                    value={task.notes}
+                    onChange={(e) => updateTask(task.id, { notes: e.target.value })}
+                    placeholder="Agregar notas..."
+                    className="min-h-[60px] text-sm resize-none"
+                  />
                 </div>
               </div>
             )}
