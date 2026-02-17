@@ -277,7 +277,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <header
         className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header px-3 md:px-6"
         style={{
-          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+          paddingTop: 'env(safe-area-inset-top)',
           height: 'calc(3.5rem + env(safe-area-inset-top))'
         }}
       >
