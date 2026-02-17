@@ -16,11 +16,8 @@ import {
   MessageSquare,
   Circle,
   CheckCircle2,
-  FileText,
   ClipboardList,
   User as UserIcon,
-  Upload,
-  Download,
   ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +30,6 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { uploadToSupabase, signInSupabaseWithFirebase } from "@/lib/supabase";
 import {
   collection,
   addDoc,
@@ -44,7 +40,6 @@ import {
   query,
   orderBy,
   serverTimestamp,
-  setDoc
 } from "firebase/firestore";
 
 interface SubTask {
@@ -65,21 +60,7 @@ interface Task {
   order?: number;
 }
 
-interface OperationsFile {
-  name: string;
-  url: string;
-  uploadedAt: any;
-  uploadedBy: string;
-  type: "creacion" | "actualizacion" | "ingresos-traslados";
-}
-
 const departments = ["General", "Finanzas", "Marketing", "TI", "RRHH", "Ventas"];
-
-const fileTypes = [
-  { type: "creacion" as const, label: "Archivo Creación de Productos", key: "creacion" },
-  { type: "actualizacion" as const, label: "Archivo Actualización de Productos", key: "actualizacion" },
-  { type: "ingresos-traslados" as const, label: "Plantilla para Ingresos/Traslados", key: "ingresos-traslados" },
-];
 
 const Operations = () => {
   const { user } = useAuth();
@@ -94,8 +75,6 @@ const Operations = () => {
     }
   }, [user, navigate]);
 
-  const isOperations = user?.email === "operaciones@bukz.co";
-
   const [tasks, setTasks] = useState<Task[]>([]);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -103,16 +82,6 @@ const Operations = () => {
   const [filterDept, setFilterDept] = useState("All");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "tasks";
-  const [files, setFiles] = useState<Record<string, OperationsFile | null>>({
-    creacion: null,
-    actualizacion: null,
-    "ingresos-traslados": null,
-  });
-  const [uploading, setUploading] = useState<Record<string, boolean>>({
-    creacion: false,
-    actualizacion: false,
-    "ingresos-traslados": false,
-  });
 
   useEffect(() => {
     const q = query(collection(db, "tasks"), orderBy("createdAt", "desc"));
@@ -127,9 +96,7 @@ const Operations = () => {
         };
       }) as Task[];
 
-      // Sort by order descending (newest/highest first)
       taskList.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
-
       setTasks(taskList);
     }, (error) => {
       console.error("Firestore subscription error:", error);
@@ -137,37 +104,6 @@ const Operations = () => {
     });
 
     return () => unsubscribe();
-  }, []);
-
-  // Authenticate with Supabase when user logs in
-  useEffect(() => {
-    if (user?.email) {
-      signInSupabaseWithFirebase(user.email).catch((error) => {
-        console.error("Error authenticating with Supabase:", error);
-      });
-    }
-  }, [user?.email]);
-
-  // Listener para archivos de operaciones
-  useEffect(() => {
-    const unsubscribes = fileTypes.map((fileType) => {
-      const docRef = doc(db, "operations_files", fileType.key);
-      return onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setFiles((prev) => ({
-            ...prev,
-            [fileType.key]: docSnap.data() as OperationsFile,
-          }));
-        } else {
-          setFiles((prev) => ({
-            ...prev,
-            [fileType.key]: null,
-          }));
-        }
-      });
-    });
-
-    return () => unsubscribes.forEach((unsub) => unsub());
   }, []);
 
   const handleTabChange = (value: string) => {
@@ -295,31 +231,6 @@ const Operations = () => {
     }
   };
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-    fileType: "creacion" | "actualizacion" | "ingresos-traslados"
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    setUploading((prev) => ({ ...prev, [fileType]: true }));
-
-    try {
-      // Subir a Supabase Storage
-      const fileData = await uploadToSupabase(file, fileType, user.email || "Usuario desconocido");
-
-      // Guardar metadata en Firestore
-      await setDoc(doc(db, "operations_files", fileType), fileData);
-
-      toast.success("Archivo subido correctamente");
-    } catch (error: any) {
-      console.error("Error uploading file:", error);
-      toast.error("Error al subir archivo: " + error.message);
-    } finally {
-      setUploading((prev) => ({ ...prev, [fileType]: false }));
-    }
-  };
-
   const filtered = useMemo(() => tasks.filter((t) => filterDept === "All" || t.department === filterDept), [tasks, filterDept]);
   const pendingTasks = useMemo(() => filtered.filter((t) => t.status !== "done"), [filtered]);
   const completedTasks = useMemo(() => filtered.filter((t) => t.status === "done"), [filtered]);
@@ -328,10 +239,8 @@ const Operations = () => {
     async (result: DropResult) => {
       const { source, destination, draggableId } = result;
 
-      // Dropped outside the list
       if (!destination) return;
 
-      // No movement
       if (
         source.droppableId === destination.droppableId &&
         source.index === destination.index
@@ -342,7 +251,6 @@ const Operations = () => {
       const sourceListId = source.droppableId;
       const destListId = destination.droppableId;
 
-      // Identify the lists being manipulated
       const isPendingSource = sourceListId === "pending";
       const isPendingDest = destListId === "pending";
 
@@ -351,40 +259,18 @@ const Operations = () => {
 
       let newOrder = 0;
 
-      // Simple logic to find neighboring orders in the DESTINATION list for correct placement
-      // We calculate new order relative to the destination list's current items
-
       const destItems = Array.from(destList);
 
-      // If dragging within the same list, visually we are effectively moving one item.
-      // But purely for order calculation, it's safer to treat it as "inserting at index X".
-      // If same list, remove the item first to see who the real neighbors are? 
-      // Actually standard approach:
-      // If moving Down (source < dest): we insert AFTER dest.index? No, logic is simpler:
-      // We want to be at index `destination.index` in the NEW array.
-      // So we need an order value between the item currently at `destination.index` and the one before it?
-
-      // Let's use array manipulation to find exact neighbors
       let simulatedList = [...destItems];
       if (sourceListId === destListId) {
         const [removed] = simulatedList.splice(source.index, 1);
         simulatedList.splice(destination.index, 0, removed);
-      } else {
-        // We don't have the object to insert but we can imagine a placeholder
-        // neighbors are at dest.index-1 and dest.index in the *original* destItems? Not quite.
-        // If we insert at 0, we are before item 0.
-        // If we insert at length, we are after last item.
       }
 
       if (sourceListId === destListId) {
-        // Same list logic from before works well enough if applied correctly
         const items = Array.from(sourceList);
         const [reorderedItem] = items.splice(source.index, 1);
         items.splice(destination.index, 0, reorderedItem);
-
-        // Items are ordered DESC by order.
-        // item at dest.index-1 has HIGHER order.
-        // item at dest.index+1 has LOWER order.
 
         const prevItem = items[destination.index - 1];
         const nextItem = items[destination.index + 1];
@@ -395,41 +281,28 @@ const Operations = () => {
         if (prevItem && nextItem) {
           newOrder = ((prevOrder ?? 0) + (nextOrder ?? 0)) / 2;
         } else if (prevItem) {
-          // End of list (visually top is 0, bottom is N)
-          // Wait, index 0 is TOP. 
-          // If we are at index 0, prevItem is null.
-          // If we are at last index, nextItem is null.
-
-          // So if prevItem exists, we are BELOW it. Order must be LOWER.
           newOrder = (prevOrder ?? 0) - 100000;
         } else if (nextItem) {
-          // We are at TOP. Order must be HIGHER.
           newOrder = (nextOrder ?? 0) + 100000;
         } else {
           newOrder = Date.now();
         }
       } else {
-        // Different list
         const items = destList;
         if (items.length === 0) {
           newOrder = Date.now();
         } else if (destination.index === 0) {
-          // Top
           newOrder = (items[0].order ?? 0) + 100000;
         } else if (destination.index >= items.length) {
-          // Bottom
           newOrder = (items[items.length - 1].order ?? 0) - 100000;
         } else {
-          // Middle
-          const above = items[destination.index - 1]; // Higher order
-          const below = items[destination.index];     // Lower order
+          const above = items[destination.index - 1];
+          const below = items[destination.index];
           newOrder = ((above.order ?? 0) + (below.order ?? 0)) / 2;
         }
       }
 
-      // 1. Optimistic Update Local State
       setTasks((prevTasks) => {
-        // Find task
         const taskIndex = prevTasks.findIndex(t => t.id === draggableId);
         if (taskIndex === -1) return prevTasks;
 
@@ -441,18 +314,13 @@ const Operations = () => {
 
         const newTasks = [...prevTasks];
         newTasks[taskIndex] = updatedTask;
-
-        // Re-sort
         newTasks.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
 
         return newTasks;
       });
 
-      // 2. Fire and Forget Firestore Update (UI is already updated)
       try {
-        const updates: Partial<Task> = {
-          order: newOrder,
-        };
+        const updates: Partial<Task> = { order: newOrder };
 
         if (sourceListId !== destListId) {
           updates.status = destListId === "completed" ? "done" : "todo";
@@ -462,7 +330,6 @@ const Operations = () => {
       } catch (error) {
         console.error("Error moving task:", error);
         toast.error("Error al mover la tarea");
-        // Revert? simpler to just fetch again if needed, or let user retry.
       }
     },
     [pendingTasks, completedTasks]
@@ -593,19 +460,13 @@ const Operations = () => {
                         <input
                           type="checkbox"
                           checked={sub.completed}
-                          onChange={() =>
-                            toggleSubtask(task.id, sub.id)
-                          }
+                          onChange={() => toggleSubtask(task.id, sub.id)}
                           className="accent-primary h-3.5 w-3.5"
                         />
                         <input
                           value={sub.title}
                           onChange={(e) =>
-                            updateSubtaskTitle(
-                              task.id,
-                              sub.id,
-                              e.target.value
-                            )
+                            updateSubtaskTitle(task.id, sub.id, e.target.value)
                           }
                           className={cn(
                             "flex-1 bg-transparent text-sm text-foreground outline-none",
@@ -630,9 +491,7 @@ const Operations = () => {
                   </div>
                   <Textarea
                     value={task.notes}
-                    onChange={(e) =>
-                      updateTask(task.id, { notes: e.target.value })
-                    }
+                    onChange={(e) => updateTask(task.id, { notes: e.target.value })}
                     placeholder="Agregar notas..."
                     className="min-h-[60px] text-sm resize-none"
                   />
@@ -640,9 +499,8 @@ const Operations = () => {
               </div>
             )}
           </div>
-        )
-        }
-      </Draggable >
+        )}
+      </Draggable>
     );
   };
 
@@ -661,10 +519,6 @@ const Operations = () => {
           <TabsTrigger value="tasks" className="gap-2">
             <ClipboardList className="h-4 w-4" />
             Tareas entre áreas
-          </TabsTrigger>
-          <TabsTrigger value="files" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Archivos
           </TabsTrigger>
           <TabsTrigger value="panel" className="gap-2">
             <ExternalLink className="h-4 w-4" />
@@ -775,159 +629,9 @@ const Operations = () => {
           </DragDropContext>
         </TabsContent>
 
-        <TabsContent value="files" className="mt-0 space-y-6">
-          {/* Módulo de subida para operaciones */}
-          {isOperations && (
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Upload className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Subir Archivos</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Sube los archivos de operaciones para que todo el equipo pueda descargarlos
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {fileTypes.map((fileType) => (
-                  <div
-                    key={fileType.key}
-                    className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg border border-border bg-muted/30"
-                  >
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-foreground">
-                        {fileType.label}
-                      </h4>
-                      {files[fileType.key] && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Archivo actual: {files[fileType.key]?.name}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        id={`file-${fileType.key}`}
-                        onChange={(e) => handleFileUpload(e, fileType.type)}
-                        className="hidden"
-                        accept=".xlsx,.xls,.csv,.pdf"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          document.getElementById(`file-${fileType.key}`)?.click()
-                        }
-                        disabled={uploading[fileType.key]}
-                        className="gap-2"
-                      >
-                        <Upload className="h-4 w-4" />
-                        {uploading[fileType.key]
-                          ? "Subiendo..."
-                          : files[fileType.key]
-                          ? "Reemplazar"
-                          : "Subir"}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Módulo de descarga para todos los usuarios */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <Download className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Archivos Disponibles</h3>
-                <p className="text-sm text-muted-foreground">
-                  Descarga los archivos de operaciones que necesites
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {fileTypes.map((fileType) => {
-                const file = files[fileType.key];
-                return (
-                  <div
-                    key={fileType.key}
-                    className={cn(
-                      "flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg border",
-                      file
-                        ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
-                        : "border-border bg-muted/30"
-                    )}
-                  >
-                    <div className="flex items-start gap-3 flex-1">
-                      <FileText
-                        className={cn(
-                          "h-5 w-5 shrink-0 mt-0.5",
-                          file ? "text-emerald-600" : "text-muted-foreground"
-                        )}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-foreground">
-                          {fileType.label}
-                        </h4>
-                        {file ? (
-                          <div className="mt-1 space-y-0.5">
-                            <p className="text-xs text-muted-foreground truncate">
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Subido por: {file.uploadedBy}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            No hay archivo disponible
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {file && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => window.open(file.url, "_blank")}
-                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                      >
-                        <Download className="h-4 w-4" />
-                        Descargar
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {!fileTypes.some((ft) => files[ft.key]) && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileText className="h-12 w-12 text-muted-foreground opacity-20 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  No hay archivos disponibles para descargar
-                </p>
-                {!isOperations && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    El equipo de operaciones subirá los archivos próximamente
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );
 };
 
 export default Operations;
-
-

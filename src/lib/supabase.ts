@@ -1,39 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { getAuth } from 'firebase/auth'
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-export const signInSupabaseWithFirebase = async (firebaseEmail: string) => {
-  try {
-    // Check if user exists in Supabase
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (user?.email === firebaseEmail) {
-      // Already signed in
-      return user
-    }
-
-    // Sign in with magic link (no password needed)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: firebaseEmail,
-      options: {
-        shouldCreateUser: true,
-      }
-    })
-
-    if (error) throw error
-    return null
-  } catch (error) {
-    console.error('Error signing in to Supabase:', error)
-    throw error
-  }
-}
+const CLOUD_FUNCTION_URL = 'https://us-central1-bukzbrain-v2-glow-bright.cloudfunctions.net/uploadFile'
 
 export const uploadToSupabase = async (
   file: File,
@@ -41,37 +8,42 @@ export const uploadToSupabase = async (
   userEmail: string
 ) => {
   try {
-    // Ensure user is authenticated in Supabase
-    const { data: { user } } = await supabase.auth.getUser()
+    // Get Firebase auth token
+    const auth = getAuth()
+    const user = auth.currentUser
 
     if (!user) {
-      throw new Error('Usuario no autenticado en Supabase')
+      throw new Error('Usuario no autenticado')
     }
 
-    // Upload file to Supabase Storage
-    const fileName = `${fileType}_${Date.now()}_${file.name}`
-    const { data, error: uploadError } = await supabase.storage
-      .from('bukzbrain-files')
-      .upload(`operations/${fileName}`, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
+    const token = await user.getIdToken()
 
-    if (uploadError) throw uploadError
+    // Create FormData for multipart upload
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('fileType', fileType)
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('bukzbrain-files').getPublicUrl(`operations/${fileName}`)
+    // Call Cloud Function
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    })
 
-    return {
-      name: file.name,
-      url: publicUrl,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: userEmail,
-      size: file.size,
-      type: fileType,
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Error uploading file')
     }
+
+    const result = await response.json()
+
+    if (!result.success) {
+      throw new Error(result.error || 'Upload failed')
+    }
+
+    return result.file
   } catch (error) {
     console.error('Error uploading to Supabase:', error)
     throw error
