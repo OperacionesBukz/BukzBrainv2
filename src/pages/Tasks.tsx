@@ -79,11 +79,6 @@ const assignableUsers = [
   { email: "operaciones@bukz.co", label: "Operaciones" },
   { email: "cedi@bukz.co", label: "CEDI" },
   { email: "ux@bukz.co", label: "UX" },
-  { email: "librerias@bukz.co", label: "Librerías" },
-  { email: "museo@bukz.co", label: "Museo" },
-  { email: "bogota109@bukz.co", label: "Bogotá 109" },
-  { email: "vivaenvigado@bukz.co", label: "Viva Envigado" },
-  { email: "lomas@bukz.co", label: "Las Lomas" },
 ];
 
 const priorityColor: Record<string, string> = {
