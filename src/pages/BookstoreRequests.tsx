@@ -825,26 +825,35 @@ const BookstoreRequests = () => {
                 <TabsList className="bg-muted/50 p-1 mb-6">
                     <TabsTrigger value="order" className="gap-2">
                         <Store className="h-4 w-4" />
-                        {isOperations ? 'Vista de Pedidos' : 'Nuevo Pedido'}
+                        Nuevo Pedido
                     </TabsTrigger>
                     {isOperations && (
-                        <TabsTrigger value="products" className="gap-2">
-                            <Package className="h-4 w-4" />
-                            Productos y Categorías
-                        </TabsTrigger>
+                        <>
+                            <TabsTrigger value="history" className="gap-2">
+                                <History className="h-4 w-4" />
+                                Historial de Pedidos
+                            </TabsTrigger>
+                            <TabsTrigger value="products" className="gap-2">
+                                <Package className="h-4 w-4" />
+                                Productos y Categorías
+                            </TabsTrigger>
+                        </>
                     )}
                 </TabsList>
 
                 <TabsContent value="order" className="mt-0">
-                    {isOperations ? (
-                        renderOperationsOrdersView()
-                    ) : renderBookstoreView()}
+                    {renderBookstoreView()}
                 </TabsContent>
 
                 {isOperations && (
-                    <TabsContent value="products" className="mt-0">
-                        {renderOperationsManagementView()}
-                    </TabsContent>
+                    <>
+                        <TabsContent value="history" className="mt-0">
+                            {renderOperationsOrdersView()}
+                        </TabsContent>
+                        <TabsContent value="products" className="mt-0">
+                            {renderOperationsManagementView()}
+                        </TabsContent>
+                    </>
                 )}
             </Tabs>
         </div>
