@@ -189,7 +189,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent
             side="left"
-            className="w-72 p-0"
+            className="w-72 p-0 bg-sidebar"
             style={{
               paddingTop: 'env(safe-area-inset-top)'
             }}
