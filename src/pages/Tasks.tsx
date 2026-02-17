@@ -13,11 +13,27 @@ import {
   MessageSquare,
   Circle,
   CheckCircle2,
+  UserPlus,
+  User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { db } from "@/lib/firebase";
@@ -51,9 +67,24 @@ interface Task {
   userId: string;
   createdAt: any;
   order?: number;
+  assignedTo?: string;
+  assignedBy?: string;
 }
 
 const priorities = ["Baja", "Media", "Alta", "Urgente"];
+
+const adminEmails = ["operaciones@bukz.co", "cedi@bukz.co", "ux@bukz.co"];
+
+const assignableUsers = [
+  { email: "operaciones@bukz.co", label: "Operaciones" },
+  { email: "cedi@bukz.co", label: "CEDI" },
+  { email: "ux@bukz.co", label: "UX" },
+  { email: "librerias@bukz.co", label: "Librerías" },
+  { email: "museo@bukz.co", label: "Museo" },
+  { email: "bogota109@bukz.co", label: "Bogotá 109" },
+  { email: "vivaenvigado@bukz.co", label: "Viva Envigado" },
+  { email: "lomas@bukz.co", label: "Las Lomas" },
+];
 
 const priorityColor: Record<string, string> = {
   Baja: "bg-muted text-muted-foreground",
@@ -71,34 +102,78 @@ const Tasks = () => {
   const [newTaskPriority, setNewTaskPriority] = useState("Media");
   const [loading, setLoading] = useState(true);
 
-  // Fetch private tasks from Firestore
+  // Assign task dialog
+  const canAssign = adminEmails.includes(user?.email || "");
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignTitle, setAssignTitle] = useState("");
+  const [assignPriority, setAssignPriority] = useState("Media");
+  const [assignTo, setAssignTo] = useState("");
+
+  // Fetch private tasks from Firestore (own tasks + tasks assigned to me)
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
+    // Query 1: tasks created by me
+    const qOwn = query(
       collection(db, "user_tasks"),
       where("userId", "==", user.uid)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-        order: d.data().order ?? d.data().createdAt?.toMillis?.() ?? Date.now(),
-      })) as Task[];
+    // Query 2: tasks assigned to my email
+    const qAssigned = query(
+      collection(db, "user_tasks"),
+      where("assignedTo", "==", user.email)
+    );
 
-      // Sort by order descending (newest/highest first)
-      docs.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+    const taskMap = new Map<string, Task>();
 
-      setTasks(docs);
+    const processSnapshot = () => {
+      const allTasks = Array.from(taskMap.values());
+      allTasks.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+      setTasks(allTasks);
       setLoading(false);
+    };
+
+    const unsub1 = onSnapshot(qOwn, (snapshot) => {
+      snapshot.docs.forEach(d => {
+        taskMap.set(d.id, {
+          id: d.id,
+          ...d.data(),
+          order: d.data().order ?? d.data().createdAt?.toMillis?.() ?? Date.now(),
+        } as Task);
+      });
+      // Remove deleted docs
+      const ownIds = new Set(snapshot.docs.map(d => d.id));
+      taskMap.forEach((_, key) => {
+        const task = taskMap.get(key);
+        if (task && !task.assignedTo && !ownIds.has(key)) taskMap.delete(key);
+      });
+      processSnapshot();
     }, (error) => {
-      console.error("Error fetching tasks:", error);
-      toast.error("Error al cargar tus tareas");
+      console.error("Error fetching own tasks:", error);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    const unsub2 = onSnapshot(qAssigned, (snapshot) => {
+      // First remove old assigned tasks not in this snapshot
+      const assignedIds = new Set(snapshot.docs.map(d => d.id));
+      taskMap.forEach((task, key) => {
+        if (task.assignedTo === user.email && !assignedIds.has(key)) taskMap.delete(key);
+      });
+      snapshot.docs.forEach(d => {
+        taskMap.set(d.id, {
+          id: d.id,
+          ...d.data(),
+          order: d.data().order ?? d.data().createdAt?.toMillis?.() ?? Date.now(),
+        } as Task);
+      });
+      processSnapshot();
+    }, (error) => {
+      console.error("Error fetching assigned tasks:", error);
+      setLoading(false);
+    });
+
+    return () => { unsub1(); unsub2(); };
   }, [user]);
 
   const addTask = async () => {
@@ -122,6 +197,33 @@ const Tasks = () => {
     } catch (error) {
       console.error("Error adding task:", error);
       toast.error("Error al guardar la tarea");
+    }
+  };
+
+  const assignTask = async () => {
+    if (!assignTitle.trim() || !assignTo || !user) return;
+
+    try {
+      await addDoc(collection(db, "user_tasks"), {
+        title: assignTitle.trim(),
+        priority: assignPriority,
+        status: "todo",
+        notes: "",
+        subtasks: [],
+        userId: "",
+        assignedTo: assignTo,
+        assignedBy: user.email || "Desconocido",
+        createdAt: serverTimestamp(),
+        order: Date.now(),
+      });
+      setAssignTitle("");
+      setAssignPriority("Media");
+      setAssignTo("");
+      setAssignDialogOpen(false);
+      toast.success("Tarea asignada correctamente");
+    } catch (error) {
+      console.error("Error assigning task:", error);
+      toast.error("Error al asignar la tarea");
     }
   };
 
@@ -346,6 +448,12 @@ const Tasks = () => {
                     </span>
                   </div>
                 )}
+                {task.assignedBy && (
+                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 w-fit">
+                    <UserIcon className="h-2.5 w-2.5" />
+                    <span className="truncate max-w-[150px]">Asignada por {task.assignedBy.split("@")[0]}</span>
+                  </div>
+                )}
               </div>
               <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", priorityColor[task.priority] || "bg-muted text-muted-foreground")}>
                 {task.priority}
@@ -439,7 +547,67 @@ const Tasks = () => {
         <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
           <Plus className="h-4 w-4" /> Agregar
         </Button>
+        {canAssign && (
+          <Button variant="outline" onClick={() => setAssignDialogOpen(true)} className="gap-1.5 flex-1 md:flex-none">
+            <UserPlus className="h-4 w-4" /> Asignar
+          </Button>
+        )}
       </div>
+
+      {/* Assign task dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Asignar tarea a otro usuario</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Usuario destino</label>
+              <Select value={assignTo} onValueChange={setAssignTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un usuario..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignableUsers
+                    .filter(u => u.email !== user?.email)
+                    .map(u => (
+                      <SelectItem key={u.email} value={u.email}>{u.label} ({u.email})</SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Título de la tarea</label>
+              <Input
+                placeholder="Título de la tarea..."
+                value={assignTitle}
+                onChange={(e) => setAssignTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && assignTask()}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Prioridad</label>
+              <Select value={assignPriority} onValueChange={setAssignPriority}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={assignTask} disabled={!assignTitle.trim() || !assignTo}>
+              <UserPlus className="h-4 w-4 mr-2" /> Asignar Tarea
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className={cn(

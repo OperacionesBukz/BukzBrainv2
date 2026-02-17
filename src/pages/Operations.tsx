@@ -20,7 +20,8 @@ import {
   ClipboardList,
   User as UserIcon,
   Upload,
-  Download
+  Download,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,6 +167,10 @@ const Operations = () => {
   }, []);
 
   const handleTabChange = (value: string) => {
+    if (value === "panel") {
+      window.open("https://paneloperacionesbukz.streamlit.app/", "_blank");
+      return;
+    }
     setSearchParams({ tab: value });
   };
 
@@ -677,6 +682,10 @@ const Operations = () => {
           <TabsTrigger value="files" className="gap-2">
             <FileText className="h-4 w-4" />
             Archivos
+          </TabsTrigger>
+          <TabsTrigger value="panel" className="gap-2">
+            <ExternalLink className="h-4 w-4" />
+            Panel Operaciones
           </TabsTrigger>
         </TabsList>
 
