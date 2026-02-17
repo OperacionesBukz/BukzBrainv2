@@ -10,7 +10,8 @@ import {
   Plus,
   Minus,
   Trash2,
-  Package
+  Package,
+  User as UserIcon
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -40,6 +41,8 @@ interface Task {
   status: string;
   priority: string;
   createdAt: any;
+  assignedTo?: string;
+  assignedBy?: string;
 }
 
 interface SupplierReturn {
@@ -66,29 +69,64 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Real-time top 5 active personal tasks
-    const tasksQuery = query(
+    const taskMap = new Map<string, Task>();
+
+    // Real-time personal tasks (created by me)
+    const tasksOwnQuery = query(
       collection(db, "user_tasks"),
       where("userId", "==", user.uid),
-      where("status", "==", "todo"),
-      limit(5)
+      where("status", "==", "todo")
     );
 
-    const unsubscribeTasks = onSnapshot(tasksQuery, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Task[];
+    // Real-time assigned tasks (assigned to me)
+    const tasksAssignedQuery = query(
+      collection(db, "user_tasks"),
+      where("assignedTo", "==", user.email),
+      where("status", "==", "todo")
+    );
 
+    const processTasksSnapshot = () => {
+      const allTasks = Array.from(taskMap.values());
       // Sort in memory to avoid index requirement for composite query
-      const sorted = [...docs].sort((a, b) => {
+      const sorted = [...allTasks].sort((a, b) => {
         const timeA = a.createdAt?.toMillis?.() || 0;
         const timeB = b.createdAt?.toMillis?.() || 0;
         return timeB - timeA;
       });
-      setTasks(sorted);
-      setCounts(prev => ({ ...prev, tasks: snapshot.size }));
+      // Limit to top 5
+      setTasks(sorted.slice(0, 5));
+      setCounts(prev => ({ ...prev, tasks: allTasks.length }));
       setLoading(false);
+    };
+
+    const unsubscribeTasks1 = onSnapshot(tasksOwnQuery, (snapshot) => {
+      snapshot.docs.forEach(doc => {
+        taskMap.set(doc.id, {
+          id: doc.id,
+          ...doc.data()
+        } as Task);
+      });
+      // Remove deleted own tasks
+      const ownIds = new Set(snapshot.docs.map(d => d.id));
+      taskMap.forEach((task, key) => {
+        if (!task.assignedTo && !ownIds.has(key)) taskMap.delete(key);
+      });
+      processTasksSnapshot();
+    });
+
+    const unsubscribeTasks2 = onSnapshot(tasksAssignedQuery, (snapshot) => {
+      // Remove old assigned tasks not in this snapshot
+      const assignedIds = new Set(snapshot.docs.map(d => d.id));
+      taskMap.forEach((task, key) => {
+        if (task.assignedTo === user.email && !assignedIds.has(key)) taskMap.delete(key);
+      });
+      snapshot.docs.forEach(doc => {
+        taskMap.set(doc.id, {
+          id: doc.id,
+          ...doc.data()
+        } as Task);
+      });
+      processTasksSnapshot();
     });
 
     // Count personal requests
@@ -124,7 +162,8 @@ const Dashboard = () => {
     });
 
     return () => {
-      unsubscribeTasks();
+      unsubscribeTasks1();
+      unsubscribeTasks2();
       unsubscribeRequests();
       unsubscribeOps();
       unsubscribeReturns();
@@ -254,9 +293,17 @@ const Dashboard = () => {
                   key={task.id}
                   className="flex items-center justify-between px-5 py-3.5 transition-theme hover:bg-muted/50"
                 >
-                  <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="flex items-center gap-3 overflow-hidden flex-1">
                     <Circle className="h-2.5 w-2.5 text-muted-foreground flex-none" />
-                    <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-foreground truncate block">{task.title}</span>
+                      {task.assignedBy && (
+                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                          <UserIcon className="h-2.5 w-2.5" />
+                          <span className="truncate">Asignada por {task.assignedBy.split("@")[0]}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-4 flex-none">
                     <span className={cn(
