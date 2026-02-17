@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -27,7 +27,6 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
   serverTimestamp,
   updateDoc,
   deleteDoc,
@@ -49,9 +48,9 @@ interface Task {
   status: "todo" | "done";
   notes: string;
   subtasks: SubTask[];
-  expanded: boolean;
   userId: string;
   createdAt: any;
+  order?: number;
 }
 
 const priorities = ["Baja", "Media", "Alta", "Urgente"];
@@ -82,19 +81,16 @@ const Tasks = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      const docs = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        order: d.data().order ?? d.data().createdAt?.toMillis?.() ?? Date.now(),
       })) as Task[];
 
-      // Sort in memory to avoid needing a composite index in Firestore
-      const sortedDocs = [...docs].sort((a, b) => {
-        const timeA = a.createdAt?.toMillis?.() || 0;
-        const timeB = b.createdAt?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
+      // Sort by order descending (newest/highest first)
+      docs.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
 
-      setTasks(sortedDocs);
+      setTasks(docs);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching tasks:", error);
@@ -115,9 +111,9 @@ const Tasks = () => {
         status: "todo",
         notes: "",
         subtasks: [],
-        expanded: false,
         userId: user.uid,
         createdAt: serverTimestamp(),
+        order: Date.now(),
       };
 
       await addDoc(collection(db, "user_tasks"), newTaskData);
@@ -204,28 +200,89 @@ const Tasks = () => {
     }
   };
 
-  const pendingTasks = tasks.filter((t) => t.status !== "done");
-  const completedTasks = tasks.filter((t) => t.status === "done");
+  const pendingTasks = useMemo(() => tasks.filter((t) => t.status !== "done"), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter((t) => t.status === "done"), [tasks]);
 
   const onDragEnd = useCallback(
-    (result: DropResult) => {
-      const { source, destination } = result;
+    async (result: DropResult) => {
+      const { source, destination, draggableId } = result;
       if (!destination) return;
       if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-      const sourceList = source.droppableId;
-      const destList = destination.droppableId;
+      const sourceListId = source.droppableId;
+      const destListId = destination.droppableId;
 
-      if (sourceList !== destList) {
-        // Find the task in the respective localized list
-        const sourceArr = sourceList === "pending" ? pendingTasks : completedTasks;
-        const movedTask = sourceArr[source.index];
+      const isPendingSource = sourceListId === "pending";
+      const isPendingDest = destListId === "pending";
 
-        if (movedTask) {
-          updateTask(movedTask.id, {
-            status: destList === "completed" ? "done" : "todo"
-          });
+      const sourceList = isPendingSource ? pendingTasks : completedTasks;
+      const destList = isPendingDest ? pendingTasks : completedTasks;
+
+      let newOrder = 0;
+
+      if (sourceListId === destListId) {
+        const items = Array.from(sourceList);
+        const [reorderedItem] = items.splice(source.index, 1);
+        items.splice(destination.index, 0, reorderedItem);
+
+        const prevItem = items[destination.index - 1];
+        const nextItem = items[destination.index + 1];
+
+        const prevOrder = prevItem ? (prevItem.order ?? 0) : null;
+        const nextOrder = nextItem ? (nextItem.order ?? 0) : null;
+
+        if (prevItem && nextItem) {
+          newOrder = ((prevOrder ?? 0) + (nextOrder ?? 0)) / 2;
+        } else if (prevItem) {
+          newOrder = (prevOrder ?? 0) - 100000;
+        } else if (nextItem) {
+          newOrder = (nextOrder ?? 0) + 100000;
+        } else {
+          newOrder = Date.now();
         }
+      } else {
+        const items = destList;
+        if (items.length === 0) {
+          newOrder = Date.now();
+        } else if (destination.index === 0) {
+          newOrder = (items[0].order ?? 0) + 100000;
+        } else if (destination.index >= items.length) {
+          newOrder = (items[items.length - 1].order ?? 0) - 100000;
+        } else {
+          const above = items[destination.index - 1];
+          const below = items[destination.index];
+          newOrder = ((above.order ?? 0) + (below.order ?? 0)) / 2;
+        }
+      }
+
+      // Optimistic local update
+      setTasks((prevTasks) => {
+        const taskIndex = prevTasks.findIndex(t => t.id === draggableId);
+        if (taskIndex === -1) return prevTasks;
+
+        const updatedTask = {
+          ...prevTasks[taskIndex],
+          order: newOrder,
+          status: (destListId === "completed" ? "done" : "todo") as "todo" | "done"
+        };
+
+        const newTasks = [...prevTasks];
+        newTasks[taskIndex] = updatedTask;
+        newTasks.sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+
+        return newTasks;
+      });
+
+      // Persist to Firestore
+      try {
+        const updates: Partial<Task> = { order: newOrder };
+        if (sourceListId !== destListId) {
+          updates.status = destListId === "completed" ? "done" : "todo";
+        }
+        await updateDoc(doc(db, "user_tasks", draggableId), updates);
+      } catch (error) {
+        console.error("Error moving task:", error);
+        toast.error("Error al mover la tarea");
       }
     },
     [pendingTasks, completedTasks]
@@ -263,13 +320,24 @@ const Tasks = () => {
               >
                 {isDone ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
               </button>
-              <button onClick={() => toggleExpand(task.id)} className="text-muted-foreground">
-                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => toggleExpand(task.id)} className="text-muted-foreground">
+                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </button>
+                {task.notes && (
+                  <MessageSquare className="h-3 w-3 text-foreground fill-yellow-400 animate-pulse" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
-                <span className={cn("text-sm font-medium", isDone ? "text-success line-through" : "text-foreground")}>
-                  {task.title}
-                </span>
+                <input
+                  value={task.title}
+                  onChange={(e) => updateTask(task.id, { title: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                  className={cn(
+                    "text-sm font-medium bg-transparent outline-none w-full",
+                    isDone ? "text-success line-through" : "text-foreground"
+                  )}
+                />
                 {totalSubs > 0 && (
                   <div className="flex items-center gap-2 mt-1.5">
                     <Progress value={progress} className="h-1.5 flex-1" />
