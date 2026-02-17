@@ -127,3 +127,11 @@
     @apply transition-colors duration-200 ease-in-out;
   }
 }
+
+/* Ajustar botón de cerrar del Sheet en iOS */
+@supports (-webkit-touch-callout: none) {
+  [data-radix-popper-content-wrapper] button[data-state],
+  [role="dialog"] > button[type="button"] {
+    top: calc(1rem + env(safe-area-inset-top)) !important;
+  }
+}
