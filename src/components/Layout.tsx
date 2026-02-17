@@ -187,10 +187,22 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Mobile drawer menu */}
       {isMobile && (
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetContent side="left" className="w-72 p-0">
+          <SheetContent
+            side="left"
+            className="w-72 p-0"
+            style={{
+              paddingTop: 'env(safe-area-inset-top)'
+            }}
+          >
             <div className="flex flex-col h-full bg-sidebar">
               {/* Logo header dentro del drawer */}
-              <div className="h-14 flex items-center px-4 border-b border-border/40">
+              <div
+                className="flex items-center px-4 border-b border-border/40"
+                style={{
+                  height: 'calc(3.5rem + env(safe-area-inset-top))',
+                  paddingTop: 'env(safe-area-inset-top)'
+                }}
+              >
                 <img src={logoSrc} alt="BUKZ" className="h-7 object-contain dark:invert" />
                 <span className="ml-3 text-lg font-bold tracking-tight">
                   Bukz<span className="text-primary italic">Brain</span>
