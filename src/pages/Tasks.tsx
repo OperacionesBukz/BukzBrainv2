@@ -454,9 +454,34 @@ const Tasks = () => {
                   </div>
                 )}
               </div>
-              <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", priorityColor[task.priority] || "bg-muted text-muted-foreground")}>
-                {task.priority}
-              </span>
+              <Select
+                value={task.priority}
+                onValueChange={(newPriority) => updateTask(task.id, { priority: newPriority })}
+              >
+                <SelectTrigger
+                  className={cn(
+                    "h-auto w-auto min-w-[80px] px-2 py-0.5 text-xs rounded-full font-medium border-0 gap-1 focus:ring-1",
+                    priorityColor[task.priority] || "bg-muted text-muted-foreground"
+                  )}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "w-2 h-2 rounded-full",
+                            priorityColor[p]?.replace(/text-\S+/, '') || "bg-muted"
+                          )}
+                        />
+                        {p}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <button onClick={() => deleteTask(task.id)} className="text-muted-foreground hover:text-destructive transition-theme">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
