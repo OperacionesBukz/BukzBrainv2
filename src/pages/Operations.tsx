@@ -453,9 +453,16 @@ const Operations = () => {
                   )}
                 </div>
               </div>
-              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0">
-                {task.department}
-              </span>
+              <select
+                value={task.department}
+                onChange={(e) => updateTask(task.id, { department: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0 cursor-pointer border-none outline-none focus:ring-1 focus:ring-ring appearance-none"
+              >
+                {departments.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
               <button
                 onClick={() => deleteTask(task.id)}
                 className="text-muted-foreground hover:text-destructive transition-theme"
@@ -597,7 +604,7 @@ const Operations = () => {
                 onClick={() => setShowNewTaskForm(true)}
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
               >
-                <span className="flex items-center justify-center h-6 w-6 rounded-full border border-border group-hover:border-primary/40 group-hover:bg-primary/5 transition-all">
+                <span className="flex items-center justify-center h-6 w-6 rounded-full border border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 transition-all text-yellow-500">
                   <Plus className="h-3.5 w-3.5" />
                 </span>
                 Nueva tarea
