@@ -60,7 +60,7 @@ interface Task {
   order?: number;
 }
 
-const departments = ["General", "Finanzas", "Marketing", "TI", "RRHH", "Ventas"];
+const departments = ["General", "Devolución", "SAC", "Operaciones"];
 
 const Operations = () => {
   const { user } = useAuth();
