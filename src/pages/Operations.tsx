@@ -84,6 +84,7 @@ const Operations = () => {
   const [newTaskDept, setNewTaskDept] = useState("General");
   const [newStartDate, setNewStartDate] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [filterDept, setFilterDept] = useState("All");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "tasks";
@@ -138,6 +139,7 @@ const Operations = () => {
       setNewTaskTitle("");
       setNewStartDate("");
       setNewDueDate("");
+      setShowNewTaskForm(false);
       toast.success("Tarea agregada correctamente");
     } catch (error: any) {
       console.error("Error adding task:", error);
@@ -589,54 +591,83 @@ const Operations = () => {
 
         <TabsContent value="tasks" className="space-y-6 mt-0">
           {/* Add task */}
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col md:flex-row gap-2">
-              <Input
-                placeholder="Título de nueva tarea..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addTask()}
-                className="flex-1 w-full"
-              />
-              <div className="flex gap-2 w-full md:w-auto">
-                <select
-                  value={newTaskDept}
-                  onChange={(e) => setNewTaskDept(e.target.value)}
-                  className="h-10 flex-1 md:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-                >
+          <div>
+            {!showNewTaskForm ? (
+              <button
+                onClick={() => setShowNewTaskForm(true)}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+              >
+                <span className="flex items-center justify-center h-6 w-6 rounded-full border border-border group-hover:border-primary/40 group-hover:bg-primary/5 transition-all">
+                  <Plus className="h-3.5 w-3.5" />
+                </span>
+                Nueva tarea
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3 bg-card p-4 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                <Input
+                  placeholder="Título de la tarea..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addTask()}
+                  autoFocus
+                  className="text-sm"
+                />
+                <div className="flex flex-wrap gap-1.5">
                   {departments.map((d) => (
-                    <option key={d} value={d}>
+                    <button
+                      key={d}
+                      onClick={() => setNewTaskDept(d)}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-medium transition-all",
+                        newTaskDept === d
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
                       {d}
-                    </option>
+                    </button>
                   ))}
-                </select>
-                <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
-                  <Plus className="h-4 w-4" /> Agregar
-                </Button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
+                    <input
+                      type="date"
+                      value={newStartDate}
+                      onChange={(e) => setNewStartDate(e.target.value)}
+                      className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 flex-1">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
+                    <input
+                      type="date"
+                      value={newDueDate}
+                      onChange={(e) => setNewDueDate(e.target.value)}
+                      className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowNewTaskForm(false);
+                      setNewTaskTitle("");
+                      setNewStartDate("");
+                      setNewDueDate("");
+                    }}
+                    className="text-xs h-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button size="sm" onClick={addTask} className="text-xs h-8 px-4 gap-1.5">
+                    <Plus className="h-3.5 w-3.5" /> Agregar tarea
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-col md:flex-row gap-2">
-              <div className="flex items-center gap-2 flex-1">
-                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
-                <input
-                  type="date"
-                  value={newStartDate}
-                  onChange={(e) => setNewStartDate(e.target.value)}
-                  className="h-9 flex-1 rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div className="flex items-center gap-2 flex-1">
-                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
-                <input
-                  type="date"
-                  value={newDueDate}
-                  onChange={(e) => setNewDueDate(e.target.value)}
-                  className="h-9 flex-1 rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Filter */}
