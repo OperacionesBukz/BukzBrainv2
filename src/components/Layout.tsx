@@ -205,7 +205,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <img src={logoSrc} alt="BUKZ" className="h-7 object-contain dark:invert" />
                 <span className="ml-3 text-lg font-bold tracking-tight">
-                  Bukz<span className="text-primary italic">Brain</span>
+                  <span className="text-primary italic">Brain</span>
                 </span>
               </div>
 
@@ -309,7 +309,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* Separador y título - solo desktop */}
         <div className="h-6 w-px bg-border/40 mx-2 hidden md:block" />
         <span className="text-xl font-bold tracking-tight text-foreground hidden md:block">
-          Bukz<span className="text-primary italic drop-shadow-[0_0.8px_0.8px_rgba(0,0,0,0.8)] dark:drop-shadow-none">Brain</span>
+          <span className="text-primary italic drop-shadow-[0_0.8px_0.8px_rgba(0,0,0,0.8)] dark:drop-shadow-none">Brain</span>
         </span>
 
         <div className="flex-1" />
