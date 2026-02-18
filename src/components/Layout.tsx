@@ -204,7 +204,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 }}
               >
                 <img src={logoSrc} alt="BUKZ" className="h-7 object-contain dark:invert" />
-                <span className="ml-3 text-lg font-bold tracking-tight">
+                <span className="ml-2 text-lg font-bold tracking-tight">
                   <span className="text-primary italic">Brain</span>
                 </span>
               </div>
@@ -294,7 +294,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </Button>
         )}
 
-        {/* Logo - más pequeño en mobile */}
+        {/* Logo y texto - más pequeño en mobile */}
         <button
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 shrink-0"
@@ -304,13 +304,10 @@ export function Layout({ children }: { children: ReactNode }) {
             alt="BUKZ"
             className="h-7 md:h-8 shrink-0 object-contain dark:invert transition-all duration-500 ease-out hover:scale-[1.02] hover:-translate-y-0.5 hover:brightness-[1.03] active:scale-100"
           />
+          <span className="text-xl font-bold tracking-tight text-foreground hidden md:inline">
+            <span className="text-primary italic drop-shadow-[0_0.8px_0.8px_rgba(0,0,0,0.8)] dark:drop-shadow-none">Brain</span>
+          </span>
         </button>
-
-        {/* Separador y título - solo desktop */}
-        <div className="h-6 w-px bg-border/40 mx-2 hidden md:block" />
-        <span className="text-xl font-bold tracking-tight text-foreground hidden md:block">
-          <span className="text-primary italic drop-shadow-[0_0.8px_0.8px_rgba(0,0,0,0.8)] dark:drop-shadow-none">Brain</span>
-        </span>
 
         <div className="flex-1" />
 
