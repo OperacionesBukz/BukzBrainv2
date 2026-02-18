@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   ClipboardList,
   User as UserIcon,
-  ExternalLink
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,8 @@ interface Task {
   createdBy?: string;
   createdAt?: any;
   order?: number;
+  startDate?: string;
+  dueDate?: string;
 }
 
 const departments = ["General", "Devolución", "SAC", "Operaciones"];
@@ -79,6 +82,8 @@ const Operations = () => {
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDept, setNewTaskDept] = useState("General");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
   const [filterDept, setFilterDept] = useState("All");
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "tasks";
@@ -117,7 +122,7 @@ const Operations = () => {
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
-      await addDoc(collection(db, "tasks"), {
+      const newTaskData: Record<string, any> = {
         title: newTaskTitle.trim(),
         department: newTaskDept,
         status: "todo",
@@ -126,8 +131,13 @@ const Operations = () => {
         createdBy: user?.email || "Usuario desconocido",
         createdAt: serverTimestamp(),
         order: Date.now(),
-      });
+      };
+      if (newStartDate) newTaskData.startDate = newStartDate;
+      if (newDueDate) newTaskData.dueDate = newDueDate;
+      await addDoc(collection(db, "tasks"), newTaskData);
       setNewTaskTitle("");
+      setNewStartDate("");
+      setNewDueDate("");
       toast.success("Tarea agregada correctamente");
     } catch (error: any) {
       console.error("Error adding task:", error);
@@ -341,6 +351,10 @@ const Operations = () => {
     const progress = totalSubs > 0 ? (completedSubs / totalSubs) * 100 : 0;
     const isDone = task.status === "done";
     const isExpanded = expandedTasks[task.id];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isOverdue = task.dueDate ? (new Date(task.dueDate + "T00:00:00") < today && !isDone) : false;
+    const formatDate = (d: string) => format(new Date(d + "T00:00:00"), "dd MMM", { locale: es });
 
     return (
       <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -420,6 +434,21 @@ const Operations = () => {
                       {format(task.createdAt, "dd MMM", { locale: es })}
                     </span>
                   )}
+                  {(task.startDate || task.dueDate) && (
+                    <div className={cn(
+                      "flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border",
+                      isOverdue
+                        ? "text-destructive bg-destructive/10 border-destructive/30"
+                        : "text-muted-foreground bg-muted/50 border-border"
+                    )}>
+                      <Calendar className="h-2.5 w-2.5" />
+                      <span>
+                        {task.startDate && formatDate(task.startDate)}
+                        {task.startDate && task.dueDate && " → "}
+                        {task.dueDate && formatDate(task.dueDate)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0">
@@ -484,6 +513,38 @@ const Operations = () => {
                   </div>
                 </div>
 
+                {/* Dates */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Calendar className="h-3 w-3" /> Fechas
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <label className="text-xs text-muted-foreground whitespace-nowrap w-10">Inicio</label>
+                      <input
+                        type="date"
+                        value={task.startDate || ""}
+                        onChange={(e) => updateTask(task.id, { startDate: e.target.value || undefined })}
+                        className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 flex-1">
+                      <label className={cn("text-xs whitespace-nowrap w-10", isOverdue ? "text-destructive" : "text-muted-foreground")}>Límite</label>
+                      <input
+                        type="date"
+                        value={task.dueDate || ""}
+                        onChange={(e) => updateTask(task.id, { dueDate: e.target.value || undefined })}
+                        className={cn(
+                          "h-8 flex-1 rounded-md border px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring",
+                          isOverdue
+                            ? "border-destructive/50 bg-destructive/5 text-destructive"
+                            : "border-border bg-background text-foreground"
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Notes */}
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -528,29 +589,53 @@ const Operations = () => {
 
         <TabsContent value="tasks" className="space-y-6 mt-0">
           {/* Add task */}
-          <div className="flex flex-col md:flex-row gap-2">
-            <Input
-              placeholder="Título de nueva tarea..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addTask()}
-              className="flex-1 w-full"
-            />
-            <div className="flex gap-2 w-full md:w-auto">
-              <select
-                value={newTaskDept}
-                onChange={(e) => setNewTaskDept(e.target.value)}
-                className="h-10 flex-1 md:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {departments.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-              <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
-                <Plus className="h-4 w-4" /> Agregar
-              </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col md:flex-row gap-2">
+              <Input
+                placeholder="Título de nueva tarea..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addTask()}
+                className="flex-1 w-full"
+              />
+              <div className="flex gap-2 w-full md:w-auto">
+                <select
+                  value={newTaskDept}
+                  onChange={(e) => setNewTaskDept(e.target.value)}
+                  className="h-10 flex-1 md:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+                <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
+                  <Plus className="h-4 w-4" /> Agregar
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
+                <input
+                  type="date"
+                  value={newStartDate}
+                  onChange={(e) => setNewStartDate(e.target.value)}
+                  className="h-9 flex-1 rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
+                <input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                  className="h-9 flex-1 rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
             </div>
           </div>
 
