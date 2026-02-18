@@ -197,14 +197,14 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="flex flex-col h-full bg-sidebar">
               {/* Logo header dentro del drawer */}
               <div
-                className="flex items-end px-4 border-b border-border/40"
+                className="flex items-baseline px-4 border-b border-border/40"
                 style={{
                   height: 'calc(3.5rem + env(safe-area-inset-top))',
                   paddingTop: 'env(safe-area-inset-top)'
                 }}
               >
                 <img src={logoSrc} alt="BUKZ" className="h-7 object-contain dark:invert" />
-                <span className="ml-2 text-lg font-bold tracking-tight">
+                <span className="ml-2 text-lg font-bold tracking-tight -mb-0.5">
                   <span className="text-primary italic">Brain</span>
                 </span>
               </div>
@@ -297,14 +297,14 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* Logo y texto - más pequeño en mobile */}
         <button
           onClick={() => navigate("/dashboard")}
-          className="flex items-end gap-2 shrink-0"
+          className="flex items-baseline gap-2 shrink-0"
         >
           <img
             src={logoSrc}
             alt="BUKZ"
             className="h-7 md:h-8 shrink-0 object-contain dark:invert transition-all duration-500 ease-out hover:scale-[1.02] hover:-translate-y-0.5 hover:brightness-[1.03] active:scale-100"
           />
-          <span className="text-xl font-bold tracking-tight text-foreground hidden md:inline">
+          <span className="text-xl font-bold tracking-tight text-foreground hidden md:inline -mb-1">
             <span className="text-primary italic drop-shadow-[0_0.8px_0.8px_rgba(0,0,0,0.8)] dark:drop-shadow-none">Brain</span>
           </span>
         </button>
