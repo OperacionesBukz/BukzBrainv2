@@ -9,9 +9,9 @@
     --background: 0 0% 100%;
     --foreground: 108 10% 9%;
 
-    --header-background: 0 0% 94.51%; /* #F1F1F1 */
+    --header-background: 0 0% 92.16%; /* #EBEBEB */
 
-    --card: 0 0% 94.51%; /* #F1F1F1 */
+    --card: 0 0% 92.16%; /* #EBEBEB */
     --card-foreground: 108 10% 9%;
 
     --popover: 0 0% 100%;
@@ -38,7 +38,7 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 94.51%; /* #F1F1F1 */
+    --sidebar-background: 0 0% 92.16%; /* #EBEBEB */
     --sidebar-foreground: 108 10% 9%;
     --sidebar-primary: 55 95% 65%;
     --sidebar-primary-foreground: 108 10% 9%;
