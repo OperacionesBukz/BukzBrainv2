@@ -197,7 +197,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="flex flex-col h-full bg-sidebar">
               {/* Logo header dentro del drawer */}
               <div
-                className="flex items-center px-4 border-b border-border/40"
+                className="flex items-end px-4 border-b border-border/40"
                 style={{
                   height: 'calc(3.5rem + env(safe-area-inset-top))',
                   paddingTop: 'env(safe-area-inset-top)'
@@ -297,7 +297,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* Logo y texto - más pequeño en mobile */}
         <button
           onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 shrink-0"
+          className="flex items-end gap-2 shrink-0"
         >
           <img
             src={logoSrc}
