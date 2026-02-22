@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 interface AuthContextType {
     user: User | null;
@@ -41,6 +43,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } else {
                     // First login set time
                     localStorage.setItem(lastLoginKey, now.toString());
+                }
+
+                // Register user in Firestore so admin can see them
+                if (user.email) {
+                    setDoc(
+                        doc(db, "users", user.email),
+                        {
+                            email: user.email,
+                            displayName: user.displayName || user.email.split("@")[0],
+                            lastLogin: serverTimestamp(),
+                            uid: user.uid,
+                        },
+                        { merge: true }
+                    ).catch(() => {/* silent */});
                 }
             }
 
