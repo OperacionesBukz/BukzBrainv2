@@ -14,6 +14,7 @@ import Requests from "./pages/Requests";
 import Login from "./pages/Login";
 import GuideDetail from "./pages/GuideDetail";
 import BookstoreRequests from "./pages/BookstoreRequests";
+import NavigationAdmin from "./pages/NavigationAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
                       <Route path="/instructions/:slug" element={<GuideDetail />} />
                       <Route path="/requests" element={<Requests />} />
                       <Route path="/bookstore-requests" element={<BookstoreRequests />} />
+                      <Route path="/nav-admin" element={<NavigationAdmin />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Layout>

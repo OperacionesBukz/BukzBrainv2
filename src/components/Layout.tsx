@@ -11,6 +11,7 @@ import {
   LogOut,
   FileText,
   Store,
+  ShieldCheck,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -21,6 +22,9 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth as firebaseAuth } from "@/lib/firebase";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNavigationPermissions } from "@/hooks/useNavigationPermissions";
+
+const OPERATIONS_EMAIL = "operaciones@bukz.co";
 
 const navItems = [
   { title: "Dashboard", path: "/dashboard", icon: Home },
@@ -54,6 +58,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { allowedPages } = useNavigationPermissions();
+
+  const isOperationsAdmin = user?.email === OPERATIONS_EMAIL;
+
+  // Filter nav items based on Firestore permissions
+  const visibleNavItems = navItems.filter((item) =>
+    allowedPages.has(item.path)
+  );
 
   useEffect(() => {
     const handleResize = () => {
@@ -102,12 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="h-14 shrink-0" />
         {/* Nav */}
         <nav className="flex-1 space-y-1 p-2 pt-4">
-          {navItems
-            .filter((item) => {
-              const libraryEmails = ["librerias@bukz.co", "museo@bukz.co", "bogota109@bukz.co", "vivaenvigado@bukz.co", "lomas@bukz.co"];
-              if (item.path === "/operations" && libraryEmails.includes(user?.email || "")) return false;
-              return true;
-            })
+          {visibleNavItems
             .map((item) => {
               const isActive = location.pathname === item.path;
               const isOperations = item.path === "/operations";
@@ -166,6 +173,22 @@ export function Layout({ children }: { children: ReactNode }) {
                 </div>
               );
             })}
+
+          {/* Admin: Permisos de Navegación — solo operaciones@bukz.co */}
+          {isOperationsAdmin && (
+            <NavLink
+              to="/nav-admin"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme mt-2 border-t border-border/40 pt-3",
+                location.pathname === "/nav-admin"
+                  ? "bg-primary/15 text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>Permisos Nav</span>}
+            </NavLink>
+          )}
         </nav>
 
         {/* Bottom */}
@@ -211,12 +234,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
               {/* Navegación - mismo contenido que sidebar */}
               <nav className="flex-1 space-y-1 p-2 pt-4 overflow-y-auto">
-                {navItems
-                  .filter((item) => {
-                    const libraryEmails = ["librerias@bukz.co", "museo@bukz.co", "bogota109@bukz.co", "vivaenvigado@bukz.co", "lomas@bukz.co"];
-              if (item.path === "/operations" && libraryEmails.includes(user?.email || "")) return false;
-                    return true;
-                  })
+                {visibleNavItems
                   .map((item) => {
                     const isActive = location.pathname === item.path;
                     return (
@@ -267,6 +285,23 @@ export function Layout({ children }: { children: ReactNode }) {
                       </div>
                     );
                   })}
+
+                {/* Admin: Permisos de Navegación — solo operaciones@bukz.co */}
+                {isOperationsAdmin && (
+                  <NavLink
+                    to="/nav-admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme mt-2 border-t border-border/40 pt-3",
+                      location.pathname === "/nav-admin"
+                        ? "bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    <span>Permisos Nav</span>
+                  </NavLink>
+                )}
               </nav>
             </div>
           </SheetContent>
