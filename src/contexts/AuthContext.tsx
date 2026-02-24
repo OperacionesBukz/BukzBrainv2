@@ -3,20 +3,28 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
+    role: string | null;
+    isAdmin: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+    user: null,
+    loading: true,
+    role: null,
+    isAdmin: false,
+});
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [role, setRole] = useState<string | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -34,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             await auth.signOut();
                             localStorage.removeItem(lastLoginKey);
                             setUser(null);
+                            setRole(null);
                             setLoading(false);
                             return; // Stop execution
                         } catch (error) {
@@ -58,6 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         { merge: true }
                     ).catch(() => {/* silent */});
                 }
+            } else {
+                setRole(null);
             }
 
             setUser(user);
@@ -67,8 +78,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return unsubscribe;
     }, []);
 
+    // Listen to user's role from Firestore in real-time
+    useEffect(() => {
+        if (!user?.email) {
+            setRole(null);
+            return;
+        }
+
+        const unsub = onSnapshot(
+            doc(db, "users", user.email),
+            (snap) => {
+                if (snap.exists()) {
+                    setRole(snap.data()?.role || null);
+                } else {
+                    setRole(null);
+                }
+            }
+        );
+
+        return () => unsub();
+    }, [user?.email]);
+
+    const isAdmin = role === "admin";
+
     return (
-        <AuthContext.Provider value={{ user, loading }}>
+        <AuthContext.Provider value={{ user, loading, role, isAdmin }}>
             {!loading && children}
         </AuthContext.Provider>
     );

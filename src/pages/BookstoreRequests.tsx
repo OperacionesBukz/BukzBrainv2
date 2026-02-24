@@ -138,7 +138,8 @@ const BookstoreRequests = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
 
-    const isOperations = user?.email === "operaciones@bukz.co";
+    const { isAdmin } = useAuth();
+    const isOperations = isAdmin;
 
     // Fetch Products (Alphabetical Order is ensured by query)
     useEffect(() => {

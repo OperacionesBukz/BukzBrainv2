@@ -40,8 +40,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const OPERATIONS_EMAIL = "operaciones@bukz.co";
-
 const PAGE_DEFINITIONS = [
   {
     path: "/dashboard",
@@ -108,7 +106,7 @@ function formatLastLogin(lastLogin?: { seconds: number } | null): string {
 }
 
 export default function NavigationAdmin() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const [defaultPages, setDefaultPages] = useState<PageMap>(
@@ -120,12 +118,12 @@ export default function NavigationAdmin() {
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
-  // Access guard
+  // Access guard — server-side role check
   useEffect(() => {
-    if (user && user.email !== OPERATIONS_EMAIL) {
+    if (user && !isAdmin) {
       navigate("/dashboard");
     }
-  }, [user, navigate]);
+  }, [user, isAdmin, navigate]);
 
   // Listen to navigation_permissions
   useEffect(() => {
@@ -270,7 +268,7 @@ export default function NavigationAdmin() {
     setNewEmail("");
   };
 
-  if (!user || user.email !== OPERATIONS_EMAIL) return null;
+  if (!user || !isAdmin) return null;
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 

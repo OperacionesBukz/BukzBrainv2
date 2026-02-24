@@ -88,7 +88,8 @@ const Requests = () => {
     reason: "",
   });
 
-  const isOperations = user?.email === "operaciones@bukz.co";
+  const { isAdmin } = useAuth();
+  const isOperations = isAdmin;
 
   // Fetch requests from Firestore
   useEffect(() => {

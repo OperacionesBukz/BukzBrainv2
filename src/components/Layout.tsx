@@ -24,8 +24,6 @@ import { auth as firebaseAuth } from "@/lib/firebase";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigationPermissions } from "@/hooks/useNavigationPermissions";
 
-const OPERATIONS_EMAIL = "operaciones@bukz.co";
-
 const navItems = [
   { title: "Dashboard", path: "/dashboard", icon: Home },
   {
@@ -57,10 +55,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const { allowedPages } = useNavigationPermissions();
-
-  const isOperationsAdmin = user?.email === OPERATIONS_EMAIL;
 
   // Filter nav items based on Firestore permissions
   const visibleNavItems = navItems.filter((item) =>
@@ -175,7 +171,7 @@ export function Layout({ children }: { children: ReactNode }) {
             })}
 
           {/* Admin: Permisos de Navegación — solo operaciones@bukz.co */}
-          {isOperationsAdmin && (
+          {isAdmin && (
             <NavLink
               to="/nav-admin"
               className={cn(
@@ -287,7 +283,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   })}
 
                 {/* Admin: Permisos de Navegación — solo operaciones@bukz.co */}
-                {isOperationsAdmin && (
+                {isAdmin && (
                   <NavLink
                     to="/nav-admin"
                     onClick={() => setMobileMenuOpen(false)}
