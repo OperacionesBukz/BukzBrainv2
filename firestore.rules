@@ -35,13 +35,10 @@ service cloud.firestore {
     }
 
     // ─── Navigation Permissions ────────────────────────────────────
-    // Users read their own config + _default. Admin reads/writes all.
+    // Any authenticated user can read (data is just page visibility flags).
+    // Only admin can write.
     match /navigation_permissions/{docId} {
-      allow read: if isAuthenticated()
-                  && (docId == '_default'
-                      || docId == request.auth.token.email
-                      || isAdmin());
-
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 

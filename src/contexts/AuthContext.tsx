@@ -9,6 +9,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     role: string | null;
+    roleLoading: boolean;
     isAdmin: boolean;
 }
 
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     loading: true,
     role: null,
+    roleLoading: true,
     isAdmin: false,
 });
 
@@ -25,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [role, setRole] = useState<string | null>(null);
+    const [roleLoading, setRoleLoading] = useState(true);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -43,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             localStorage.removeItem(lastLoginKey);
                             setUser(null);
                             setRole(null);
+                            setRoleLoading(false);
                             setLoading(false);
                             return; // Stop execution
                         } catch (error) {
@@ -69,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
             } else {
                 setRole(null);
+                setRoleLoading(false);
             }
 
             setUser(user);
@@ -82,9 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (!user?.email) {
             setRole(null);
+            setRoleLoading(false);
             return;
         }
 
+        setRoleLoading(true);
         const unsub = onSnapshot(
             doc(db, "users", user.email),
             (snap) => {
@@ -93,6 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } else {
                     setRole(null);
                 }
+                setRoleLoading(false);
+            },
+            (error) => {
+                console.error("Error listening to user role:", error);
+                setRole(null);
+                setRoleLoading(false);
             }
         );
 
@@ -102,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAdmin = role === "admin";
 
     return (
-        <AuthContext.Provider value={{ user, loading, role, isAdmin }}>
+        <AuthContext.Provider value={{ user, loading, role, roleLoading, isAdmin }}>
             {!loading && children}
         </AuthContext.Provider>
     );

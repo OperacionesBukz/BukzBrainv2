@@ -106,7 +106,7 @@ function formatLastLogin(lastLogin?: { seconds: number } | null): string {
 }
 
 export default function NavigationAdmin() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, roleLoading } = useAuth();
   const navigate = useNavigate();
 
   const [defaultPages, setDefaultPages] = useState<PageMap>(
@@ -118,12 +118,12 @@ export default function NavigationAdmin() {
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
-  // Access guard — server-side role check
+  // Access guard — wait for role to load before deciding
   useEffect(() => {
-    if (user && !isAdmin) {
+    if (user && !roleLoading && !isAdmin) {
       navigate("/dashboard");
     }
-  }, [user, isAdmin, navigate]);
+  }, [user, roleLoading, isAdmin, navigate]);
 
   // Listen to navigation_permissions
   useEffect(() => {
@@ -170,7 +170,7 @@ export default function NavigationAdmin() {
       });
       setRegisteredUsers(
         users
-          .filter((u) => u.email !== OPERATIONS_EMAIL)
+          .filter((u) => u.email !== user?.email)
           .sort((a, b) => a.email.localeCompare(b.email))
       );
     });
@@ -268,7 +268,7 @@ export default function NavigationAdmin() {
     setNewEmail("");
   };
 
-  if (!user || !isAdmin) return null;
+  if (!user || roleLoading || !isAdmin) return null;
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
