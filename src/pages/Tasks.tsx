@@ -31,6 +31,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -107,6 +113,7 @@ const Tasks = () => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState("Media");
   const [loading, setLoading] = useState(true);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
   // Personal task creation dates
   const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
@@ -623,7 +630,7 @@ const Tasks = () => {
         </p>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="hidden md:flex flex-col gap-2">
         <div className="flex flex-col md:flex-row gap-2">
           <Input
             placeholder="Nueva tarea..."
@@ -665,6 +672,67 @@ const Tasks = () => {
           />
         </div>
       </div>
+
+      {/* Mobile FAB */}
+      <button
+        onClick={() => setCreateSheetOpen(true)}
+        className="md:hidden fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+        aria-label="Nueva tarea"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {/* Mobile bottom Sheet */}
+      <Sheet open={createSheetOpen} onOpenChange={setCreateSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="md:hidden rounded-t-2xl px-4 pb-8 pt-4"
+        >
+          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/30" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-left">Nueva tarea</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-3">
+            <Input
+              placeholder="Título de la tarea..."
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              className="w-full"
+              autoFocus
+            />
+            <select
+              value={newTaskPriority}
+              onChange={(e) => setNewTaskPriority(e.target.value)}
+              className="h-10 w-full rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {priorities.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <DatePickerButton
+              value={newStartDate}
+              onChange={setNewStartDate}
+              placeholder="Fecha inicio"
+            />
+            <DatePickerButton
+              value={newDueDate}
+              onChange={setNewDueDate}
+              placeholder="Fecha límite"
+            />
+            <Button
+              onClick={() => {
+                addTask();
+                setCreateSheetOpen(false);
+              }}
+              disabled={!newTaskTitle.trim()}
+              className="w-full gap-1.5"
+            >
+              <Plus className="h-4 w-4" /> Agregar tarea
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Assign task dialog */}
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
