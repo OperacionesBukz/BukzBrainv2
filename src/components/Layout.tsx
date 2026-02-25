@@ -124,15 +124,15 @@ export function Layout({ children }: { children: ReactNode }) {
                   <NavLink
                     to={item.path}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme",
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                       isActive
                         ? "bg-primary/15 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
                     )}
                   >
                     <item.icon
                       className={cn(
-                        "h-4 w-4 shrink-0",
+                        "h-4 w-4 shrink-0 transition-transform duration-200",
                         isActive && "text-foreground"
                       )}
                     />
@@ -153,13 +153,13 @@ export function Layout({ children }: { children: ReactNode }) {
                             key={sub.path}
                             to={sub.path}
                             className={cn(
-                              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-theme",
+                              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
                               isSubActive
                                 ? "text-foreground"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
                             )}
                           >
-                            <sub.icon className="h-3.5 w-3.5" />
+                            <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
                             <span>{sub.title}</span>
                           </NavLink>
                         );
@@ -175,13 +175,13 @@ export function Layout({ children }: { children: ReactNode }) {
             <NavLink
               to="/nav-admin"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme mt-2 border-t border-border/40 pt-3",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out mt-2 border-t border-border/40 pt-3",
                 location.pathname === "/nav-admin"
                   ? "bg-primary/15 text-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
               )}
             >
-              <ShieldCheck className="h-4 w-4 shrink-0" />
+              <ShieldCheck className="h-4 w-4 shrink-0 transition-transform duration-200" />
               {!collapsed && <span>Permisos Nav</span>}
             </NavLink>
           )}
@@ -239,19 +239,19 @@ export function Layout({ children }: { children: ReactNode }) {
                           to={item.path}
                           onClick={() => setMobileMenuOpen(false)}
                           className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme",
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                             isActive
                               ? "bg-primary/15 text-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
                           )}
                         >
-                          <item.icon className="h-4 w-4 shrink-0" />
+                          <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
                           <span>{item.title}</span>
                         </NavLink>
 
                         {/* Mostrar subitems siempre en mobile si está activo */}
                         {item.subItems && location.pathname.startsWith(item.path) && (
-                          <div className="ml-9 space-y-1">
+                          <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                             {item.subItems.map((sub) => {
                               const isSubActive =
                                 location.pathname + location.search === sub.path ||
@@ -265,13 +265,13 @@ export function Layout({ children }: { children: ReactNode }) {
                                   to={sub.path}
                                   onClick={() => setMobileMenuOpen(false)}
                                   className={cn(
-                                    "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-theme",
+                                    "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
                                     isSubActive
                                       ? "text-foreground"
-                                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
                                   )}
                                 >
-                                  <sub.icon className="h-3.5 w-3.5" />
+                                  <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
                                   <span>{sub.title}</span>
                                 </NavLink>
                               );
@@ -288,13 +288,13 @@ export function Layout({ children }: { children: ReactNode }) {
                     to="/nav-admin"
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-theme mt-2 border-t border-border/40 pt-3",
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out mt-2 border-t border-border/40 pt-3",
                       location.pathname === "/nav-admin"
                         ? "bg-primary/15 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
                     )}
                   >
-                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    <ShieldCheck className="h-4 w-4 shrink-0 transition-transform duration-200" />
                     <span>Permisos Nav</span>
                   </NavLink>
                 )}
@@ -355,7 +355,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {/* Avatar */}
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold">
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold transition-all duration-300 ease-out hover:shadow-md hover:scale-105">
               {userInitials}
             </div>
             {/* Nombre usuario - solo desktop */}

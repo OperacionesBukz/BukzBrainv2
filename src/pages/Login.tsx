@@ -42,12 +42,12 @@ const Login = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-8 rounded-2xl border border-border bg-card p-8 shadow-lg">
+      <div className="w-full max-w-sm space-y-8 rounded-2xl border border-border bg-card p-8 shadow-lg animate-fade-in-scale">
         <div className="flex flex-col items-center gap-4">
           <img
             src={logoSrc}
             alt="BUKZ"
-            className="h-12 object-contain dark:invert"
+            className="h-12 object-contain dark:invert transition-all duration-500 ease-out hover:scale-105"
           />
           <p className="text-sm text-muted-foreground">
             Inicia sesión en tu cuenta de <span className="text-foreground font-semibold">BukzBrain</span>
@@ -87,7 +87,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-theme"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-110"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />

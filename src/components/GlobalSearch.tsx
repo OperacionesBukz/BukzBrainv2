@@ -53,7 +53,7 @@ export function GlobalSearch() {
 
   return (
     <div ref={ref} className="relative w-full max-w-sm">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200" />
       <Input
         placeholder="Buscar módulos, guías..."
         value={query}
@@ -65,7 +65,7 @@ export function GlobalSearch() {
         className="pl-9 h-9 text-sm"
       />
       {open && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-fade-in">
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-slide-up-fade">
           {results.map((item, i) => (
             <button
               key={i}
@@ -74,13 +74,13 @@ export function GlobalSearch() {
                 setQuery("");
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/50 transition-theme"
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/50 transition-all duration-150 ease-out hover:pl-5"
             >
-              <item.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <item.icon className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
               <div className="flex-1 min-w-0">
                 <p className="text-foreground truncate">{item.title}</p>
               </div>
-              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full transition-all duration-200">
                 {item.category}
               </span>
             </button>
