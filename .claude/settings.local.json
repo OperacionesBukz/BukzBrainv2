@@ -9,7 +9,24 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(while read ref)",
+      "Bash(do git update-ref -d \"$ref\")",
+      "Bash(done)",
+      "Bash(git reflog expire:*)",
+      "Bash(git gc:*)",
+      "mcp__plugin_firebase_firebase__firebase_validate_security_rules",
+      "mcp__plugin_firebase_firebase__firebase_get_environment",
+      "mcp__plugin_firebase_firebase__firestore_get_documents",
+      "Bash(where:*)",
+      "Bash(cd:*)",
+      "mcp__plugin_firebase_firebase__firebase_get_security_rules",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx vite build:*)",
+      "Bash(node -e:*)",
+      "Bash(netstat:*)",
+      "Bash(git status:*)",
+      "Skill(commit-commands:commit-push-pr)"
     ]
   }
 }
