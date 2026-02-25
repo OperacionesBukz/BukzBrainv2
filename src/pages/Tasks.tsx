@@ -115,6 +115,7 @@ const Tasks = () => {
   const [loading, setLoading] = useState(true);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<"create" | "assign">("create");
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
 
   // Personal task creation dates
   const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
@@ -634,47 +635,105 @@ const Tasks = () => {
         </p>
       </div>
 
-      <div className="hidden md:flex flex-col gap-2">
-        <div className="flex flex-col md:flex-row gap-2">
-          <Input
-            placeholder="Nueva tarea..."
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTask()}
-            className="flex-1 w-full"
-          />
-          <select
-            value={newTaskPriority}
-            onChange={(e) => setNewTaskPriority(e.target.value)}
-            className="h-10 flex-1 md:flex-none rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {priorities.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-          <Button onClick={addTask} className="gap-1.5 flex-1 md:flex-none">
-            <Plus className="h-4 w-4" /> Agregar
-          </Button>
-          {canAssign && (
-            <Button variant="outline" onClick={() => setAssignDialogOpen(true)} className="gap-1.5 flex-1 md:flex-none">
-              <UserPlus className="h-4 w-4" /> Asignar
-            </Button>
-          )}
-        </div>
-        <div className="flex flex-col md:flex-row gap-2">
-          <DatePickerButton
-            value={newStartDate}
-            onChange={setNewStartDate}
-            placeholder="Fecha inicio"
-            className="flex-1"
-          />
-          <DatePickerButton
-            value={newDueDate}
-            onChange={setNewDueDate}
-            placeholder="Fecha límite"
-            className="flex-1"
-          />
-        </div>
+      <div className="hidden md:block">
+        {!showNewTaskForm ? (
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowNewTaskForm(true)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              <span className="flex items-center justify-center h-6 w-6 rounded-full border border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 transition-all text-yellow-500">
+                <Plus className="h-3.5 w-3.5" />
+              </span>
+              Nueva tarea
+            </button>
+            {canAssign && (
+              <button
+                onClick={() => setAssignDialogOpen(true)}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+              >
+                <span className="flex items-center justify-center h-6 w-6 rounded-full border border-primary/40 bg-primary/10 group-hover:bg-primary/20 group-hover:border-primary transition-all text-primary">
+                  <UserPlus className="h-3.5 w-3.5" />
+                </span>
+                Asignar tarea
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 bg-card p-4 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+            <Input
+              placeholder="Título de la tarea..."
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              autoFocus
+              className="text-sm"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {priorities.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setNewTaskPriority(p)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-all",
+                    newTaskPriority === p
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
+                <DatePickerButton
+                  value={newStartDate}
+                  onChange={setNewStartDate}
+                  placeholder="Sin fecha"
+                  className="h-8 flex-1 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
+                <DatePickerButton
+                  value={newDueDate}
+                  onChange={setNewDueDate}
+                  placeholder="Sin fecha"
+                  className="h-8 flex-1 text-xs"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowNewTaskForm(false);
+                  setNewTaskTitle("");
+                  setNewTaskPriority("Media");
+                  setNewStartDate(undefined);
+                  setNewDueDate(undefined);
+                }}
+                className="text-xs h-8"
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  const ok = await addTask();
+                  if (ok) setShowNewTaskForm(false);
+                }}
+                disabled={!newTaskTitle.trim()}
+                className="text-xs h-8 px-4 gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Agregar tarea
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile FAB */}
