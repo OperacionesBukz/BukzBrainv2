@@ -37,6 +37,7 @@ import {
   Info,
   RotateCcw,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -317,11 +318,12 @@ export default function NavigationAdmin() {
           <div className="grid gap-3 sm:grid-cols-2">
             {PAGE_DEFINITIONS.map((page) => {
               const enabled = defaultPages[page.path] ?? true;
+              const isSaving = saving === "_default";
               return (
                 <div
                   key={page.path}
                   className={cn(
-                    "flex items-center justify-between gap-3 rounded-lg border p-3 transition-all",
+                    "flex items-center justify-between gap-3 rounded-lg border p-3 transition-all duration-200",
                     enabled
                       ? "border-border bg-card"
                       : "border-dashed border-border/50 bg-muted/20 opacity-60"
@@ -340,11 +342,16 @@ export default function NavigationAdmin() {
                       </p>
                     </div>
                   </div>
-                  <Switch
-                    checked={enabled}
-                    onCheckedChange={(v) => toggleDefault(page.path, v)}
-                    disabled={saving === "_default"}
-                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isSaving && (
+                      <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                    )}
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={(v) => toggleDefault(page.path, v)}
+                      className={cn(isSaving && "pointer-events-none opacity-70")}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -455,11 +462,12 @@ export default function NavigationAdmin() {
                     <div className="grid gap-1.5 sm:grid-cols-2 mb-3">
                       {PAGE_DEFINITIONS.map((page) => {
                         const enabled = effectivePages[page.path] ?? true;
+                        const isSaving = saving === u.email;
                         return (
                           <div
                             key={page.path}
                             className={cn(
-                              "flex items-center justify-between gap-3 rounded-md px-3 py-2 transition-all",
+                              "flex items-center justify-between gap-3 rounded-md px-3 py-2 transition-all duration-200",
                               enabled ? "bg-muted/30" : "opacity-50"
                             )}
                           >
@@ -474,13 +482,18 @@ export default function NavigationAdmin() {
                                 </span>
                               )}
                             </div>
-                            <Switch
-                              checked={enabled}
-                              onCheckedChange={(v) =>
-                                toggleUser(u.email, page.path, v, u.pages)
-                              }
-                              disabled={saving === u.email}
-                            />
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isSaving && (
+                                <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                              )}
+                              <Switch
+                                checked={enabled}
+                                onCheckedChange={(v) =>
+                                  toggleUser(u.email, page.path, v, u.pages)
+                                }
+                                className={cn(isSaving && "pointer-events-none opacity-70")}
+                              />
+                            </div>
                           </div>
                         );
                       })}
