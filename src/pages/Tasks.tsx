@@ -678,6 +678,7 @@ const Tasks = () => {
 
       {/* Mobile FAB */}
       <button
+        type="button"
         onClick={() => setCreateSheetOpen(true)}
         className="md:hidden fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
         aria-label="Nueva tarea"
@@ -700,7 +701,12 @@ const Tasks = () => {
               placeholder="Título de la tarea..."
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") {
+                  const ok = await addTask();
+                  if (ok) setCreateSheetOpen(false);
+                }
+              }}
               className="w-full"
               autoFocus
             />
