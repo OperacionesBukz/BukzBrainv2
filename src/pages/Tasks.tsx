@@ -197,8 +197,8 @@ const Tasks = () => {
     return () => { unsub1(); unsub2(); };
   }, [user]);
 
-  const addTask = async () => {
-    if (!newTaskTitle.trim() || !user) return;
+  const addTask = async (): Promise<boolean> => {
+    if (!newTaskTitle.trim() || !user) return false;
 
     try {
       const newTaskData: Record<string, any> = {
@@ -216,12 +216,15 @@ const Tasks = () => {
 
       await addDoc(collection(db, "user_tasks"), newTaskData);
       setNewTaskTitle("");
+      setNewTaskPriority("Media");
       setNewStartDate(undefined);
       setNewDueDate(undefined);
       toast.success("Tarea agregada");
+      return true;
     } catch (error) {
       console.error("Error adding task:", error);
       toast.error("Error al guardar la tarea");
+      return false;
     }
   };
 
@@ -683,7 +686,7 @@ const Tasks = () => {
       </button>
 
       {/* Mobile bottom Sheet */}
-      <Sheet open={createSheetOpen} onOpenChange={setCreateSheetOpen}>
+      <Sheet open={createSheetOpen && isMobile} onOpenChange={setCreateSheetOpen}>
         <SheetContent
           side="bottom"
           className="md:hidden rounded-t-2xl px-4 pb-8 pt-4"
@@ -721,9 +724,9 @@ const Tasks = () => {
               placeholder="Fecha límite"
             />
             <Button
-              onClick={() => {
-                addTask();
-                setCreateSheetOpen(false);
+              onClick={async () => {
+                const ok = await addTask();
+                if (ok) setCreateSheetOpen(false);
               }}
               disabled={!newTaskTitle.trim()}
               className="w-full gap-1.5"
