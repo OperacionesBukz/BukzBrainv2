@@ -45,10 +45,19 @@ export function DatePickerButton({
             <span
               role="button"
               aria-label="Limpiar fecha"
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation();
                 onChange(undefined);
                 setOpen(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange(undefined);
+                  setOpen(false);
+                }
               }}
               className="ml-1 rounded-sm opacity-60 hover:opacity-100"
             >
