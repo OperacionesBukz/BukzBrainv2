@@ -114,6 +114,7 @@ const Tasks = () => {
   const [newTaskPriority, setNewTaskPriority] = useState("Media");
   const [loading, setLoading] = useState(true);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [sheetTab, setSheetTab] = useState<"create" | "assign">("create");
 
   // Personal task creation dates
   const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
@@ -687,59 +688,151 @@ const Tasks = () => {
       </button>
 
       {/* Mobile bottom Sheet */}
-      <Sheet open={createSheetOpen && isMobile} onOpenChange={setCreateSheetOpen}>
+      <Sheet open={createSheetOpen && isMobile} onOpenChange={(open) => {
+        setCreateSheetOpen(open);
+        if (!open) setSheetTab("create");
+      }}>
         <SheetContent
           side="bottom"
-          className="md:hidden rounded-t-2xl px-4 pb-8 pt-4"
+          className="md:hidden rounded-t-2xl px-4 pb-8 pt-4 max-h-[90vh] overflow-y-auto"
         >
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/30" />
           <SheetHeader className="mb-4">
-            <SheetTitle className="text-left">Nueva tarea</SheetTitle>
+            <SheetTitle className="text-left">
+              {canAssign ? (
+                <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setSheetTab("create")}
+                    className={cn(
+                      "flex-1 py-1.5 text-sm font-medium rounded-md transition-colors",
+                      sheetTab === "create"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    Para mí
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSheetTab("assign")}
+                    className={cn(
+                      "flex-1 py-1.5 text-sm font-medium rounded-md transition-colors",
+                      sheetTab === "assign"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    Asignar
+                  </button>
+                </div>
+              ) : "Nueva tarea"}
+            </SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col gap-3">
-            <Input
-              placeholder="Título de la tarea..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === "Enter") {
+
+          {sheetTab === "create" ? (
+            <div className="flex flex-col gap-3">
+              <Input
+                placeholder="Título de la tarea..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    const ok = await addTask();
+                    if (ok) setCreateSheetOpen(false);
+                  }
+                }}
+                className="w-full"
+                autoFocus
+              />
+              <select
+                value={newTaskPriority}
+                onChange={(e) => setNewTaskPriority(e.target.value)}
+                className="h-10 w-full rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {priorities.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <DatePickerButton
+                value={newStartDate}
+                onChange={setNewStartDate}
+                placeholder="Fecha inicio"
+              />
+              <DatePickerButton
+                value={newDueDate}
+                onChange={setNewDueDate}
+                placeholder="Fecha límite"
+              />
+              <Button
+                onClick={async () => {
                   const ok = await addTask();
                   if (ok) setCreateSheetOpen(false);
-                }
-              }}
-              className="w-full"
-              autoFocus
-            />
-            <select
-              value={newTaskPriority}
-              onChange={(e) => setNewTaskPriority(e.target.value)}
-              className="h-10 w-full rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {priorities.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-            <DatePickerButton
-              value={newStartDate}
-              onChange={setNewStartDate}
-              placeholder="Fecha inicio"
-            />
-            <DatePickerButton
-              value={newDueDate}
-              onChange={setNewDueDate}
-              placeholder="Fecha límite"
-            />
-            <Button
-              onClick={async () => {
-                const ok = await addTask();
-                if (ok) setCreateSheetOpen(false);
-              }}
-              disabled={!newTaskTitle.trim()}
-              className="w-full gap-1.5"
-            >
-              <Plus className="h-4 w-4" /> Agregar tarea
-            </Button>
-          </div>
+                }}
+                disabled={!newTaskTitle.trim()}
+                className="w-full gap-1.5"
+              >
+                <Plus className="h-4 w-4" /> Agregar tarea
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <Select value={assignTo} onValueChange={setAssignTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Asignar a..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignableUsers
+                    .filter(u => u.email !== user?.email)
+                    .map(u => (
+                      <SelectItem key={u.email} value={u.email}>{u.label}</SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Título de la tarea..."
+                value={assignTitle}
+                onChange={(e) => setAssignTitle(e.target.value)}
+              />
+              <Select value={assignPriority} onValueChange={setAssignPriority}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DatePickerButton
+                value={assignStartDate}
+                onChange={setAssignStartDate}
+                placeholder="Fecha inicio"
+              />
+              <DatePickerButton
+                value={assignDueDate}
+                onChange={setAssignDueDate}
+                placeholder="Fecha límite"
+              />
+              <Textarea
+                placeholder="Notas (opcional)..."
+                value={assignNotes}
+                onChange={(e) => setAssignNotes(e.target.value)}
+                className="min-h-[70px] text-sm resize-none"
+              />
+              <Button
+                onClick={async () => {
+                  await assignTask();
+                  setCreateSheetOpen(false);
+                }}
+                disabled={!assignTitle.trim() || !assignTo}
+                className="w-full gap-1.5"
+              >
+                <UserPlus className="h-4 w-4" /> Asignar tarea
+              </Button>
+            </div>
+          )}
         </SheetContent>
       </Sheet>
 
