@@ -94,6 +94,11 @@ const priorityColor: Record<string, string> = {
   Urgente: "bg-destructive/15 text-destructive",
 };
 
+const formatDate = (d: string) => format(new Date(d + "T00:00:00"), "dd MMM", { locale: es });
+
+const toDate = (s: string | undefined): Date | undefined =>
+  s ? new Date(s + "T00:00:00") : undefined;
+
 const Tasks = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -419,9 +424,6 @@ const Tasks = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isOverdue = task.dueDate ? (new Date(task.dueDate + "T00:00:00") < today && !isDone) : false;
-    const formatDate = (d: string) => format(new Date(d + "T00:00:00"), "dd MMM", { locale: es });
-    const toDate = (s: string | undefined): Date | undefined =>
-      s ? new Date(s + "T00:00:00") : undefined;
 
     return (
       <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -587,7 +589,7 @@ const Tasks = () => {
                         placeholder="Sin fecha"
                         className={cn(
                           "h-8 flex-1 text-xs",
-                          isOverdue && "border-destructive/50 text-destructive"
+                          isOverdue && "border-destructive/50 bg-destructive/5 text-destructive"
                         )}
                       />
                     </div>
