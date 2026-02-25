@@ -17,7 +17,7 @@ import {
   CheckCircle2,
   UserPlus,
   User as UserIcon,
-  Calendar,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { DatePickerButton } from "@/components/ui/date-picker";
 
 interface SubTask {
   id: string;
@@ -103,8 +104,8 @@ const Tasks = () => {
   const [loading, setLoading] = useState(true);
 
   // Personal task creation dates
-  const [newStartDate, setNewStartDate] = useState("");
-  const [newDueDate, setNewDueDate] = useState("");
+  const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
+  const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
 
   // Assign task dialog
   const canAssign = adminEmails.includes(user?.email || "");
@@ -114,8 +115,8 @@ const Tasks = () => {
   const [assignTo, setAssignTo] = useState("");
   const [assignNotes, setAssignNotes] = useState("");
   const [assignSubtasks, setAssignSubtasks] = useState<SubTask[]>([]);
-  const [assignStartDate, setAssignStartDate] = useState("");
-  const [assignDueDate, setAssignDueDate] = useState("");
+  const [assignStartDate, setAssignStartDate] = useState<Date | undefined>(undefined);
+  const [assignDueDate, setAssignDueDate] = useState<Date | undefined>(undefined);
 
   // Fetch private tasks from Firestore (own tasks + tasks assigned to me)
   useEffect(() => {
@@ -198,13 +199,13 @@ const Tasks = () => {
         createdAt: serverTimestamp(),
         order: Date.now(),
       };
-      if (newStartDate) newTaskData.startDate = newStartDate;
-      if (newDueDate) newTaskData.dueDate = newDueDate;
+      if (newStartDate) newTaskData.startDate = format(newStartDate, "yyyy-MM-dd");
+      if (newDueDate) newTaskData.dueDate = format(newDueDate, "yyyy-MM-dd");
 
       await addDoc(collection(db, "user_tasks"), newTaskData);
       setNewTaskTitle("");
-      setNewStartDate("");
-      setNewDueDate("");
+      setNewStartDate(undefined);
+      setNewDueDate(undefined);
       toast.success("Tarea agregada");
     } catch (error) {
       console.error("Error adding task:", error);
@@ -228,16 +229,16 @@ const Tasks = () => {
         createdAt: serverTimestamp(),
         order: Date.now(),
       };
-      if (assignStartDate) assignData.startDate = assignStartDate;
-      if (assignDueDate) assignData.dueDate = assignDueDate;
+      if (assignStartDate) assignData.startDate = format(assignStartDate, "yyyy-MM-dd");
+      if (assignDueDate) assignData.dueDate = format(assignDueDate, "yyyy-MM-dd");
       await addDoc(collection(db, "user_tasks"), assignData);
       setAssignTitle("");
       setAssignPriority("Media");
       setAssignTo("");
       setAssignNotes("");
       setAssignSubtasks([]);
-      setAssignStartDate("");
-      setAssignDueDate("");
+      setAssignStartDate(undefined);
+      setAssignDueDate(undefined);
       setAssignDialogOpen(false);
       toast.success("Tarea asignada correctamente");
     } catch (error) {
@@ -419,6 +420,8 @@ const Tasks = () => {
     today.setHours(0, 0, 0, 0);
     const isOverdue = task.dueDate ? (new Date(task.dueDate + "T00:00:00") < today && !isDone) : false;
     const formatDate = (d: string) => format(new Date(d + "T00:00:00"), "dd MMM", { locale: es });
+    const toDate = (s: string | undefined): Date | undefined =>
+      s ? new Date(s + "T00:00:00") : undefined;
 
     return (
       <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -484,7 +487,7 @@ const Tasks = () => {
                       ? "text-destructive bg-destructive/10 border-destructive/30"
                       : "text-muted-foreground bg-muted/50 border-border"
                   )}>
-                    <Calendar className="h-2.5 w-2.5" />
+                    <CalendarIcon className="h-2.5 w-2.5" />
                     <span>
                       {task.startDate && formatDate(task.startDate)}
                       {task.startDate && task.dueDate && " → "}
@@ -564,29 +567,27 @@ const Tasks = () => {
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" /> Fechas
+                    <CalendarIcon className="h-3 w-3" /> Fechas
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <div className="flex items-center gap-2 flex-1">
-                      <label className="text-xs text-muted-foreground whitespace-nowrap w-10">Inicio</label>
-                      <input
-                        type="date"
-                        value={task.startDate || ""}
-                        onChange={(e) => updateTask(task.id, { startDate: e.target.value || undefined })}
-                        className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      <label className="text-xs text-muted-foreground whitespace-nowrap w-10 shrink-0">Inicio</label>
+                      <DatePickerButton
+                        value={toDate(task.startDate)}
+                        onChange={(d) => updateTask(task.id, { startDate: d ? format(d, "yyyy-MM-dd") : undefined })}
+                        placeholder="Sin fecha"
+                        className="h-8 flex-1 text-xs"
                       />
                     </div>
                     <div className="flex items-center gap-2 flex-1">
-                      <label className={cn("text-xs whitespace-nowrap w-10", isOverdue ? "text-destructive" : "text-muted-foreground")}>Límite</label>
-                      <input
-                        type="date"
-                        value={task.dueDate || ""}
-                        onChange={(e) => updateTask(task.id, { dueDate: e.target.value || undefined })}
+                      <label className={cn("text-xs whitespace-nowrap w-10 shrink-0", isOverdue ? "text-destructive" : "text-muted-foreground")}>Límite</label>
+                      <DatePickerButton
+                        value={toDate(task.dueDate)}
+                        onChange={(d) => updateTask(task.id, { dueDate: d ? format(d, "yyyy-MM-dd") : undefined })}
+                        placeholder="Sin fecha"
                         className={cn(
-                          "h-8 flex-1 rounded-md border px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring",
-                          isOverdue
-                            ? "border-destructive/50 bg-destructive/5 text-destructive"
-                            : "border-border bg-background text-foreground"
+                          "h-8 flex-1 text-xs",
+                          isOverdue && "border-destructive/50 text-destructive"
                         )}
                       />
                     </div>
@@ -648,26 +649,18 @@ const Tasks = () => {
           )}
         </div>
         <div className="flex flex-col md:flex-row gap-2">
-          <div className="flex items-center gap-2 flex-1">
-            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-            <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
-            <input
-              type="date"
-              value={newStartDate}
-              onChange={(e) => setNewStartDate(e.target.value)}
-              className="h-9 flex-1 rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div className="flex items-center gap-2 flex-1">
-            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-            <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
-            <input
-              type="date"
-              value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
-              className="h-9 flex-1 rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
+          <DatePickerButton
+            value={newStartDate}
+            onChange={setNewStartDate}
+            placeholder="Fecha inicio"
+            className="flex-1"
+          />
+          <DatePickerButton
+            value={newDueDate}
+            onChange={setNewDueDate}
+            placeholder="Fecha límite"
+            className="flex-1"
+          />
         </div>
       </div>
 
@@ -718,24 +711,22 @@ const Tasks = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" /> Fecha inicio
+                  <CalendarIcon className="h-3.5 w-3.5" /> Fecha inicio
                 </label>
-                <input
-                  type="date"
+                <DatePickerButton
                   value={assignStartDate}
-                  onChange={(e) => setAssignStartDate(e.target.value)}
-                  className="h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={setAssignStartDate}
+                  placeholder="Inicio"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" /> Fecha límite
+                  <CalendarIcon className="h-3.5 w-3.5" /> Fecha límite
                 </label>
-                <input
-                  type="date"
+                <DatePickerButton
                   value={assignDueDate}
-                  onChange={(e) => setAssignDueDate(e.target.value)}
-                  className="h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={setAssignDueDate}
+                  placeholder="Límite"
                 />
               </div>
             </div>
