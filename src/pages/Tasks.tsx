@@ -122,6 +122,22 @@ const Tasks = () => {
   const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
   const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
 
+  // Close new-task form on Escape
+  useEffect(() => {
+    if (!showNewTaskForm) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowNewTaskForm(false);
+        setNewTaskTitle("");
+        setNewTaskPriority("Media");
+        setNewStartDate(undefined);
+        setNewDueDate(undefined);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showNewTaskForm]);
+
   // Assign task dialog
   const canAssign = adminEmails.includes(user?.email || "");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -655,8 +671,8 @@ const Tasks = () => {
             <span className={cn(
               "flex items-center justify-center h-6 w-6 rounded-full border transition-all",
               showNewTaskForm
-                ? "border-yellow-400 bg-yellow-400/20 text-yellow-500"
-                : "border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 text-yellow-500"
+                ? "border-yellow-400 bg-yellow-400/20 text-black dark:text-yellow-500"
+                : "border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 text-black dark:text-yellow-500"
             )}>
               {showNewTaskForm ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             </span>
@@ -667,7 +683,7 @@ const Tasks = () => {
               onClick={() => setAssignDialogOpen(true)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
             >
-              <span className="flex items-center justify-center h-6 w-6 rounded-full border border-primary/40 bg-primary/10 group-hover:bg-primary/20 group-hover:border-primary transition-all text-primary">
+              <span className="flex items-center justify-center h-6 w-6 rounded-full border border-primary/40 bg-primary/10 group-hover:bg-primary/20 group-hover:border-primary transition-all text-black dark:text-primary">
                 <UserPlus className="h-3.5 w-3.5" />
               </span>
               Asignar tarea

@@ -278,7 +278,7 @@ export default function NavigationAdmin() {
       {/* Header */}
       <div className="flex items-start gap-4">
         <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-          <Settings2 className="h-5 w-5 text-primary" />
+          <Settings2 className="h-5 w-5 text-black dark:text-primary" />
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -305,7 +305,7 @@ export default function NavigationAdmin() {
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <ShieldCheck className="h-4 w-4 text-black dark:text-primary" />
             <CardTitle className="text-base">
               Configuración por defecto
             </CardTitle>

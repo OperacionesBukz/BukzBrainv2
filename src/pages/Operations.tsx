@@ -88,6 +88,21 @@ const Operations = () => {
   const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [filterDept, setFilterDept] = useState("All");
+
+  // Close new-task form on Escape
+  useEffect(() => {
+    if (!showNewTaskForm) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowNewTaskForm(false);
+        setNewTaskTitle("");
+        setNewStartDate(undefined);
+        setNewDueDate(undefined);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showNewTaskForm]);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "tasks";
 
@@ -617,8 +632,8 @@ const Operations = () => {
               <span className={cn(
                 "flex items-center justify-center h-6 w-6 rounded-full border transition-all",
                 showNewTaskForm
-                  ? "border-yellow-400 bg-yellow-400/20 text-yellow-500"
-                  : "border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 text-yellow-500"
+                  ? "border-yellow-400 bg-yellow-400/20 text-black dark:text-yellow-500"
+                  : "border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 text-black dark:text-yellow-500"
               )}>
                 {showNewTaskForm ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               </span>
