@@ -10,6 +10,7 @@ import {
 } from "@hello-pangea/dnd";
 import {
   Plus,
+  Minus,
   ChevronDown,
   ChevronRight,
   Trash2,
@@ -600,18 +601,32 @@ const Operations = () => {
         <TabsContent value="tasks" className="space-y-6 mt-0">
           {/* Add task */}
           <div>
-            {!showNewTaskForm ? (
-              <button
-                onClick={() => setShowNewTaskForm(true)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-              >
-                <span className="flex items-center justify-center h-6 w-6 rounded-full border border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 transition-all text-yellow-500">
-                  <Plus className="h-3.5 w-3.5" />
-                </span>
-                Nueva tarea
-              </button>
-            ) : (
-              <div className="flex flex-col gap-1.5 bg-card p-2.5 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg">
+            <button
+              onClick={() => {
+                if (showNewTaskForm) {
+                  setShowNewTaskForm(false);
+                  setNewTaskTitle("");
+                  setNewStartDate(undefined);
+                  setNewDueDate(undefined);
+                } else {
+                  setShowNewTaskForm(true);
+                }
+              }}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              <span className={cn(
+                "flex items-center justify-center h-6 w-6 rounded-full border transition-all",
+                showNewTaskForm
+                  ? "border-yellow-400 bg-yellow-400/20 text-yellow-500"
+                  : "border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 text-yellow-500"
+              )}>
+                {showNewTaskForm ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              </span>
+              Nueva tarea
+            </button>
+
+            {showNewTaskForm && (
+              <div className="flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg mt-2">
                 {/* Fila 1: Input título + Select departamento */}
                 <div className="flex items-center gap-1.5">
                   <Input
@@ -620,47 +635,39 @@ const Operations = () => {
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addTask()}
                     autoFocus
-                    className="h-7 text-xs px-2 flex-1"
+                    className="h-8 text-sm px-3 flex-1"
                   />
                   <select
                     value={newTaskDept}
                     onChange={(e) => setNewTaskDept(e.target.value)}
-                    className="h-7 rounded-md border border-border bg-secondary px-2 text-xs text-muted-foreground shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
+                    className="h-8 rounded-md border border-border bg-secondary px-2 text-xs text-muted-foreground shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
                   >
                     {departments.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
                 </div>
-                {/* Fila 2: Fechas + acciones */}
+                {/* Fila 2: Fechas + Agregar */}
                 <div className="flex items-center gap-1.5">
                   <DatePickerButton
                     value={newStartDate}
                     onChange={setNewStartDate}
                     placeholder="Inicio"
-                    className="h-6 w-24 text-xs shrink-0"
+                    className="h-7 min-w-[90px] text-xs shrink-0"
                   />
                   <DatePickerButton
                     value={newDueDate}
                     onChange={setNewDueDate}
                     placeholder="Límite"
-                    className="h-6 w-24 text-xs shrink-0"
+                    className="h-7 min-w-[90px] text-xs shrink-0"
                   />
                   <div className="flex-1" />
                   <Button
-                    variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setShowNewTaskForm(false);
-                      setNewTaskTitle("");
-                      setNewStartDate(undefined);
-                      setNewDueDate(undefined);
-                    }}
-                    className="h-6 text-xs px-2"
+                    onClick={addTask}
+                    disabled={!newTaskTitle.trim()}
+                    className="h-7 text-xs px-3 gap-1"
                   >
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={addTask} disabled={!newTaskTitle.trim()} className="h-6 text-xs px-3 gap-1">
                     <Plus className="h-3 w-3" /> Agregar
                   </Button>
                 </div>

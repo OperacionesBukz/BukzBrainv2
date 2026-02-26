@@ -9,6 +9,7 @@ import {
 } from "@hello-pangea/dnd";
 import {
   Plus,
+  Minus,
   ChevronDown,
   ChevronRight,
   Trash2,
@@ -636,31 +637,46 @@ const Tasks = () => {
       </div>
 
       <div className="hidden md:block">
-        {!showNewTaskForm ? (
-          <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              if (showNewTaskForm) {
+                setShowNewTaskForm(false);
+                setNewTaskTitle("");
+                setNewTaskPriority("Media");
+                setNewStartDate(undefined);
+                setNewDueDate(undefined);
+              } else {
+                setShowNewTaskForm(true);
+              }
+            }}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+          >
+            <span className={cn(
+              "flex items-center justify-center h-6 w-6 rounded-full border transition-all",
+              showNewTaskForm
+                ? "border-yellow-400 bg-yellow-400/20 text-yellow-500"
+                : "border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 text-yellow-500"
+            )}>
+              {showNewTaskForm ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            </span>
+            Nueva tarea
+          </button>
+          {canAssign && (
             <button
-              onClick={() => setShowNewTaskForm(true)}
+              onClick={() => setAssignDialogOpen(true)}
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
             >
-              <span className="flex items-center justify-center h-6 w-6 rounded-full border border-yellow-400/60 bg-yellow-400/10 group-hover:bg-yellow-400/20 group-hover:border-yellow-400 transition-all text-yellow-500">
-                <Plus className="h-3.5 w-3.5" />
+              <span className="flex items-center justify-center h-6 w-6 rounded-full border border-primary/40 bg-primary/10 group-hover:bg-primary/20 group-hover:border-primary transition-all text-primary">
+                <UserPlus className="h-3.5 w-3.5" />
               </span>
-              Nueva tarea
+              Asignar tarea
             </button>
-            {canAssign && (
-              <button
-                onClick={() => setAssignDialogOpen(true)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-              >
-                <span className="flex items-center justify-center h-6 w-6 rounded-full border border-primary/40 bg-primary/10 group-hover:bg-primary/20 group-hover:border-primary transition-all text-primary">
-                  <UserPlus className="h-3.5 w-3.5" />
-                </span>
-                Asignar tarea
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5 bg-card p-2.5 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg">
+          )}
+        </div>
+
+        {showNewTaskForm && (
+          <div className="flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg mt-2">
             {/* Fila 1: Input título + Select prioridad */}
             <div className="flex items-center gap-1.5">
               <Input
@@ -669,12 +685,12 @@ const Tasks = () => {
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addTask()}
                 autoFocus
-                className="h-7 text-xs px-2 flex-1"
+                className="h-8 text-sm px-3 flex-1"
               />
               <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
                 <SelectTrigger
                   className={cn(
-                    "h-7 w-auto min-w-[80px] text-xs px-2 shrink-0 border-0 focus:ring-1 gap-1",
+                    "h-8 w-auto min-w-[88px] text-xs px-2 shrink-0 border-0 focus:ring-1 gap-1",
                     priorityColor[newTaskPriority] || "bg-muted text-muted-foreground"
                   )}
                 >
@@ -687,35 +703,21 @@ const Tasks = () => {
                 </SelectContent>
               </Select>
             </div>
-            {/* Fila 2: Fechas + acciones */}
+            {/* Fila 2: Fechas + Agregar */}
             <div className="flex items-center gap-1.5">
               <DatePickerButton
                 value={newStartDate}
                 onChange={setNewStartDate}
                 placeholder="Inicio"
-                className="h-6 w-24 text-xs shrink-0"
+                className="h-7 min-w-[90px] text-xs shrink-0"
               />
               <DatePickerButton
                 value={newDueDate}
                 onChange={setNewDueDate}
                 placeholder="Límite"
-                className="h-6 w-24 text-xs shrink-0"
+                className="h-7 min-w-[90px] text-xs shrink-0"
               />
               <div className="flex-1" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowNewTaskForm(false);
-                  setNewTaskTitle("");
-                  setNewTaskPriority("Media");
-                  setNewStartDate(undefined);
-                  setNewDueDate(undefined);
-                }}
-                className="h-6 text-xs px-2"
-              >
-                Cancelar
-              </Button>
               <Button
                 size="sm"
                 onClick={async () => {
@@ -723,7 +725,7 @@ const Tasks = () => {
                   if (ok) setShowNewTaskForm(false);
                 }}
                 disabled={!newTaskTitle.trim()}
-                className="h-6 text-xs px-3 gap-1"
+                className="h-7 text-xs px-3 gap-1"
               >
                 <Plus className="h-3 w-3" /> Agregar
               </Button>
