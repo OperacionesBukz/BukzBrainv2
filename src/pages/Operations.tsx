@@ -610,7 +610,7 @@ const Operations = () => {
                 Nueva tarea
               </button>
             ) : (
-              <div className="flex flex-col gap-1.5 bg-card p-2.5 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex flex-col gap-1.5 bg-card p-2.5 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg">
                 {/* Fila 1: Input título + Select departamento */}
                 <div className="flex items-center gap-1.5">
                   <Input
