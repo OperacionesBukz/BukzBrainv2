@@ -1,8 +1,20 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
+
+/** Copy index.html → 404.html so GitHub Pages serves the SPA on any route. */
+function ghPages404Plugin(): Plugin {
+  return {
+    name: "gh-pages-404",
+    closeBundle() {
+      const dist = path.resolve(__dirname, "dist");
+      fs.copyFileSync(path.join(dist, "index.html"), path.join(dist, "404.html"));
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -119,6 +131,7 @@ export default defineConfig(({ mode }) => ({
         enabled: false,
       },
     }),
+    ghPages404Plugin(),
   ].filter(Boolean),
   resolve: {
     alias: {

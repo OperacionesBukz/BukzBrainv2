@@ -28,21 +28,6 @@
   <!-- iOS Splash Screens (optional) -->
   <meta name="apple-mobile-web-app-status-bar" content="#000000" />
 
-  <!-- GitHub Pages SPA: restore path from 404.html redirect -->
-  <script>
-    (function () {
-      var q = new URLSearchParams(window.location.search);
-      var p = q.get('ghp');
-      if (p) {
-        q.delete('ghp');
-        var rest = q.toString();
-        window.history.replaceState(null, '',
-          p + (rest ? '?' + rest : '') + window.location.hash
-        );
-      }
-    })();
-  </script>
-
   <title>BukzBrain</title>
   <meta name="description" content="Sistema de gestión operativa y tareas - Bukz" />
   <meta name="author" content="Bukz" />
