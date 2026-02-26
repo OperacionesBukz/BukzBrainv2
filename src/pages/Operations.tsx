@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePickerButton } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -82,8 +83,8 @@ const Operations = () => {
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDept, setNewTaskDept] = useState("General");
-  const [newStartDate, setNewStartDate] = useState("");
-  const [newDueDate, setNewDueDate] = useState("");
+  const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
+  const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [filterDept, setFilterDept] = useState("All");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,8 +134,8 @@ const Operations = () => {
         createdAt: serverTimestamp(),
         order: Date.now(),
       };
-      if (newStartDate) newTaskData.startDate = newStartDate;
-      if (newDueDate) newTaskData.dueDate = newDueDate;
+      if (newStartDate) newTaskData.startDate = format(newStartDate, "yyyy-MM-dd");
+      if (newDueDate) newTaskData.dueDate = format(newDueDate, "yyyy-MM-dd");
       await addDoc(collection(db, "tasks"), newTaskData);
       setNewTaskTitle("");
       setNewStartDate("");
@@ -633,17 +634,17 @@ const Operations = () => {
                 </div>
                 {/* Fila 2: Fechas + acciones */}
                 <div className="flex items-center gap-1.5">
-                  <input
-                    type="date"
+                  <DatePickerButton
                     value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    className="h-6 w-24 rounded-md border border-border bg-background px-2 text-xs text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-ring"
+                    onChange={setNewStartDate}
+                    placeholder="Inicio"
+                    className="h-6 w-24 text-xs shrink-0"
                   />
-                  <input
-                    type="date"
+                  <DatePickerButton
                     value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
-                    className="h-6 w-24 rounded-md border border-border bg-background px-2 text-xs text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-ring"
+                    onChange={setNewDueDate}
+                    placeholder="Límite"
+                    className="h-6 w-24 text-xs shrink-0"
                   />
                   <div className="flex-1" />
                   <Button
@@ -652,14 +653,14 @@ const Operations = () => {
                     onClick={() => {
                       setShowNewTaskForm(false);
                       setNewTaskTitle("");
-                      setNewStartDate("");
-                      setNewDueDate("");
+                      setNewStartDate(undefined);
+                      setNewDueDate(undefined);
                     }}
                     className="h-6 text-xs px-2"
                   >
                     Cancelar
                   </Button>
-                  <Button size="sm" onClick={addTask} className="h-6 text-xs px-3 gap-1">
+                  <Button size="sm" onClick={addTask} disabled={!newTaskTitle.trim()} className="h-6 text-xs px-3 gap-1">
                     <Plus className="h-3 w-3" /> Agregar
                   </Button>
                 </div>
