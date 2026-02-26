@@ -676,16 +676,16 @@ const Tasks = () => {
         </div>
 
         {showNewTaskForm && (
-          <div className="flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg mt-2">
+          <div className="flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg mt-2 overflow-hidden">
             {/* Fila 1: Input título + Select prioridad */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
               <Input
                 placeholder="Título de la tarea..."
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addTask()}
                 autoFocus
-                className="h-8 text-sm px-3 flex-1"
+                className="h-8 text-sm px-3 flex-1 min-w-0"
               />
               <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
                 <SelectTrigger
@@ -704,18 +704,18 @@ const Tasks = () => {
               </Select>
             </div>
             {/* Fila 2: Fechas + Agregar */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               <DatePickerButton
                 value={newStartDate}
                 onChange={setNewStartDate}
                 placeholder="Inicio"
-                className="h-7 min-w-[90px] text-xs shrink-0"
+                className="h-7 w-auto max-w-[140px] text-xs"
               />
               <DatePickerButton
                 value={newDueDate}
                 onChange={setNewDueDate}
                 placeholder="Límite"
-                className="h-7 min-w-[90px] text-xs shrink-0"
+                className="h-7 w-auto max-w-[140px] text-xs"
               />
               <div className="flex-1" />
               <Button
@@ -725,7 +725,7 @@ const Tasks = () => {
                   if (ok) setShowNewTaskForm(false);
                 }}
                 disabled={!newTaskTitle.trim()}
-                className="h-7 text-xs px-3 gap-1"
+                className="h-7 text-xs px-3 gap-1 shrink-0"
               >
                 <Plus className="h-3 w-3" /> Agregar
               </Button>
