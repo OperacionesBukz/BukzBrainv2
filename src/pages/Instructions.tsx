@@ -105,7 +105,7 @@ const Instructions = () => {
           className="group flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md"
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Package className="h-6 w-6 text-zinc-900 dark:text-primary" />
+            <Package className="h-6 w-6 text-foreground dark:text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-theme">
@@ -125,7 +125,7 @@ const Instructions = () => {
           className="group flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md"
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-info/10">
-            <RefreshCw className="h-6 w-6 text-zinc-900 dark:text-info" />
+            <RefreshCw className="h-6 w-6 text-foreground dark:text-info" />
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-semibold text-foreground group-hover:text-info transition-theme">
@@ -167,10 +167,10 @@ const Instructions = () => {
             key={c}
             onClick={() => setSelectedCat(c)}
             className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-theme",
+              "rounded-full px-3 py-1 text-xs font-medium transition-theme border",
               selectedCat === c
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-secondary"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted text-muted-foreground hover:bg-secondary border-border"
             )}
           >
             {c === "All" ? "Todas" : c}

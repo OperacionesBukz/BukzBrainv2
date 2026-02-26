@@ -87,22 +87,26 @@ const Operations = () => {
   const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
   const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [isTaskFormClosing, setIsTaskFormClosing] = useState(false);
   const [filterDept, setFilterDept] = useState("All");
+
+  const closeTaskForm = () => {
+    if (!showNewTaskForm || isTaskFormClosing) return;
+    setIsTaskFormClosing(true);
+    setNewTaskTitle("");
+    setNewStartDate(undefined);
+    setNewDueDate(undefined);
+  };
 
   // Close new-task form on Escape
   useEffect(() => {
     if (!showNewTaskForm) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowNewTaskForm(false);
-        setNewTaskTitle("");
-        setNewStartDate(undefined);
-        setNewDueDate(undefined);
-      }
+      if (e.key === "Escape") closeTaskForm();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [showNewTaskForm]);
+  }, [showNewTaskForm, isTaskFormClosing]);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "tasks";
 
@@ -474,7 +478,7 @@ const Operations = () => {
                 value={task.department}
                 onChange={(e) => updateTask(task.id, { department: e.target.value })}
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0 cursor-pointer border-none outline-none focus:ring-1 focus:ring-ring appearance-none"
+                className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0 cursor-pointer border border-border outline-none focus:ring-1 focus:ring-ring appearance-none"
               >
                 {departments.map((d) => (
                   <option key={d} value={d}>{d}</option>
@@ -619,10 +623,7 @@ const Operations = () => {
             <button
               onClick={() => {
                 if (showNewTaskForm) {
-                  setShowNewTaskForm(false);
-                  setNewTaskTitle("");
-                  setNewStartDate(undefined);
-                  setNewDueDate(undefined);
+                  closeTaskForm();
                 } else {
                   setShowNewTaskForm(true);
                 }
@@ -640,8 +641,20 @@ const Operations = () => {
               Nueva tarea
             </button>
 
-            {showNewTaskForm && (
-              <div className="flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg mt-2 overflow-hidden">
+            {(showNewTaskForm || isTaskFormClosing) && (
+              <div
+                onAnimationEnd={() => {
+                  if (isTaskFormClosing) {
+                    setShowNewTaskForm(false);
+                    setIsTaskFormClosing(false);
+                  }
+                }}
+                className={cn(
+                  "flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm max-w-lg mt-2 overflow-hidden",
+                  isTaskFormClosing
+                    ? "animate-out fade-out slide-out-to-top-2 duration-200 fill-mode-forwards"
+                    : "animate-in fade-in slide-in-from-top-2 duration-200"
+                )}>
                 {/* Fila 1: Input título + Select departamento */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Input
@@ -655,7 +668,7 @@ const Operations = () => {
                   <select
                     value={newTaskDept}
                     onChange={(e) => setNewTaskDept(e.target.value)}
-                    className="h-8 rounded-md border border-border bg-secondary px-2 text-xs text-muted-foreground shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
+                    className="h-8 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
                   >
                     {departments.map((d) => (
                       <option key={d} value={d}>{d}</option>
@@ -697,10 +710,10 @@ const Operations = () => {
                 key={d}
                 onClick={() => setFilterDept(d)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-theme",
+                  "rounded-full px-3 py-1 text-xs font-medium transition-theme border",
                   filterDept === d
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-secondary"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted text-muted-foreground hover:bg-secondary border-border"
                 )}
               >
                 {d === "All" ? "Todos" : d}

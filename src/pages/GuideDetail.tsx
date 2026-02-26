@@ -21,7 +21,7 @@ const PermisosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">01</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">01</span>
         Tipos de Solicitud
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -46,7 +46,7 @@ const PermisosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">02</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">02</span>
         Pasos para solicitar
       </h2>
       <div className="space-y-4">
@@ -73,7 +73,7 @@ const PermisosContent = () => (
       </div>
     </section>
 
-    <section className="space-y-4 p-6 rounded-2xl bg-zinc-500/5 dark:bg-zinc-500/10 border border-zinc-500/20">
+    <section className="space-y-4 p-6 rounded-2xl bg-zinc-100 dark:bg-zinc-500/10 border border-zinc-300 dark:border-zinc-500/20">
       <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">💡 Información Importante</h2>
       <ul className="list-disc list-inside space-y-2 text-sm text-foreground/80">
         <li><strong>Vacaciones:</strong> Solicítalas con al menos <strong>15 días de anticipación</strong>.</li>
@@ -101,7 +101,7 @@ const TrasladosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">01</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">01</span>
         Tipos de Traslado
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -122,7 +122,7 @@ const TrasladosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">02</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">02</span>
         Pasos para Crear un Traslado
       </h2>
       <div className="space-y-4">
@@ -149,7 +149,7 @@ const TrasladosContent = () => (
       </div>
     </section>
 
-    <section className="space-y-4 p-6 rounded-2xl bg-zinc-500/5 dark:bg-zinc-500/10 border border-zinc-500/20">
+    <section className="space-y-4 p-6 rounded-2xl bg-zinc-100 dark:bg-zinc-500/10 border border-zinc-300 dark:border-zinc-500/20">
       <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">💡 Información Pro (2026)</h2>
       <ul className="list-disc list-inside space-y-2 text-sm text-foreground/80">
         <li><strong>Edición Dinámica:</strong> Ahora puedes editar envíos incluso después de haber sido marcados como enviados.</li>
@@ -177,7 +177,7 @@ const FacturacionPOSContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">01</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">01</span>
         Formas de Pago admitidas
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -202,7 +202,7 @@ const FacturacionPOSContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">02</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">02</span>
         Pasos para procesar la venta
       </h2>
       <div className="space-y-4">
@@ -240,7 +240,7 @@ const FacturacionPOSContent = () => (
       </div>
     </section>
 
-    <section className="space-y-4 p-6 rounded-2xl bg-zinc-500/5 dark:bg-zinc-500/10 border border-zinc-500/20">
+    <section className="space-y-4 p-6 rounded-2xl bg-zinc-100 dark:bg-zinc-500/10 border border-zinc-300 dark:border-zinc-500/20">
       <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">💡 Datos clave Shopify POS</h2>
       <ul className="list-disc list-inside space-y-2 text-sm text-foreground/80">
         <li><strong>Facturación Electrónica:</strong> Se agradece ingresar los <strong>datos completos del cliente</strong> (Nombre, NIT/Cédula, Email) para asegurar que la factura electrónica se emita correctamente.</li>
@@ -268,7 +268,7 @@ const PedidosCanceladosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">01</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">01</span>
         Cómo Cancelar un Pedido
       </h2>
       <div className="space-y-4">
@@ -309,7 +309,7 @@ const PedidosCanceladosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">02</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">02</span>
         Cambio de Libro (Editar Pedido)
       </h2>
       <div className="space-y-4">
@@ -343,7 +343,7 @@ const PedidosCanceladosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">03</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">03</span>
         Opciones de Reembolso
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -360,7 +360,7 @@ const PedidosCanceladosContent = () => (
 
     <section className="space-y-4">
       <h2 className="text-xl font-semibold flex items-center gap-2">
-        <span className="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-500/20">04</span>
+        <span className="bg-zinc-200 dark:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 p-1.5 rounded-lg text-sm font-bold border border-zinc-300 dark:border-zinc-500/20">04</span>
         Notas Importantes
       </h2>
       <div className="space-y-2 text-sm text-muted-foreground">
@@ -372,7 +372,7 @@ const PedidosCanceladosContent = () => (
       </div>
     </section>
 
-    <section className="space-y-4 p-6 rounded-2xl bg-zinc-500/5 dark:bg-zinc-500/10 border border-zinc-500/20">
+    <section className="space-y-4 p-6 rounded-2xl bg-zinc-100 dark:bg-zinc-500/10 border border-zinc-300 dark:border-zinc-500/20">
       <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">💡 Recordatorio</h2>
       <p className="text-sm text-foreground/80">
         Antes de cancelar un pedido preparado (fulfilled), asegúrate de que puedes detener el envío con la transportista o que el paquete aún no ha salido de la bodega.

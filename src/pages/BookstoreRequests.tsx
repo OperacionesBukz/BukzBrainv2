@@ -658,7 +658,7 @@ const BookstoreRequests = () => {
                         {products.map((product) => (
                             <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                                 <div className="flex items-center gap-3">
-                                    <div className={`h-2 w-2 rounded-full ${product.isVisible ? 'bg-green-500' : 'bg-gray-300'}`} />
+                                    <div className={`h-2 w-2 rounded-full ${product.isVisible ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-500'}`} />
                                     <div>
                                         <div className="font-medium">{product.name}</div>
                                         {product.code && <div className="text-xs text-muted-foreground">Cód: {product.code}</div>}

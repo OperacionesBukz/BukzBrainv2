@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 const priorityColor: Record<string, string> = {
-  Baja: "bg-muted text-muted-foreground border-transparent",
+  Baja: "bg-muted text-muted-foreground border-border",
   Media: "bg-info/15 text-info border-info/20",
   Alta: "bg-warning/15 text-amber-700 dark:text-warning border-warning/20",
   Urgente: "bg-destructive/15 text-destructive border-destructive/20",

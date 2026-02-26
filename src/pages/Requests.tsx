@@ -444,7 +444,7 @@ ${form.idDocument}`;
                       <tr key={request.id} className="hover:bg-muted/20 transition-colors">
                         <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-muted text-foreground dark:bg-primary/10 dark:text-primary">
+                            <div className="p-2 rounded-lg bg-muted border border-border text-foreground dark:border-transparent dark:bg-primary/10 dark:text-primary">
                               {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
                                 request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
                                   <Briefcase className="h-4 w-4" />}
@@ -538,7 +538,7 @@ ${form.idDocument}`;
                         {/* Header del card: tipo + badge status */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-muted text-foreground dark:bg-primary/10 dark:text-primary">
+                            <div className="p-2 rounded-lg bg-muted border border-border text-foreground dark:border-transparent dark:bg-primary/10 dark:text-primary">
                               {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
                                 request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
                                   <Briefcase className="h-4 w-4" />}

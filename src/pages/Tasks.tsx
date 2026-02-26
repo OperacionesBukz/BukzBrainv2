@@ -95,7 +95,7 @@ const assignableUsers = [
 ];
 
 const priorityColor: Record<string, string> = {
-  Baja: "bg-muted text-muted-foreground",
+  Baja: "bg-muted text-muted-foreground border border-border",
   Media: "bg-info/15 text-info",
   Alta: "bg-warning/15 text-warning",
   Urgente: "bg-destructive/15 text-destructive",
@@ -117,26 +117,30 @@ const Tasks = () => {
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<"create" | "assign">("create");
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [isTaskFormClosing, setIsTaskFormClosing] = useState(false);
 
   // Personal task creation dates
   const [newStartDate, setNewStartDate] = useState<Date | undefined>(undefined);
   const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
 
+  const closeTaskForm = () => {
+    if (!showNewTaskForm || isTaskFormClosing) return;
+    setIsTaskFormClosing(true);
+    setNewTaskTitle("");
+    setNewTaskPriority("Media");
+    setNewStartDate(undefined);
+    setNewDueDate(undefined);
+  };
+
   // Close new-task form on Escape
   useEffect(() => {
     if (!showNewTaskForm) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowNewTaskForm(false);
-        setNewTaskTitle("");
-        setNewTaskPriority("Media");
-        setNewStartDate(undefined);
-        setNewDueDate(undefined);
-      }
+      if (e.key === "Escape") closeTaskForm();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [showNewTaskForm]);
+  }, [showNewTaskForm, isTaskFormClosing]);
 
   // Assign task dialog
   const canAssign = adminEmails.includes(user?.email || "");
@@ -657,11 +661,7 @@ const Tasks = () => {
           <button
             onClick={() => {
               if (showNewTaskForm) {
-                setShowNewTaskForm(false);
-                setNewTaskTitle("");
-                setNewTaskPriority("Media");
-                setNewStartDate(undefined);
-                setNewDueDate(undefined);
+                closeTaskForm();
               } else {
                 setShowNewTaskForm(true);
               }
@@ -691,8 +691,20 @@ const Tasks = () => {
           )}
         </div>
 
-        {showNewTaskForm && (
-          <div className="flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 max-w-lg mt-2 overflow-hidden">
+        {(showNewTaskForm || isTaskFormClosing) && (
+          <div
+            onAnimationEnd={() => {
+              if (isTaskFormClosing) {
+                setShowNewTaskForm(false);
+                setIsTaskFormClosing(false);
+              }
+            }}
+            className={cn(
+              "flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm max-w-lg mt-2 overflow-hidden",
+              isTaskFormClosing
+                ? "animate-out fade-out slide-out-to-top-2 duration-200 fill-mode-forwards"
+                : "animate-in fade-in slide-in-from-top-2 duration-200"
+            )}>
             {/* Fila 1: Input título + Select prioridad */}
             <div className="flex items-center gap-1.5 min-w-0">
               <Input
@@ -738,7 +750,7 @@ const Tasks = () => {
                 size="sm"
                 onClick={async () => {
                   const ok = await addTask();
-                  if (ok) setShowNewTaskForm(false);
+                  if (ok) closeTaskForm();
                 }}
                 disabled={!newTaskTitle.trim()}
                 className="h-7 text-xs px-3 gap-1 shrink-0"
