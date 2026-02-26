@@ -660,52 +660,48 @@ const Tasks = () => {
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-3 bg-card p-4 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
-            <Input
-              placeholder="Título de la tarea..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addTask()}
-              autoFocus
-              className="text-sm"
-            />
-            <div className="flex flex-wrap gap-1.5">
-              {priorities.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setNewTaskPriority(p)}
+          <div className="flex flex-col gap-1.5 bg-card p-2.5 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Fila 1: Input título + Select prioridad */}
+            <div className="flex items-center gap-1.5">
+              <Input
+                placeholder="Título de la tarea..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addTask()}
+                autoFocus
+                className="h-7 text-xs px-2 flex-1"
+              />
+              <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
+                <SelectTrigger
                   className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium transition-all",
-                    newTaskPriority === p
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-secondary"
+                    "h-7 w-auto min-w-[80px] text-xs px-2 shrink-0 border-0 focus:ring-1 gap-1",
+                    priorityColor[newTaskPriority] || "bg-muted text-muted-foreground"
                   )}
                 >
-                  {p}
-                </button>
-              ))}
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map((p) => (
+                    <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="flex items-center gap-2 flex-1">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
-                <DatePickerButton
-                  value={newStartDate}
-                  onChange={setNewStartDate}
-                  placeholder="Sin fecha"
-                  className="h-8 flex-1 text-xs"
-                />
-              </div>
-              <div className="flex items-center gap-2 flex-1">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
-                <DatePickerButton
-                  value={newDueDate}
-                  onChange={setNewDueDate}
-                  placeholder="Sin fecha"
-                  className="h-8 flex-1 text-xs"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
+            {/* Fila 2: Fechas + acciones */}
+            <div className="flex items-center gap-1.5">
+              <DatePickerButton
+                value={newStartDate}
+                onChange={setNewStartDate}
+                placeholder="Inicio"
+                className="h-6 w-24 text-xs shrink-0"
+              />
+              <DatePickerButton
+                value={newDueDate}
+                onChange={setNewDueDate}
+                placeholder="Límite"
+                className="h-6 w-24 text-xs shrink-0"
+              />
+              <div className="flex-1" />
               <Button
                 variant="ghost"
                 size="sm"
@@ -716,7 +712,7 @@ const Tasks = () => {
                   setNewStartDate(undefined);
                   setNewDueDate(undefined);
                 }}
-                className="text-xs h-8"
+                className="h-6 text-xs px-2"
               >
                 Cancelar
               </Button>
@@ -727,9 +723,9 @@ const Tasks = () => {
                   if (ok) setShowNewTaskForm(false);
                 }}
                 disabled={!newTaskTitle.trim()}
-                className="text-xs h-8 px-4 gap-1.5"
+                className="h-6 text-xs px-3 gap-1"
               >
-                <Plus className="h-3.5 w-3.5" /> Agregar tarea
+                <Plus className="h-3 w-3" /> Agregar
               </Button>
             </div>
           </div>
