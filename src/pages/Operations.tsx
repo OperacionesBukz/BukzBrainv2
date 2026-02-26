@@ -610,52 +610,42 @@ const Operations = () => {
                 Nueva tarea
               </button>
             ) : (
-              <div className="flex flex-col gap-3 bg-card p-4 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
-                <Input
-                  placeholder="Título de la tarea..."
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addTask()}
-                  autoFocus
-                  className="text-sm"
-                />
-                <div className="flex flex-wrap gap-1.5">
-                  {departments.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setNewTaskDept(d)}
-                      className={cn(
-                        "rounded-full px-3 py-1 text-xs font-medium transition-all",
-                        newTaskDept === d
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:bg-secondary"
-                      )}
-                    >
-                      {d}
-                    </button>
-                  ))}
+              <div className="flex flex-col gap-1.5 bg-card p-2.5 rounded-xl border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Fila 1: Input título + Select departamento */}
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    placeholder="Título de la tarea..."
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addTask()}
+                    autoFocus
+                    className="h-7 text-xs px-2 flex-1"
+                  />
+                  <select
+                    value={newTaskDept}
+                    onChange={(e) => setNewTaskDept(e.target.value)}
+                    className="h-7 rounded-md border border-border bg-secondary px-2 text-xs text-muted-foreground shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
+                  >
+                    {departments.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    <label className="text-xs text-muted-foreground whitespace-nowrap">Inicio</label>
-                    <input
-                      type="date"
-                      value={newStartDate}
-                      onChange={(e) => setNewStartDate(e.target.value)}
-                      className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 flex-1">
-                    <label className="text-xs text-muted-foreground whitespace-nowrap">Límite</label>
-                    <input
-                      type="date"
-                      value={newDueDate}
-                      onChange={(e) => setNewDueDate(e.target.value)}
-                      className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
+                {/* Fila 2: Fechas + acciones */}
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={newStartDate}
+                    onChange={(e) => setNewStartDate(e.target.value)}
+                    className="h-6 w-24 rounded-md border border-border bg-background px-2 text-xs text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <input
+                    type="date"
+                    value={newDueDate}
+                    onChange={(e) => setNewDueDate(e.target.value)}
+                    className="h-6 w-24 rounded-md border border-border bg-background px-2 text-xs text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <div className="flex-1" />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -665,12 +655,12 @@ const Operations = () => {
                       setNewStartDate("");
                       setNewDueDate("");
                     }}
-                    className="text-xs h-8"
+                    className="h-6 text-xs px-2"
                   >
                     Cancelar
                   </Button>
-                  <Button size="sm" onClick={addTask} className="text-xs h-8 px-4 gap-1.5">
-                    <Plus className="h-3.5 w-3.5" /> Agregar tarea
+                  <Button size="sm" onClick={addTask} className="h-6 text-xs px-3 gap-1">
+                    <Plus className="h-3 w-3" /> Agregar
                   </Button>
                 </div>
               </div>
