@@ -12,24 +12,39 @@ import {
   FileText,
   Store,
   ShieldCheck,
+  Settings,
+  ChevronDown,
+  HelpCircle,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth as firebaseAuth } from "@/lib/firebase";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigationPermissions } from "@/hooks/useNavigationPermissions";
+import { useTour } from "@/hooks/useTour";
 
 const navItems = [
-  { title: "Dashboard", path: "/dashboard", icon: Home },
+  { title: "Dashboard", path: "/dashboard", icon: Home, tourId: "nav-dashboard" },
   {
     title: "Operaciones",
     path: "/operations",
     icon: ListChecks,
+    tourId: "nav-operations",
     subItems: [
       {
         title: "Tareas entre áreas",
@@ -43,20 +58,27 @@ const navItems = [
       },
     ],
   },
-  { title: "Tareas", path: "/tasks", icon: ClipboardList },
-  { title: "Guías", path: "/instructions", icon: BookOpen },
-  { title: "Solicitudes", path: "/requests", icon: CalendarDays },
-  { title: "Solicitud Librerías", path: "/bookstore-requests", icon: Store },
+  { title: "Tareas", path: "/tasks", icon: ClipboardList, tourId: "nav-tasks" },
+  { title: "Guías", path: "/instructions", icon: BookOpen, tourId: "nav-instructions" },
+  { title: "Solicitudes", path: "/requests", icon: CalendarDays, tourId: "nav-requests" },
+  { title: "Solicitud Librerías", path: "/bookstore-requests", icon: Store, tourId: "nav-bookstore" },
+];
+
+const adminSubItems = [
+  { title: "Permisos Nav", path: "/nav-admin", icon: ShieldCheck },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(() => window.location.pathname.startsWith("/nav-admin"));
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading, isAdmin } = useAuth();
   const { allowedPages } = useNavigationPermissions();
+  const { startTour } = useTour(allowedPages);
+  const [tourDialogOpen, setTourDialogOpen] = useState(false);
 
   // Filter nav items based on Firestore permissions
   const visibleNavItems = navItems.filter((item) =>
@@ -123,6 +145,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <div key={item.path} className="space-y-1">
                   <NavLink
                     to={item.path}
+                    id={item.tourId}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                       isActive
@@ -170,26 +193,55 @@ export function Layout({ children }: { children: ReactNode }) {
               );
             })}
 
-          {/* Admin: Permisos de Navegación — solo operaciones@bukz.co */}
+          {/* Admin — solo administradores */}
           {isAdmin && (
-            <NavLink
-              to="/nav-admin"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out mt-2 border-t border-border/40 pt-3",
-                location.pathname === "/nav-admin"
-                  ? "bg-primary/15 text-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+            <div className="mt-2 border-t border-border/40 pt-3">
+              <button
+                onClick={() => setAdminOpen(!adminOpen)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                  adminSubItems.some(s => location.pathname === s.path)
+                    ? "bg-primary/15 text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Settings className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left">Admin</span>
+                    <ChevronDown className={cn(
+                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                      adminOpen && "rotate-180"
+                    )} />
+                  </>
+                )}
+              </button>
+              {adminOpen && !collapsed && (
+                <div className="ml-9 space-y-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {adminSubItems.map((sub) => (
+                    <NavLink
+                      key={sub.path}
+                      to={sub.path}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                        location.pathname === sub.path
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                      )}
+                    >
+                      <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                      <span>{sub.title}</span>
+                    </NavLink>
+                  ))}
+                </div>
               )}
-            >
-              <ShieldCheck className="h-4 w-4 shrink-0 transition-transform duration-200" />
-              {!collapsed && <span>Permisos Nav</span>}
-            </NavLink>
+            </div>
           )}
         </nav>
 
         {/* Bottom */}
         <div className="p-2">
-          <div className="flex items-center justify-between px-2">
+          <div id="sidebar-theme" className="flex items-center justify-between px-2">
             {!collapsed && <ThemeToggle />}
             <Button
               variant="ghost"
@@ -282,21 +334,46 @@ export function Layout({ children }: { children: ReactNode }) {
                     );
                   })}
 
-                {/* Admin: Permisos de Navegación — solo operaciones@bukz.co */}
+                {/* Admin — solo administradores */}
                 {isAdmin && (
-                  <NavLink
-                    to="/nav-admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out mt-2 border-t border-border/40 pt-3",
-                      location.pathname === "/nav-admin"
-                        ? "bg-primary/15 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                  <div className="mt-2 border-t border-border/40 pt-3">
+                    <button
+                      onClick={() => setAdminOpen(!adminOpen)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                        adminSubItems.some(s => location.pathname === s.path)
+                          ? "bg-primary/15 text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Settings className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                      <span className="flex-1 text-left">Admin</span>
+                      <ChevronDown className={cn(
+                        "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                        adminOpen && "rotate-180"
+                      )} />
+                    </button>
+                    {adminOpen && (
+                      <div className="ml-9 space-y-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {adminSubItems.map((sub) => (
+                          <NavLink
+                            key={sub.path}
+                            to={sub.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                              location.pathname === sub.path
+                                ? "text-foreground"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                            )}
+                          >
+                            <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                            <span>{sub.title}</span>
+                          </NavLink>
+                        ))}
+                      </div>
                     )}
-                  >
-                    <ShieldCheck className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                    <span>Permisos Nav</span>
-                  </NavLink>
+                  </div>
                 )}
               </nav>
             </div>
@@ -306,7 +383,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Static top bar spanning full width */}
       <header
-        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header px-3 md:px-6"
+        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header/80 backdrop-blur-xl px-3 md:px-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),0_4px_12px_rgba(0,0,0,0.15)] border-b border-border/30 dark:border-border/20"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           height: 'calc(3.5rem + env(safe-area-inset-top))'
@@ -343,7 +420,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1" />
 
         {/* GlobalSearch - centrado en desktop, oculto en mobile */}
-        <div className="hidden md:flex md:justify-center md:flex-1 md:max-w-md">
+        <div id="header-search" className="hidden md:flex md:justify-center md:flex-1 md:max-w-md">
           <GlobalSearch />
         </div>
 
@@ -354,7 +431,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {(isMobile || collapsed) && <ThemeToggle />}
 
           {/* Avatar */}
-          <div className="flex items-center gap-2">
+          <div id="header-user" className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold transition-all duration-300 ease-out hover:shadow-md hover:scale-105">
               {userInitials}
             </div>
@@ -363,6 +440,18 @@ export function Layout({ children }: { children: ReactNode }) {
               {userDisplayName}
             </span>
           </div>
+
+          {/* Help tour button */}
+          <Button
+            id="btn-help-tour"
+            variant="ghost"
+            size="icon"
+            onClick={() => setTourDialogOpen(true)}
+            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+            title="Ayuda - Tour guiado"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </Button>
 
           {/* Logout button */}
           <Button
@@ -388,10 +477,33 @@ export function Layout({ children }: { children: ReactNode }) {
           marginTop: 'calc(3.5rem + env(safe-area-inset-top))'
         }}
       >
-        <div className="h-full bg-background rounded-tl-2xl p-4 md:p-6 animate-fade-in shadow-sm">
+        <div className="h-full bg-background rounded-none p-4 md:p-6 animate-fade-in shadow-sm">
           {children}
         </div>
       </main>
+
+      {/* Tour confirmation dialog */}
+      <AlertDialog open={tourDialogOpen} onOpenChange={setTourDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recorrido por BukzBrain</AlertDialogTitle>
+            <AlertDialogDescription>
+              Te guiaremos paso a paso por los módulos de la aplicación para que conozcas todas las herramientas disponibles. El recorrido dura menos de un minuto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setTourDialogOpen(false);
+                setTimeout(() => startTour(), 150);
+              }}
+            >
+              Iniciar recorrido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

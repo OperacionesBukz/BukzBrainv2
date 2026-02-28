@@ -153,6 +153,126 @@
   }
 }
 
+/* ── Driver.js Tour Styles ── */
+.driver-popover.bukzbrain-tour {
+  font-family: 'Space Grotesk', sans-serif;
+  background: hsl(0 0% 100%);
+  color: hsl(108 10% 9%);
+  border: 1px solid hsl(60 5% 82%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 20px 24px;
+  max-width: 340px;
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: hsl(108 10% 9%);
+  margin-bottom: 8px;
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-description {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: hsl(108 5% 40%);
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-progress-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  color: hsl(108 5% 40%);
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-prev-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(108 5% 40%);
+  background: transparent;
+  border: 1px solid hsl(60 5% 82%);
+  border-radius: 8px;
+  padding: 6px 14px;
+  text-shadow: none;
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-prev-btn:hover {
+  background: hsl(60 5% 89%);
+  color: hsl(108 10% 9%);
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-next-btn,
+.driver-popover.bukzbrain-tour .driver-popover-close-btn-inside {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  background: #FFED4E;
+  color: hsl(108 10% 9%);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  text-shadow: none;
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-next-btn:hover {
+  background: #ffe620;
+}
+
+.driver-popover.bukzbrain-tour .driver-popover-arrow-side-left.driver-popover-arrow,
+.driver-popover.bukzbrain-tour .driver-popover-arrow-side-right.driver-popover-arrow,
+.driver-popover.bukzbrain-tour .driver-popover-arrow-side-top.driver-popover-arrow,
+.driver-popover.bukzbrain-tour .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-color: hsl(60 5% 82%);
+}
+
+/* Dark mode */
+.dark .driver-popover.bukzbrain-tour {
+  background: hsl(108 10% 10%);
+  color: hsl(60 5% 92%);
+  border-color: hsl(108 8% 18%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-title {
+  color: hsl(60 5% 92%);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-description {
+  color: hsl(60 3% 55%);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-progress-text {
+  color: hsl(60 3% 55%);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-prev-btn {
+  color: hsl(60 3% 55%);
+  border-color: hsl(108 8% 18%);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-prev-btn:hover {
+  background: hsl(108 8% 15%);
+  color: hsl(60 5% 92%);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-next-btn {
+  background: #FFED4E;
+  color: hsl(108 10% 9%);
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-next-btn:hover {
+  background: #ffe620;
+}
+
+.dark .driver-popover.bukzbrain-tour .driver-popover-arrow-side-left.driver-popover-arrow,
+.dark .driver-popover.bukzbrain-tour .driver-popover-arrow-side-right.driver-popover-arrow,
+.dark .driver-popover.bukzbrain-tour .driver-popover-arrow-side-top.driver-popover-arrow,
+.dark .driver-popover.bukzbrain-tour .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-color: hsl(108 8% 18%);
+}
+
 /* Ajustar botón de cerrar del Sheet en iOS */
 @supports (-webkit-touch-callout: none) {
   [data-radix-popper-content-wrapper] button[data-state],
