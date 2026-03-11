@@ -90,5 +90,12 @@ service cloud.firestore {
 
       allow update, delete: if isAdmin();
     }
+
+    // ─── Celesa Orders ──────────────────────────────────────
+    // Pedidos de Celesa. Acceso abierto a usuarios autenticados.
+    // Visibilidad de la página se controla via navigation_permissions.
+    match /celesa_orders/{orderId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
