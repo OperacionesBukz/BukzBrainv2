@@ -18,6 +18,7 @@ import {
   Package,
   Ship,
   FileText,
+  ClipboardCheck,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -59,6 +60,7 @@ const navItems = [
   { title: "Guías", path: "/instructions", icon: BookOpen, tourId: "nav-instructions" },
   { title: "Solicitudes", path: "/requests", icon: CalendarDays, tourId: "nav-requests" },
   { title: "Solicitud Librerías", path: "/bookstore-requests", icon: Store, tourId: "nav-bookstore" },
+  { title: "Hub Solicitudes", path: "/requests-hub", icon: ClipboardCheck, tourId: "nav-requests-hub" },
   { title: "Reposición", path: "/reposicion", icon: Package, tourId: "nav-reposicion" },
   { title: "Celesa", path: "/celesa", icon: Ship, tourId: "nav-celesa" },
 ];
