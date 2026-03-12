@@ -7,6 +7,7 @@ import {
   Store,
   Package,
   Ship,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { WorkspaceId } from "@/lib/workspaces";
@@ -26,6 +27,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/instructions", label: "Guías", description: "Base de conocimiento", icon: BookOpen, workspace: "general" },
   { path: "/requests", label: "Solicitudes", description: "Permisos y vacaciones", icon: CalendarDays, workspace: "general" },
   { path: "/bookstore-requests", label: "Solicitud Librerías", description: "Pedidos para librerías", icon: Store, workspace: "general" },
+  { path: "/requests-hub", label: "Hub Solicitudes", description: "Seguimiento centralizado de solicitudes", icon: ClipboardCheck, workspace: "operaciones" },
   { path: "/reposicion", label: "Reposición", description: "Gestión de reposición", icon: Package, workspace: "operaciones" },
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
 ];
