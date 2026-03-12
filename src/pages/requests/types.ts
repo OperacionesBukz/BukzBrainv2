@@ -1,0 +1,48 @@
+import { Palmtree, Briefcase, Ban, Cake } from "lucide-react";
+
+export type RequestType = "vacation" | "paid-leave" | "unpaid-leave" | "birthday-leave";
+
+export interface LeaveRequest {
+  id: string;
+  type: RequestType;
+  fullName?: string;
+  idDocument?: string;
+  role?: string;
+  branch?: string;
+  phoneNumber?: string;
+  supervisor?: string;
+  startDate: string;
+  endDate: string;
+  returnDate?: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: any;
+  userId: string;
+  userEmail: string;
+}
+
+export interface RequestFormState {
+  fullName: string;
+  idDocument: string;
+  role: string;
+  branch: string;
+  phoneNumber: string;
+  supervisor: string;
+  startDate: string;
+  endDate: string;
+  returnDate: string;
+  reason: string;
+}
+
+export const requestTypeConfig: {
+  value: RequestType;
+  label: string;
+  description: string;
+  icon: typeof Palmtree;
+  color: string;
+}[] = [
+    { value: "vacation", label: "Vacaciones", description: "Tiempo libre para viajes o descanso", icon: Palmtree, color: "text-primary-foreground" },
+    { value: "paid-leave", label: "Permiso Remunerado", description: "Permiso personal o por enfermedad", icon: Briefcase, color: "text-primary-foreground" },
+    { value: "unpaid-leave", label: "Permiso No Remunerado", description: "Tiempo libre sin pago", icon: Ban, color: "text-primary-foreground" },
+    { value: "birthday-leave", label: "Día de Cumpleaños", description: "Día libre por tu cumpleaños", icon: Cake, color: "text-primary-foreground" },
+  ];

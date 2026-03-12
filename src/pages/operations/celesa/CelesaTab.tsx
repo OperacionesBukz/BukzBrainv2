@@ -1,0 +1,90 @@
+import { useState, useMemo } from "react";
+import { Loader2 } from "lucide-react";
+import { useCelesaOrders } from "./useCelesaOrders";
+import { businessDaysSince } from "./types";
+import { exportCelesaCSV } from "./csv-export";
+import CelesaKpiCards from "./CelesaKpiCards";
+import CelesaAlertBar from "./CelesaAlertBar";
+import CelesaToolbar from "./CelesaToolbar";
+import CelesaTable from "./CelesaTable";
+import type { CelesaStatus } from "./types";
+import type { SortOption } from "./CelesaToolbar";
+
+export default function CelesaTab() {
+  const { orders, loading, addOrder, updateOrder, deleteOrder } =
+    useCelesaOrders();
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<CelesaStatus | "Todos">(
+    "Todos"
+  );
+  const [sortBy, setSortBy] = useState<SortOption>("fecha-desc");
+
+  const filtered = useMemo(() => {
+    let result = orders;
+
+    if (filterStatus !== "Todos") {
+      result = result.filter((o) => o.estado === filterStatus);
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (o) =>
+          o.numeroPedido.toLowerCase().includes(q) ||
+          o.cliente.toLowerCase().includes(q) ||
+          o.producto.toLowerCase().includes(q) ||
+          (o.isbn || "").toLowerCase().includes(q)
+      );
+    }
+
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "fecha-asc":
+          return a.fechaPedido.localeCompare(b.fechaPedido);
+        case "fecha-desc":
+          return b.fechaPedido.localeCompare(a.fechaPedido);
+        case "cliente-az":
+          return a.cliente.localeCompare(b.cliente);
+        case "estado":
+          return a.estado.localeCompare(b.estado);
+        case "dias":
+          return businessDaysSince(b.fechaPedido) - businessDaysSince(a.fechaPedido);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [orders, search, filterStatus, sortBy]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <CelesaKpiCards orders={orders} />
+      <CelesaAlertBar orders={orders} />
+      <CelesaToolbar
+        search={search}
+        onSearchChange={setSearch}
+        filterStatus={filterStatus}
+        onFilterStatusChange={setFilterStatus}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        count={filtered.length}
+        onExport={() => exportCelesaCSV(filtered)}
+      />
+      <CelesaTable
+        orders={filtered}
+        onAdd={addOrder}
+        onUpdate={updateOrder}
+        onDelete={deleteOrder}
+      />
+    </div>
+  );
+}

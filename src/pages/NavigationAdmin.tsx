@@ -22,65 +22,37 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Trash2,
   Plus,
   ShieldCheck,
   Users,
   Settings2,
-  Home,
-  ListChecks,
-  ClipboardList,
-  BookOpen,
-  CalendarDays,
-  Store,
   UserX,
   Info,
   RotateCcw,
   Clock,
   Loader2,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const PAGE_DEFINITIONS = [
-  {
-    path: "/dashboard",
-    label: "Dashboard",
-    description: "Página principal",
-    icon: Home,
-  },
-  {
-    path: "/operations",
-    label: "Operaciones",
-    description: "Tablero de tareas entre áreas",
-    icon: ListChecks,
-  },
-  {
-    path: "/tasks",
-    label: "Tareas",
-    description: "Gestor de tareas personales",
-    icon: ClipboardList,
-  },
-  {
-    path: "/instructions",
-    label: "Guías",
-    description: "Base de conocimiento",
-    icon: BookOpen,
-  },
-  {
-    path: "/requests",
-    label: "Solicitudes",
-    description: "Permisos y vacaciones",
-    icon: CalendarDays,
-  },
-  {
-    path: "/bookstore-requests",
-    label: "Solicitud Librerías",
-    description: "Pedidos para librerías",
-    icon: Store,
-  },
-];
+import { PAGE_REGISTRY } from "@/lib/pages";
+import { WORKSPACE_IDS, WORKSPACES } from "@/lib/workspaces";
 
 type PageMap = Record<string, boolean>;
+type WorkspaceMap = Record<string, boolean>;
 
 interface RegisteredUser {
   email: string;
@@ -91,10 +63,14 @@ interface RegisteredUser {
 interface UserPermConfig {
   email: string;
   pages: PageMap;
+  workspaces: WorkspaceMap;
 }
 
 const buildDefaultPageMap = (): PageMap =>
-  Object.fromEntries(PAGE_DEFINITIONS.map((p) => [p.path, true]));
+  Object.fromEntries(PAGE_REGISTRY.map((p) => [p.path, true]));
+
+const buildDefaultWorkspaceMap = (): WorkspaceMap =>
+  Object.fromEntries(WORKSPACE_IDS.map((id) => [id, id === "general"]));
 
 function formatLastLogin(lastLogin?: { seconds: number } | null): string {
   if (!lastLogin?.seconds) return "Nunca";
@@ -113,11 +89,15 @@ export default function NavigationAdmin() {
   const [defaultPages, setDefaultPages] = useState<PageMap>(
     buildDefaultPageMap()
   );
+  const [defaultWorkspaces, setDefaultWorkspaces] = useState<WorkspaceMap>(
+    buildDefaultWorkspaceMap()
+  );
   const [permConfigs, setPermConfigs] = useState<UserPermConfig[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [defaultOpen, setDefaultOpen] = useState(false);
 
   // Access guard — wait for role to load before deciding
   useEffect(() => {
@@ -142,15 +122,23 @@ export default function NavigationAdmin() {
               ...buildDefaultPageMap(),
               ...(data.pages ?? {}),
             });
+            setDefaultWorkspaces({
+              ...buildDefaultWorkspaceMap(),
+              ...(data.workspaces ?? {}),
+            });
           } else {
             configs.push({
               email: docSnap.id,
               pages: { ...buildDefaultPageMap(), ...(data.pages ?? {}) },
+              workspaces: data.workspaces ?? null,
             });
           }
         });
 
-        if (!foundDefault) setDefaultPages(buildDefaultPageMap());
+        if (!foundDefault) {
+          setDefaultPages(buildDefaultPageMap());
+          setDefaultWorkspaces(buildDefaultWorkspaceMap());
+        }
         setPermConfigs(configs);
       }
     );
@@ -184,6 +172,7 @@ export default function NavigationAdmin() {
     return {
       ...ru,
       pages: config?.pages ?? null, // null = using default
+      workspaces: config?.workspaces ?? null,
       hasCustomConfig: !!config,
     };
   });
@@ -196,6 +185,7 @@ export default function NavigationAdmin() {
       displayName: c.email.split("@")[0],
       lastLogin: null,
       pages: c.pages,
+      workspaces: c.workspaces,
       hasCustomConfig: true,
     }));
 
@@ -205,10 +195,10 @@ export default function NavigationAdmin() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
-  const saveDefault = async (pages: PageMap) => {
+  const saveDefault = async (pages: PageMap, workspaces: WorkspaceMap) => {
     setSaving("_default");
     try {
-      await setDoc(doc(db, "navigation_permissions", "_default"), { pages });
+      await setDoc(doc(db, "navigation_permissions", "_default"), { pages, workspaces });
       toast.success("Configuración por defecto guardada");
     } catch {
       toast.error("Error al guardar");
@@ -220,13 +210,21 @@ export default function NavigationAdmin() {
   const toggleDefault = async (path: string, value: boolean) => {
     const updated = { ...defaultPages, [path]: value };
     setDefaultPages(updated);
-    await saveDefault(updated);
+    await saveDefault(updated, defaultWorkspaces);
   };
 
-  const saveUserConfig = async (email: string, pages: PageMap) => {
+  const toggleDefaultWorkspace = async (wsId: string, value: boolean) => {
+    const updated = { ...defaultWorkspaces, [wsId]: value };
+    setDefaultWorkspaces(updated);
+    await saveDefault(defaultPages, updated);
+  };
+
+  const saveUserConfig = async (email: string, pages: PageMap, workspaces?: WorkspaceMap) => {
     setSaving(email);
     try {
-      await setDoc(doc(db, "navigation_permissions", email), { pages });
+      const data: Record<string, unknown> = { pages };
+      if (workspaces) data.workspaces = workspaces;
+      await setDoc(doc(db, "navigation_permissions", email), data);
       toast.success(`Permisos de ${email} guardados`);
     } catch {
       toast.error("Error al guardar");
@@ -239,11 +237,25 @@ export default function NavigationAdmin() {
     email: string,
     path: string,
     value: boolean,
-    currentPages: PageMap | null
+    currentPages: PageMap | null,
+    currentWorkspaces: WorkspaceMap | null
   ) => {
     const base = currentPages ?? defaultPages;
     const updated = { ...base, [path]: value };
-    await saveUserConfig(email, updated);
+    await saveUserConfig(email, updated, currentWorkspaces ?? undefined);
+  };
+
+  const toggleUserWorkspace = async (
+    email: string,
+    wsId: string,
+    value: boolean,
+    currentPages: PageMap | null,
+    currentWorkspaces: WorkspaceMap | null
+  ) => {
+    const basePages = currentPages ?? defaultPages;
+    const baseWs = currentWorkspaces ?? defaultWorkspaces;
+    const updatedWs = { ...baseWs, [wsId]: value };
+    await saveUserConfig(email, basePages, updatedWs);
   };
 
   const resetToDefault = async (email: string) => {
@@ -301,63 +313,134 @@ export default function NavigationAdmin() {
         </p>
       </div>
 
-      {/* ── Default config ─────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-black dark:text-primary" />
-            <CardTitle className="text-base">
-              Configuración por defecto
-            </CardTitle>
-          </div>
-          <CardDescription>
-            Aplica a todos los usuarios sin configuración personalizada
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {PAGE_DEFINITIONS.map((page) => {
-              const enabled = defaultPages[page.path] ?? true;
-              const isSaving = saving === "_default";
-              return (
-                <div
-                  key={page.path}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-lg border p-3 transition-all duration-200",
-                    enabled
-                      ? "border-border bg-card"
-                      : "border-dashed border-border/50 bg-muted/20 opacity-60"
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
-                      <page.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium leading-none mb-0.5">
-                        {page.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {page.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isSaving && (
-                      <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
-                    )}
-                    <Switch
-                      checked={enabled}
-                      onCheckedChange={(v) => toggleDefault(page.path, v)}
-                      className={cn(isSaving && "pointer-events-none opacity-70")}
-                    />
-                  </div>
+      {/* ── Default config (Collapsible) ─────────────────────────────────── */}
+      <Collapsible open={defaultOpen} onOpenChange={setDefaultOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-4 cursor-pointer select-none hover:bg-muted/30 transition-colors rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-black dark:text-primary" />
+                  <CardTitle className="text-base">
+                    Configuración por defecto
+                  </CardTitle>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                    defaultOpen && "rotate-180"
+                  )}
+                />
+              </div>
+              <CardDescription>
+                Aplica a todos los usuarios sin configuración personalizada
+              </CardDescription>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-6">
+              {/* Page toggles */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {PAGE_REGISTRY.map((page) => {
+                  const enabled = defaultPages[page.path] ?? true;
+                  const isSaving = saving === "_default";
+                  return (
+                    <div
+                      key={page.path}
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-lg border p-3 transition-all duration-200",
+                        enabled
+                          ? "border-border bg-card"
+                          : "border-dashed border-border/50 bg-muted/20 opacity-60"
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                          <page.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-none mb-0.5">
+                            {page.label}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {page.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isSaving && (
+                          <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                        )}
+                        <Switch
+                          checked={enabled}
+                          onCheckedChange={(v) => toggleDefault(page.path, v)}
+                          className={cn(isSaving && "pointer-events-none opacity-70")}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Workspace access toggles */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Acceso a Workspaces</h3>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {WORKSPACE_IDS.map((wsId) => {
+                    const ws = WORKSPACES[wsId];
+                    const enabled = defaultWorkspaces[wsId] ?? false;
+                    const isGeneral = wsId === "general";
+                    const isSaving = saving === "_default";
+                    return (
+                      <div
+                        key={wsId}
+                        className={cn(
+                          "flex items-center justify-between gap-3 rounded-lg border p-3 transition-all duration-200",
+                          enabled
+                            ? "border-border bg-card"
+                            : "border-dashed border-border/50 bg-muted/20 opacity-60"
+                        )}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                            <ws.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium leading-none">
+                              {ws.label}
+                            </p>
+                            {isGeneral && (
+                              <p className="text-xs text-muted-foreground">
+                                Siempre activo
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isSaving && (
+                            <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                          )}
+                          <Switch
+                            checked={enabled}
+                            onCheckedChange={(v) => toggleDefaultWorkspace(wsId, v)}
+                            disabled={isGeneral}
+                            className={cn(
+                              (isSaving || isGeneral) && "pointer-events-none opacity-70"
+                            )}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* ── Users list ────────────────────────────────────────────────────── */}
       <div className="space-y-4">
@@ -402,134 +485,205 @@ export default function NavigationAdmin() {
           </div>
         )}
 
-        {/* User cards */}
-        <div className="grid gap-3">
-          {displayUsers.map((u) => {
-            const isExpanded = expandedUser === u.email;
-            const effectivePages = u.pages ?? defaultPages;
-            const enabledCount = Object.values(effectivePages).filter(Boolean).length;
+        {/* User selector */}
+        {displayUsers.length > 0 && (
+          <Select
+            value={expandedUser ?? ""}
+            onValueChange={(v) => setExpandedUser(v || null)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Seleccionar usuario..." />
+            </SelectTrigger>
+            <SelectContent>
+              {displayUsers.map((u) => {
+                const effectivePages = u.pages ?? defaultPages;
+                const enabledCount = Object.values(effectivePages).filter(Boolean).length;
+                return (
+                  <SelectItem key={u.email} value={u.email}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{u.email}</span>
+                      <span className="text-muted-foreground text-xs">
+                        ({u.displayName}) · {enabledCount} páginas
+                      </span>
+                      {u.hasCustomConfig && (
+                        <Badge className="text-[10px] h-4 px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 ml-1">
+                          Personalizado
+                        </Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        )}
 
-            return (
-              <Card key={u.email} className="overflow-hidden">
-                {/* Card header — always visible */}
-                <button
-                  className="w-full text-left"
-                  onClick={() =>
-                    setExpandedUser(isExpanded ? null : u.email)
-                  }
-                >
-                  <CardHeader className="py-3 px-4 bg-muted/20 hover:bg-muted/40 transition-colors">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-primary">
-                            {u.displayName[0].toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate leading-none mb-0.5">
-                            {u.email}
-                          </p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {u.hasCustomConfig ? (
-                              <Badge className="text-[10px] h-4 px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800">
-                                Personalizado · {enabledCount} páginas
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
-                                Default · {enabledCount} páginas
-                              </Badge>
-                            )}
-                            {u.lastLogin && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-2.5 w-2.5" />
-                                {formatLastLogin(u.lastLogin)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {isExpanded ? "▲" : "▼"}
+        {/* Selected user permissions panel */}
+        {expandedUser && (() => {
+          const u = displayUsers.find((u) => u.email === expandedUser);
+          if (!u) return null;
+          const effectivePages = u.pages ?? defaultPages;
+          const effectiveWorkspaces = u.workspaces ?? defaultWorkspaces;
+          const enabledCount = Object.values(effectivePages).filter(Boolean).length;
+
+          return (
+            <Card className="overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <CardHeader className="py-3 px-4 bg-muted/20">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-primary">
+                        {u.displayName[0].toUpperCase()}
                       </span>
                     </div>
-                  </CardHeader>
-                </button>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate leading-none mb-0.5">
+                        {u.email}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {u.hasCustomConfig ? (
+                          <Badge className="text-[10px] h-4 px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                            Personalizado · {enabledCount} páginas
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground">
+                            Default · {enabledCount} páginas
+                          </Badge>
+                        )}
+                        {u.lastLogin && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5" />
+                            {formatLastLogin(u.lastLogin)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 border-t space-y-4">
+                {/* Page toggles */}
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {PAGE_REGISTRY.map((page) => {
+                    const enabled = effectivePages[page.path] ?? true;
+                    const isSaving = saving === u.email;
+                    return (
+                      <div
+                        key={page.path}
+                        className={cn(
+                          "flex items-center justify-between gap-3 rounded-md px-3 py-2 transition-all duration-200",
+                          enabled ? "bg-muted/30" : "opacity-50"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <page.icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs font-medium truncate">
+                            {page.label}
+                          </span>
+                          {!u.hasCustomConfig && (
+                            <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
+                              (default)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isSaving && (
+                            <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                          )}
+                          <Switch
+                            checked={enabled}
+                            onCheckedChange={(v) =>
+                              toggleUser(u.email, page.path, v, u.pages, u.workspaces)
+                            }
+                            className={cn(isSaving && "pointer-events-none opacity-70")}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                {/* Expandable permissions */}
-                {isExpanded && (
-                  <CardContent className="p-3 border-t">
-                    <div className="grid gap-1.5 sm:grid-cols-2 mb-3">
-                      {PAGE_DEFINITIONS.map((page) => {
-                        const enabled = effectivePages[page.path] ?? true;
-                        const isSaving = saving === u.email;
-                        return (
-                          <div
-                            key={page.path}
-                            className={cn(
-                              "flex items-center justify-between gap-3 rounded-md px-3 py-2 transition-all duration-200",
-                              enabled ? "bg-muted/30" : "opacity-50"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <page.icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className="text-xs font-medium truncate">
-                                {page.label}
+                {/* Workspace toggles per user */}
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                    <h4 className="text-xs font-semibold">Acceso a Workspaces</h4>
+                  </div>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {WORKSPACE_IDS.map((wsId) => {
+                      const ws = WORKSPACES[wsId];
+                      const enabled = effectiveWorkspaces[wsId] ?? false;
+                      const isGeneral = wsId === "general";
+                      const isSaving = saving === u.email;
+                      return (
+                        <div
+                          key={wsId}
+                          className={cn(
+                            "flex items-center justify-between gap-3 rounded-md px-3 py-2 transition-all duration-200",
+                            enabled ? "bg-muted/30" : "opacity-50"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <ws.icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-xs font-medium">
+                              {ws.label}
+                            </span>
+                            {isGeneral && (
+                              <span className="text-[10px] text-muted-foreground/60">
+                                (siempre)
                               </span>
-                              {!u.hasCustomConfig && (
-                                <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
-                                  (default)
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {isSaving && (
-                                <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
-                              )}
-                              <Switch
-                                checked={enabled}
-                                onCheckedChange={(v) =>
-                                  toggleUser(u.email, page.path, v, u.pages)
-                                }
-                                className={cn(isSaving && "pointer-events-none opacity-70")}
-                              />
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isSaving && (
+                              <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+                            )}
+                            <Switch
+                              checked={enabled}
+                              onCheckedChange={(v) =>
+                                toggleUserWorkspace(u.email, wsId, v, u.pages, u.workspaces)
+                              }
+                              disabled={isGeneral}
+                              className={cn(
+                                (isSaving || isGeneral) && "pointer-events-none opacity-70"
+                              )}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    {/* Actions */}
-                    <div className="flex justify-end gap-2 pt-1 border-t">
-                      {u.hasCustomConfig && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                          onClick={() => resetToDefault(u.email)}
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          Restablecer a default
-                        </Button>
-                      )}
-                      {!registeredUsers.find((r) => r.email === u.email) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => resetToDefault(u.email)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Eliminar
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+                {/* Actions */}
+                <div className="flex justify-end gap-2 pt-1 border-t">
+                  {u.hasCustomConfig && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => resetToDefault(u.email)}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Restablecer a default
+                    </Button>
+                  )}
+                  {!registeredUsers.find((r) => r.email === u.email) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => resetToDefault(u.email)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Eliminar
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
     </div>
   );

@@ -219,8 +219,16 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold text-foreground mb-4">Mis Tareas Activas</h2>
           <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
             {loading ? (
-              <div className="px-5 py-8 text-center text-sm text-muted-foreground italic">
-                Cargando tareas...
+              <div className="divide-y divide-border">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-muted animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+                    </div>
+                    <div className="h-5 w-14 rounded-full bg-muted animate-pulse" />
+                  </div>
+                ))}
               </div>
             ) : tasks.length === 0 ? (
               <div className="px-5 py-8 text-center text-sm text-muted-foreground">

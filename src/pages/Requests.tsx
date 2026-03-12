@@ -1,72 +1,16 @@
 import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Clock, Palmtree, Briefcase, Ban, Cake, History, CheckCircle2, XCircle, Clock4, Search, ArrowRight, Trash2, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown } from "lucide-react";
-
-type RequestType = "vacation" | "paid-leave" | "unpaid-leave" | "birthday-leave";
-
-interface LeaveRequest {
-  id: string;
-  type: RequestType;
-  fullName?: string;
-  idDocument?: string;
-  role?: string;
-  branch?: string;
-  phoneNumber?: string;
-  supervisor?: string;
-  startDate: string;
-  endDate: string;
-  returnDate?: string;
-  reason: string;
-  status: "pending" | "approved" | "rejected";
-  createdAt: any;
-  userId: string;
-  userEmail: string;
-}
-
-
-const requestTypeConfig: {
-  value: RequestType;
-  label: string;
-  description: string;
-  icon: typeof Palmtree;
-  color: string;
-}[] = [
-    { value: "vacation", label: "Vacaciones", description: "Tiempo libre para viajes o descanso", icon: Palmtree, color: "text-primary-foreground" },
-    { value: "paid-leave", label: "Permiso Remunerado", description: "Permiso personal o por enfermedad", icon: Briefcase, color: "text-primary-foreground" },
-    { value: "unpaid-leave", label: "Permiso No Remunerado", description: "Tiempo libre sin pago", icon: Ban, color: "text-primary-foreground" },
-    { value: "birthday-leave", label: "Día de Cumpleaños", description: "Día libre por tu cumpleaños", icon: Cake, color: "text-primary-foreground" },
-  ];
+import { RequestType, LeaveRequest, RequestFormState, requestTypeConfig } from "./requests/types";
+import RequestFormDialog from "./requests/RequestFormDialog";
+import RequestsTracking from "./requests/RequestsTracking";
 
 const Requests = () => {
   const { user } = useAuth();
@@ -75,7 +19,7 @@ const Requests = () => {
   const [dialogType, setDialogType] = useState<RequestType | null>(null);
   const [activeTab, setActiveTab] = useState("new-request");
   const [emailRecipient, setEmailRecipient] = useState("rh@bukz.co");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<RequestFormState>({
     fullName: "",
     idDocument: "",
     role: "",
@@ -230,7 +174,7 @@ ${form.idDocument}`;
       } else {
         // Generic template for other leaves
         body = `Solicitud de <b>${requestLabel}</b> enviada por <b>${form.fullName}</b>.<br><br>
-        
+
 <b>Motivo:</b> ${form.reason}<br>
 <b>Desde:</b> ${form.startDate}<br>
 <b>Hasta:</b> ${form.endDate}<br>
@@ -413,440 +357,31 @@ ${form.idDocument}`;
         </TabsContent>
 
         <TabsContent value="tracking" className="mt-0 animate-in slide-in-from-bottom-4 duration-500">
-          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              {!isMobile ? (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-muted/30 border-b border-border">
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tipo</th>
-                      {isOperations && <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Solicitante</th>}
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular</th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fechas</th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Motivo</th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado</th>
-                      {isOperations && <th className="px-4 md:px-6 py-3 md:py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {requests.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 md:px-6 py-12 text-center text-muted-foreground">
-                          <div className="flex flex-col items-center gap-2">
-                            <History className="h-8 w-8 opacity-20" />
-                            <p>No hay solicitudes registradas.</p>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                    requests.map((request) => (
-                      <tr key={request.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-4 md:px-6 py-3 md:py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-muted border border-border text-foreground dark:border-transparent dark:bg-primary/10 dark:text-primary">
-                              {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
-                                request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
-                                  <Briefcase className="h-4 w-4" />}
-                            </div>
-                            <span className="text-sm font-medium text-foreground">
-                              {requestTypeConfig.find(t => t.value === request.type)?.label}
-                            </span>
-                          </div>
-                        </td>
-                        {isOperations && (
-                          <td className="px-4 md:px-6 py-3 md:py-4">
-                            <div className="flex flex-col text-sm">
-                              <span className="font-medium text-foreground">{request.fullName || "Sin nombre"}</span>
-                              <span className="text-xs text-muted-foreground">{request.branch || "Sin sede"}</span>
-                            </div>
-                          </td>
-                        )}
-                        <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-foreground">
-                          {request.phoneNumber || "—"}
-                        </td>
-                        <td className="px-4 md:px-6 py-3 md:py-4">
-                          <div className="flex flex-col text-sm">
-                            <span className="text-foreground">{request.startDate} al {request.endDate}</span>
-                            {request.returnDate && <span className="text-xs text-muted-foreground italic">Reingreso: {request.returnDate}</span>}
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-foreground max-w-xs truncate">
-                          {request.reason || "—"}
-                        </td>
-                        <td className="px-4 md:px-6 py-3 md:py-4">
-                          <div className="flex items-center gap-2">
-                            {isOperations ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
-                                    {getStatusIcon(request.status)}
-                                    {getStatusBadge(request.status)}
-                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-[140px]">
-                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "pending")} className="gap-2">
-                                    <Clock4 className="h-4 w-4 text-amber-500" /> Pendiente
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "approved")} className="gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Aprobar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "rejected")} className="gap-2 text-destructive focus:text-destructive">
-                                    <XCircle className="h-4 w-4" /> Rechazar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <>
-                                {getStatusIcon(request.status)}
-                                {getStatusBadge(request.status)}
-                              </>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-muted-foreground">
-                          {request.createdAt?.toDate ? request.createdAt.toDate().toLocaleDateString() : "Reciente"}
-                        </td>
-                        {isOperations && (
-                          <td className="px-4 md:px-6 py-3 md:py-4 text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteRequest(request.id)}
-                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-              ) : (
-                <div className="space-y-3 p-3">
-                  {requests.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-                      <History className="h-8 w-8 opacity-20" />
-                      <p>No hay solicitudes registradas.</p>
-                    </div>
-                  ) : (
-                    requests.map((request) => (
-                      <div key={request.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
-                        {/* Header del card: tipo + badge status */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-muted border border-border text-foreground dark:border-transparent dark:bg-primary/10 dark:text-primary">
-                              {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
-                                request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
-                                  <Briefcase className="h-4 w-4" />}
-                            </div>
-                            <span className="text-sm font-medium text-foreground">
-                              {requestTypeConfig.find(t => t.value === request.type)?.label}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {isOperations ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button className="flex items-center gap-1.5 hover:opacity-80 transition-opacity outline-none">
-                                    {getStatusIcon(request.status)}
-                                    {getStatusBadge(request.status)}
-                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-[140px]">
-                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "pending")} className="gap-2">
-                                    <Clock4 className="h-4 w-4 text-amber-500" /> Pendiente
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "approved")} className="gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Aprobar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "rejected")} className="gap-2 text-destructive focus:text-destructive">
-                                    <XCircle className="h-4 w-4" /> Rechazar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <>
-                                {getStatusIcon(request.status)}
-                                {getStatusBadge(request.status)}
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Info del solicitante (solo si isOperations) */}
-                        {isOperations && (
-                          <div className="text-sm">
-                            <span className="font-medium text-foreground">{request.fullName || "Sin nombre"}</span>
-                            <span className="text-xs text-muted-foreground block">{request.branch || "Sin sede"}</span>
-                          </div>
-                        )}
-
-                        {/* Detalles */}
-                        <div className="text-sm space-y-1.5">
-                          <div>
-                            <span className="text-muted-foreground text-xs">Fechas:</span>{" "}
-                            <span className="font-medium text-foreground">{request.startDate} - {request.endDate}</span>
-                            {request.returnDate && <span className="text-xs text-muted-foreground block italic">Reingreso: {request.returnDate}</span>}
-                          </div>
-                          {request.phoneNumber && (
-                            <div>
-                              <span className="text-muted-foreground text-xs">Teléfono:</span>{" "}
-                              <span className="text-foreground">{request.phoneNumber}</span>
-                            </div>
-                          )}
-                          {request.reason && (
-                            <div className="text-xs text-muted-foreground line-clamp-2">
-                              <span className="font-medium">Motivo:</span> {request.reason}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Footer: fecha creación + botón eliminar */}
-                        <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                          <span className="text-xs text-muted-foreground">
-                            Enviado: {request.createdAt?.toDate ? request.createdAt.toDate().toLocaleDateString() : "Reciente"}
-                          </span>
-                          {isOperations && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteRequest(request.id)}
-                              className="h-9 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <RequestsTracking
+            requests={requests}
+            isOperations={isOperations}
+            isMobile={isMobile}
+            getStatusIcon={getStatusIcon}
+            getStatusBadge={getStatusBadge}
+            updateRequestStatus={updateRequestStatus}
+            deleteRequest={deleteRequest}
+          />
         </TabsContent>
       </Tabs>
 
       {/* Popup form dialog */}
-      <Dialog open={!!dialogType} onOpenChange={(open) => !open && setDialogType(null)}>
-        <DialogContent className={cn(
-          isMobile
-            ? "w-full h-full max-w-full max-h-full m-0 rounded-none p-4"
-            : "sm:max-w-2xl lg:max-w-3xl"
-        )}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              {activeConfig && <activeConfig.icon className={cn("h-6 w-6", activeConfig.color)} />}
-              Nueva solicitud: {activeConfig?.label}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 md:gap-6 py-3 md:py-4 overflow-y-auto max-h-[calc(100vh-160px)] md:max-h-[75vh] px-1">
-            {/* Personal Information Structure - Now for ALL request types */}
-            <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm text-foreground font-medium">Nombre Completo *</label>
-                  <Input
-                    value={form.fullName}
-                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    placeholder="Ej: Juan Pérez"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-foreground font-medium">Documento de Identidad *</label>
-                  <Input
-                    value={form.idDocument}
-                    onChange={(e) => setForm({ ...form, idDocument: e.target.value })}
-                    placeholder="Ej: 1234567890"
-                    className="h-11"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm text-foreground font-medium">Cargo *</label>
-                  <Input
-                    value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value })}
-                    placeholder="Ej: Analista/Librero"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-foreground font-medium">Sede *</label>
-                  <Select
-                    value={form.branch}
-                    onValueChange={(value) => setForm({ ...form, branch: value })}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Selecciona una sede" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Bukz Las Lomas">Bukz Las Lomas</SelectItem>
-                      <SelectItem value="Bukz Viva Envigado">Bukz Viva Envigado</SelectItem>
-                      <SelectItem value="Bukz Museo">Bukz Museo</SelectItem>
-                      <SelectItem value="Bukz Cedi">Bukz Cedi</SelectItem>
-                      <SelectItem value="Bukz Administrativo">Bukz Administrativo</SelectItem>
-                      <SelectItem value="Bukz Bogota 109">Bukz Bogota 109</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm text-foreground font-medium">Jefe Inmediato *</label>
-                  <Input
-                    value={form.supervisor}
-                    onChange={(e) => setForm({ ...form, supervisor: e.target.value })}
-                    placeholder="Ej: María González"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-foreground font-medium">Celular *</label>
-                  <Input
-                    value={form.phoneNumber}
-                    onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
-                    placeholder="Ej: 3001234567"
-                    className="h-11"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border mt-2">
-                {dialogType === "vacation" && (
-                  <div className="space-y-6">
-                    <h4 className="text-base font-semibold">Período de Vacaciones</h4>
-                    <div className="grid gap-4 sm:grid-cols-3 text-center sm:text-left">
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Fecha Inicio *</label>
-                        <Input
-                          type="date"
-                          value={form.startDate}
-                          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                          className="h-11"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Fecha Fin *</label>
-                        <Input
-                          type="date"
-                          value={form.endDate}
-                          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                          className="h-11"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Reingreso *</label>
-                        <Input
-                          type="date"
-                          value={form.returnDate}
-                          onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
-                          className="h-11"
-                        />
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-primary/10 border border-primary/20 p-4 text-sm text-foreground leading-relaxed shadow-sm">
-                      <strong className="text-primary">Nota:</strong> Las solicitudes de vacaciones deben realizarse con al menos 15 días de anticipación para garantizar la cobertura de la operación.
-                    </div>
-                  </div>
-                )}
-
-                {dialogType === "birthday-leave" && (
-                  <div className="space-y-6">
-                    <h4 className="text-base font-semibold">Fecha del Día de Cumpleaños</h4>
-                    <div className="space-y-2">
-                      <label className="text-sm text-foreground font-medium">Fecha *</label>
-                      <Input
-                        type="date"
-                        value={form.startDate}
-                        onChange={(e) => setForm({ ...form, startDate: e.target.value, endDate: e.target.value })}
-                        className="max-w-[240px] h-11"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Selecciona la fecha en la que deseas tomar tu día de cumpleaños
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-4 text-sm text-amber-800 dark:text-amber-200 leading-relaxed shadow-sm">
-                      <strong className="text-amber-700 dark:text-amber-400">Nota:</strong> El día de cumpleaños es un beneficio otorgado por la empresa. Tu confirmación será enviada a tu jefe directo y al correo de tu sede. Asegúrate de solicitarlo con la debida anticipación.
-                    </div>
-                  </div>
-                )}
-
-                {(dialogType === "paid-leave" || dialogType === "unpaid-leave") && (
-                  <div className="space-y-6">
-                    <h4 className="text-base font-semibold">Detalles del Permiso</h4>
-                    <div className="space-y-2">
-                      <label className="text-sm text-foreground font-medium">Motivo del Permiso *</label>
-                      <Input
-                        value={form.reason}
-                        onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                        placeholder="Ej: Trámites personales, cita médica, etc."
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <label className="text-sm text-foreground font-medium">Fecha Inicio *</label>
-                        <Input
-                          type="date"
-                          value={form.startDate}
-                          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                          className="h-11"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm text-foreground font-medium">Fecha Fin *</label>
-                        <Input
-                          type="date"
-                          value={form.endDate}
-                          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                          className="h-11"
-                        />
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-sm text-blue-900 dark:text-blue-200 leading-relaxed shadow-sm">
-                      <strong className="text-blue-600 dark:text-blue-400">Importante:</strong> Los permisos deben ser justificados y contar con el aval del jefe inmediato para su aprobación final por RRHH.
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="mt-6 pt-4 border-t flex-col sm:flex-row gap-4">
-            {/* Dropdown para usuario operaciones */}
-            {isOperations && (
-              <div className="flex items-center gap-2 mr-auto">
-                <label className="text-sm text-muted-foreground font-medium">Enviar a:</label>
-                <Select value={emailRecipient} onValueChange={setEmailRecipient}>
-                  <SelectTrigger className="w-[200px] h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rh@bukz.co">rh@bukz.co</SelectItem>
-                    <SelectItem value="operaciones@bukz.co">operaciones@bukz.co</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="flex gap-2 sm:ml-auto">
-              <Button variant="ghost" size="lg" onClick={() => setDialogType(null)}>
-                Cancelar
-              </Button>
-              <Button size="lg" onClick={submitRequest}>Enviar Solicitud</Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RequestFormDialog
+        dialogType={dialogType}
+        setDialogType={setDialogType}
+        form={form}
+        setForm={setForm}
+        submitRequest={submitRequest}
+        isMobile={isMobile}
+        isOperations={isOperations}
+        emailRecipient={emailRecipient}
+        setEmailRecipient={setEmailRecipient}
+        activeConfig={activeConfig}
+      />
     </div>
   );
 };

@@ -157,6 +157,13 @@ export function useTour(allowedPages: Set<string>) {
       ...visibleHeaderSteps,
     ];
 
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && driverObj.isActive()) {
+        e.preventDefault();
+        driverObj.moveNext();
+      }
+    };
+
     const driverObj = driver({
       showProgress: true,
       animate: true,
@@ -170,10 +177,12 @@ export function useTour(allowedPages: Set<string>) {
       progressText: "{{current}} de {{total}}",
       steps,
       onDestroyed: () => {
+        document.removeEventListener("keydown", handleKeydown);
         localStorage.setItem(TOUR_COMPLETED_KEY, "true");
       },
     });
 
+    document.addEventListener("keydown", handleKeydown);
     driverObj.drive();
   }, [allowedPages]);
 

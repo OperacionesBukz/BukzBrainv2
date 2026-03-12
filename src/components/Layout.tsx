@@ -9,12 +9,15 @@ import {
   ClipboardList,
   Menu,
   LogOut,
-  FileText,
   Store,
   ShieldCheck,
+  UserPlus,
   Settings,
   ChevronDown,
   HelpCircle,
+  Package,
+  Ship,
+  FileText,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -36,54 +39,74 @@ import { useAuth } from "@/contexts/AuthContext";
 import { auth as firebaseAuth } from "@/lib/firebase";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigationPermissions } from "@/hooks/useNavigationPermissions";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useTour } from "@/hooks/useTour";
 
 const navItems = [
   { title: "Dashboard", path: "/dashboard", icon: Home, tourId: "nav-dashboard" },
   {
-    title: "Operaciones",
+    title: "Tareas Bukz",
     path: "/operations",
     icon: ListChecks,
     tourId: "nav-operations",
     subItems: [
-      {
-        title: "Tareas entre áreas",
-        path: "/operations?tab=tasks",
-        icon: ClipboardList,
-      },
-      {
-        title: "Archivos",
-        path: "/operations?tab=files",
-        icon: FileText,
-      },
+      { title: "Tareas entre áreas", path: "/operations?tab=tasks", icon: ClipboardList },
+      { title: "Archivos", path: "/operations?tab=files", icon: FileText },
     ],
   },
   { title: "Tareas", path: "/tasks", icon: ClipboardList, tourId: "nav-tasks" },
   { title: "Guías", path: "/instructions", icon: BookOpen, tourId: "nav-instructions" },
   { title: "Solicitudes", path: "/requests", icon: CalendarDays, tourId: "nav-requests" },
   { title: "Solicitud Librerías", path: "/bookstore-requests", icon: Store, tourId: "nav-bookstore" },
+  { title: "Reposición", path: "/reposicion", icon: Package, tourId: "nav-reposicion" },
+  { title: "Celesa", path: "/celesa", icon: Ship, tourId: "nav-celesa" },
 ];
 
 const adminSubItems = [
-  { title: "Permisos Nav", path: "/nav-admin", icon: ShieldCheck },
+  { title: "Permisos Navegación", path: "/nav-admin", icon: ShieldCheck },
+  { title: "Gestión Usuarios", path: "/user-admin", icon: UserPlus },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(() => window.location.pathname.startsWith("/nav-admin"));
+  const [adminOpen, setAdminOpen] = useState(() => window.location.pathname.startsWith("/nav-admin") || window.location.pathname.startsWith("/user-admin"));
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading, isAdmin } = useAuth();
-  const { allowedPages } = useNavigationPermissions();
+  const { allowedPages, allowedWorkspaces } = useNavigationPermissions();
+  const { workspace, switchWorkspace } = useWorkspace();
+
+  // Force fallback to "general" if user doesn't have access to current workspace
+  useEffect(() => {
+    if (workspace.id === "operaciones" && !allowedWorkspaces.has("operaciones")) {
+      switchWorkspace("general");
+    }
+  }, [workspace.id, allowedWorkspaces, switchWorkspace]);
+
   const { startTour } = useTour(allowedPages);
   const [tourDialogOpen, setTourDialogOpen] = useState(false);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
 
-  // Filter nav items based on Firestore permissions
-  const visibleNavItems = navItems.filter((item) =>
-    allowedPages.has(item.path)
+  // Filter nav items: must be in workspace AND allowed by permissions
+  const visibleNavItems = navItems.filter(
+    (item) => workspace.paths.includes(item.path) && allowedPages.has(item.path)
   );
+
+  // Redirect if current route doesn't belong to the active workspace
+  useEffect(() => {
+    if (loading || !user) return;
+    const currentPath = location.pathname;
+    const isInWorkspace = workspace.paths.includes(currentPath);
+    const isAdminPath = currentPath.startsWith("/nav-admin") || currentPath.startsWith("/user-admin");
+    if (!isInWorkspace && !isAdminPath) {
+      const firstAvailable = visibleNavItems[0]?.path ?? workspace.paths[0];
+      if (firstAvailable) navigate(firstAvailable, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace.id]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -130,39 +153,76 @@ export function Layout({ children }: { children: ReactNode }) {
       >
         {/* Nav push down to go under header */}
         <div className="h-14 shrink-0" />
+        {/* Workspace Switcher */}
+        <div className="px-2 pt-3 pb-1 border-b border-border/40">
+          <WorkspaceSwitcher current={workspace} onSwitch={switchWorkspace} collapsed={collapsed} allowedWorkspaces={allowedWorkspaces} />
+        </div>
         {/* Nav */}
         <nav className="flex-1 space-y-1 p-2 pt-4">
           {visibleNavItems
             .map((item) => {
               const isActive = location.pathname === item.path;
-              const isOperations = item.path === "/operations";
-              const showSubItems =
-                isOperations &&
-                location.pathname.startsWith("/operations") &&
-                !collapsed;
+              const hasSubItems = !!item.subItems && !collapsed;
+              const isExpanded = expandedPaths.has(item.path);
 
               return (
                 <div key={item.path} className="space-y-1">
-                  <NavLink
-                    to={item.path}
-                    id={item.tourId}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                      isActive
-                        ? "bg-primary/15 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
-                    )}
-                  >
-                    <item.icon
+                  {hasSubItems ? (
+                    <button
+                      id={item.tourId}
+                      onClick={() => {
+                        setExpandedPaths((prev) => {
+                          const next = new Set(prev);
+                          next.has(item.path) ? next.delete(item.path) : next.add(item.path);
+                          return next;
+                        });
+                        navigate(item.path);
+                      }}
                       className={cn(
-                        "h-4 w-4 shrink-0 transition-transform duration-200",
-                        isActive && "text-foreground"
+                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                        isActive
+                          ? "bg-primary/15 text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
-                    />
-                    {!collapsed && <span>{item.title}</span>}
-                  </NavLink>
+                    >
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4 shrink-0 transition-transform duration-200",
+                          isActive && "text-foreground"
+                        )}
+                      />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-left">{item.title}</span>
+                          <ChevronDown className={cn(
+                            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                            isExpanded && "rotate-180"
+                          )} />
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <NavLink
+                      to={item.path}
+                      id={item.tourId}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                        isActive
+                          ? "bg-primary/15 text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4 shrink-0 transition-transform duration-200",
+                          isActive && "text-foreground"
+                        )}
+                      />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  )}
 
-                  {showSubItems && item.subItems && (
+                  {hasSubItems && isExpanded && item.subItems && (
                     <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                       {item.subItems.map((sub) => {
                         const isSubActive =
@@ -193,9 +253,12 @@ export function Layout({ children }: { children: ReactNode }) {
               );
             })}
 
+          {/* Separador visual después de nav items */}
+          <div className="border-b border-border/40 pb-3" />
+
           {/* Admin — solo administradores */}
-          {isAdmin && (
-            <div className="mt-2 border-t border-border/40 pt-3">
+          {isAdmin && workspace.showAdmin && (
+            <div className="mt-2 pt-3">
               <button
                 onClick={() => setAdminOpen(!adminOpen)}
                 className={cn(
@@ -280,29 +343,63 @@ export function Layout({ children }: { children: ReactNode }) {
                 </span>
               </div>
 
+              {/* Workspace Switcher - mobile */}
+              <div className="px-2 pt-3 pb-1 border-b border-border/40">
+                <WorkspaceSwitcher current={workspace} onSwitch={switchWorkspace} allowedWorkspaces={allowedWorkspaces} />
+              </div>
+
               {/* Navegación - mismo contenido que sidebar */}
               <nav className="flex-1 space-y-1 p-2 pt-4 overflow-y-auto">
                 {visibleNavItems
                   .map((item) => {
                     const isActive = location.pathname === item.path;
+                    const hasSubItems = !!item.subItems;
+                    const isExpanded = expandedPaths.has(item.path);
+
                     return (
                       <div key={item.path} className="space-y-1">
-                        <NavLink
-                          to={item.path}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                            isActive
-                              ? "bg-primary/15 text-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
-                          )}
-                        >
-                          <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                          <span>{item.title}</span>
-                        </NavLink>
+                        {hasSubItems ? (
+                          <button
+                            onClick={() => {
+                              setExpandedPaths((prev) => {
+                                const next = new Set(prev);
+                                next.has(item.path) ? next.delete(item.path) : next.add(item.path);
+                                return next;
+                              });
+                              navigate(item.path);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                              isActive
+                                ? "bg-primary/15 text-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                            <span className="flex-1 text-left">{item.title}</span>
+                            <ChevronDown className={cn(
+                              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                              isExpanded && "rotate-180"
+                            )} />
+                          </button>
+                        ) : (
+                          <NavLink
+                            to={item.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                              isActive
+                                ? "bg-primary/15 text-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        )}
 
-                        {/* Mostrar subitems siempre en mobile si está activo */}
-                        {item.subItems && location.pathname.startsWith(item.path) && (
+                        {hasSubItems && isExpanded && item.subItems && (
                           <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                             {item.subItems.map((sub) => {
                               const isSubActive =
@@ -335,7 +432,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   })}
 
                 {/* Admin — solo administradores */}
-                {isAdmin && (
+                {isAdmin && workspace.showAdmin && (
                   <div className="mt-2 border-t border-border/40 pt-3">
                     <button
                       onClick={() => setAdminOpen(!adminOpen)}
@@ -383,7 +480,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Static top bar spanning full width */}
       <header
-        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header/80 backdrop-blur-xl px-3 md:px-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),0_4px_12px_rgba(0,0,0,0.15)] border-b border-border/30 dark:border-border/20"
+        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-2 md:gap-4 bg-header backdrop-blur-xl px-3 md:px-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),0_4px_12px_rgba(0,0,0,0.15)] border-b border-border/30 dark:border-border/20"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           height: 'calc(3.5rem + env(safe-area-inset-top))'
@@ -474,13 +571,15 @@ export function Layout({ children }: { children: ReactNode }) {
           isMobile ? "ml-0" : (collapsed ? "ml-16" : "ml-60")
         )}
         style={{
-          marginTop: 'calc(3.5rem + env(safe-area-inset-top))'
+          marginTop: 'calc(3.5rem + env(safe-area-inset-top))',
+          marginBottom: 'calc(3.5rem + env(safe-area-inset-bottom))'
         }}
       >
         <div className="h-full bg-background rounded-none p-4 md:p-6 animate-fade-in shadow-sm">
           {children}
         </div>
       </main>
+
 
       {/* Tour confirmation dialog */}
       <AlertDialog open={tourDialogOpen} onOpenChange={setTourDialogOpen}>
