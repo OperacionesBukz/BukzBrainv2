@@ -17,8 +17,8 @@ import {
   HelpCircle,
   Package,
   Ship,
-  FileText,
   ClipboardCheck,
+  Calculator,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -46,16 +46,7 @@ import { useTour } from "@/hooks/useTour";
 
 const navItems = [
   { title: "Dashboard", path: "/dashboard", icon: Home, tourId: "nav-dashboard" },
-  {
-    title: "Tareas Bukz",
-    path: "/operations",
-    icon: ListChecks,
-    tourId: "nav-operations",
-    subItems: [
-      { title: "Tareas entre áreas", path: "/operations?tab=tasks", icon: ClipboardList },
-      { title: "Archivos", path: "/operations?tab=files", icon: FileText },
-    ],
-  },
+  { title: "Tareas Bukz", path: "/operations", icon: ListChecks, tourId: "nav-operations" },
   { title: "Tareas", path: "/tasks", icon: ClipboardList, tourId: "nav-tasks" },
   { title: "Guías", path: "/instructions", icon: BookOpen, tourId: "nav-instructions" },
   { title: "Solicitudes", path: "/requests", icon: CalendarDays, tourId: "nav-requests" },
@@ -63,6 +54,7 @@ const navItems = [
   { title: "Hub Solicitudes", path: "/requests-hub", icon: ClipboardCheck, tourId: "nav-requests-hub" },
   { title: "Reposición", path: "/reposicion", icon: Package, tourId: "nav-reposicion" },
   { title: "Celesa", path: "/celesa", icon: Ship, tourId: "nav-celesa" },
+  { title: "Calculadora", path: "/calculator", icon: Calculator, tourId: "nav-calculator" },
 ];
 
 const adminSubItems = [
@@ -78,15 +70,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading, isAdmin } = useAuth();
-  const { allowedPages, allowedWorkspaces } = useNavigationPermissions();
+  const { allowedPages, allowedWorkspaces, loaded } = useNavigationPermissions();
   const { workspace, switchWorkspace } = useWorkspace();
 
   // Force fallback to "general" if user doesn't have access to current workspace
   useEffect(() => {
-    if (workspace.id === "operaciones" && !allowedWorkspaces.has("operaciones")) {
+    if (loaded && workspace.id === "operaciones" && !allowedWorkspaces.has("operaciones")) {
       switchWorkspace("general");
     }
-  }, [workspace.id, allowedWorkspaces, switchWorkspace]);
+  }, [loaded, workspace.id, allowedWorkspaces, switchWorkspace]);
 
   const { startTour } = useTour(allowedPages);
   const [tourDialogOpen, setTourDialogOpen] = useState(false);

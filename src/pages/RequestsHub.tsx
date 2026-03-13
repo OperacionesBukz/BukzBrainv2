@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { CalendarDays, Store, CheckCircle2, XCircle, Clock4 } from "lucide-react";
+import { CheckCircle2, XCircle, Clock4, List, Calendar, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ViewSwitcher } from "@/components/ViewSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRequestsHubData } from "./requests-hub/useRequestsHubData";
 import RequestsHubKpiCards from "./requests-hub/RequestsHubKpiCards";
 import RequestsTracking from "./requests/RequestsTracking";
+import RequestsCalendar from "./requests-hub/RequestsCalendar";
 import BookstoreOrderHistory from "./bookstore/BookstoreOrderHistory";
+import AdminAddPermissionDialog from "./requests-hub/AdminAddPermissionDialog";
 import type { RequestOrder } from "./bookstore/types";
 
 const getStatusIcon = (status: string) => {
@@ -51,11 +54,23 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+const tabOptions = [
+  { id: "permisos", label: "Permisos" },
+  { id: "pedidos", label: "Pedidos" },
+];
+
+const viewOptions = [
+  { id: "list", label: "Lista", icon: List },
+  { id: "calendar", label: "Calendario", icon: Calendar },
+];
+
 const RequestsHub = () => {
   const { isAdmin } = useAuth();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("permisos");
+  const [viewMode, setViewMode] = useState("list");
   const [selectedOrder, setSelectedOrder] = useState<RequestOrder | null>(null);
+  const [addPermissionOpen, setAddPermissionOpen] = useState(false);
 
   const {
     leaveRequests,
@@ -63,6 +78,7 @@ const RequestsHub = () => {
     updateRequestStatus,
     deleteRequest,
     handleDeleteOrder,
+    handleStatusChangeOrder,
     isDeletingOrder,
     formatDate,
   } = useRequestsHubData();
@@ -73,13 +89,21 @@ const RequestsHub = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          Hub Solicitudes
-        </h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          Seguimiento centralizado de solicitudes de permisos y pedidos de librerías
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+            Hub Solicitudes
+          </h1>
+          <p className="mt-1 text-base text-muted-foreground">
+            Seguimiento centralizado de solicitudes de permisos y pedidos de librerías
+          </p>
+        </div>
+        <ViewSwitcher
+          options={tabOptions}
+          current={activeTab}
+          onSwitch={setActiveTab}
+          className="shrink-0"
+        />
       </div>
 
       <RequestsHubKpiCards
@@ -87,42 +111,55 @@ const RequestsHub = () => {
         bookstoreOrders={bookstoreOrders}
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-muted/50 p-1 mb-6">
-          <TabsTrigger value="permisos" className="gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Permisos y Vacaciones
-          </TabsTrigger>
-          <TabsTrigger value="pedidos" className="gap-2">
-            <Store className="h-4 w-4" />
-            Pedidos Librerías
-          </TabsTrigger>
-        </TabsList>
+      {activeTab === "permisos" && (
+        <div className="animate-in fade-in duration-300 space-y-4">
+          <div className="flex justify-end items-center gap-2">
+            <Button size="sm" onClick={() => setAddPermissionOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Agregar Permiso
+            </Button>
+            <ViewSwitcher
+              options={viewOptions}
+              current={viewMode}
+              onSwitch={setViewMode}
+            />
+          </div>
 
-        <TabsContent value="permisos" className="mt-0 animate-in fade-in duration-300">
-          <RequestsTracking
-            requests={leaveRequests}
-            isOperations={true}
-            isMobile={isMobile}
-            getStatusIcon={getStatusIcon}
-            getStatusBadge={getStatusBadge}
-            updateRequestStatus={updateRequestStatus}
-            deleteRequest={deleteRequest}
-          />
-        </TabsContent>
+          {viewMode === "list" ? (
+            <RequestsTracking
+              requests={leaveRequests}
+              isOperations={true}
+              isMobile={isMobile}
+              getStatusIcon={getStatusIcon}
+              getStatusBadge={getStatusBadge}
+              updateRequestStatus={updateRequestStatus}
+              deleteRequest={deleteRequest}
+            />
+          ) : (
+            <RequestsCalendar requests={leaveRequests} />
+          )}
+        </div>
+      )}
 
-        <TabsContent value="pedidos" className="mt-0 animate-in fade-in duration-300">
+      {activeTab === "pedidos" && (
+        <div className="animate-in fade-in duration-300">
           <BookstoreOrderHistory
             orders={bookstoreOrders}
             selectedOrder={selectedOrder}
             setSelectedOrder={setSelectedOrder}
+            handleStatusChange={handleStatusChangeOrder}
             handleDeleteOrder={handleDeleteOrder}
             isDeletingOrder={isDeletingOrder}
             isMobile={isMobile}
             formatDate={formatDate}
           />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+
+      <AdminAddPermissionDialog
+        open={addPermissionOpen}
+        onOpenChange={setAddPermissionOpen}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { format } from "date-fns";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   DragDropContext,
   Droppable,
@@ -9,14 +9,11 @@ import {
 import {
   Plus,
   Minus,
-  ClipboardList,
-  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePickerButton } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,9 +73,6 @@ const Operations = () => {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [showNewTaskForm, isTaskFormClosing]);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "tasks";
-
   useEffect(() => {
     const q = query(collection(db, "tasks"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -101,14 +95,6 @@ const Operations = () => {
 
     return () => unsubscribe();
   }, []);
-
-  const handleTabChange = (value: string) => {
-    if (value === "panel") {
-      window.open("https://paneloperacionesbukz.streamlit.app/", "_blank");
-      return;
-    }
-    setSearchParams({ tab: value });
-  };
 
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
@@ -342,24 +328,11 @@ const Operations = () => {
       <div>
         <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Tareas Bukz</h1>
         <p className="mt-1 text-base text-muted-foreground">
-          Gestión operativa y archivos del equipo
+          Gestión de tareas entre áreas
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
-
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="tasks" className="gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Tareas entre áreas
-          </TabsTrigger>
-          <TabsTrigger value="panel" className="gap-2">
-            <ExternalLink className="h-4 w-4" />
-            Panel Tareas Bukz
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="tasks" className="space-y-6 mt-0">
+      <div className="space-y-6">
           {/* Add task */}
           <div>
             <button
@@ -544,9 +517,7 @@ const Operations = () => {
               </div>
             </div>
           </DragDropContext>
-        </TabsContent>
-
-      </Tabs>
+      </div>
     </div>
   );
 };

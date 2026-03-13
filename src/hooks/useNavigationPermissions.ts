@@ -18,6 +18,7 @@ export function useNavigationPermissions() {
   const [allowedWorkspaces, setAllowedWorkspaces] = useState<Set<WorkspaceId>>(
     new Set(["general"])
   );
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!user?.email) {
@@ -54,6 +55,7 @@ export function useNavigationPermissions() {
         }
         setAllowedWorkspaces(allowed);
       }
+      setLoaded(true);
     };
 
     const unsubUser = onSnapshot(
@@ -92,5 +94,5 @@ export function useNavigationPermissions() {
     };
   }, [user?.email]);
 
-  return { allowedPages, allowedWorkspaces };
+  return { allowedPages, allowedWorkspaces, loaded };
 }

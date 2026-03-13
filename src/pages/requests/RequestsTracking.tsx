@@ -1,22 +1,42 @@
-import { ReactNode } from "react";
-import { Palmtree, Briefcase, Cake, History, CheckCircle2, XCircle, Clock4, Trash2, ChevronDown } from "lucide-react";
+import { Palmtree, Briefcase, Cake, FileText, History, CheckCircle2, XCircle, Clock4, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import StatusDropdown, { StatusOption } from "@/components/StatusDropdown";
 import { LeaveRequest, requestTypeConfig } from "./types";
+
+type LeaveStatus = "pending" | "approved" | "rejected";
+
+const LEAVE_STATUS_CONFIG: Record<LeaveStatus, StatusOption> = {
+  pending: {
+    label: "Pendiente",
+    icon: Clock4,
+    iconClassName: "text-amber-500",
+    badgeVariant: "secondary",
+  },
+  approved: {
+    label: "Aprobado",
+    icon: CheckCircle2,
+    iconClassName: "text-emerald-500",
+    badgeVariant: "default",
+    badgeClassName: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  },
+  rejected: {
+    label: "Rechazado",
+    icon: XCircle,
+    iconClassName: "text-destructive",
+    badgeVariant: "destructive",
+    badgeClassName: "bg-destructive/10 text-destructive border-destructive/20",
+    menuItemClassName: "text-destructive focus:text-destructive",
+  },
+};
 
 interface RequestsTrackingProps {
   requests: LeaveRequest[];
   isOperations: boolean;
   isMobile: boolean;
-  getStatusIcon: (status: string) => ReactNode;
-  getStatusBadge: (status: string) => ReactNode;
-  updateRequestStatus: (requestId: string, newStatus: "pending" | "approved" | "rejected") => Promise<void>;
+  getStatusIcon: (status: string) => React.ReactNode;
+  getStatusBadge: (status: string) => React.ReactNode;
+  updateRequestStatus: (requestId: string, newStatus: LeaveStatus) => Promise<void>;
   deleteRequest: (requestId: string) => Promise<void>;
 }
 
@@ -64,10 +84,11 @@ const RequestsTracking = ({
                       <div className="p-2 rounded-lg bg-muted border border-border text-foreground dark:border-transparent dark:bg-primary/10 dark:text-primary">
                         {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
                           request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
-                            <Briefcase className="h-4 w-4" />}
+                            request.type === 'custom' ? <FileText className="h-4 w-4" /> :
+                              <Briefcase className="h-4 w-4" />}
                       </div>
                       <span className="text-sm font-medium text-foreground">
-                        {requestTypeConfig.find(t => t.value === request.type)?.label}
+                        {request.type === 'custom' ? request.customTypeLabel || 'Personalizado' : requestTypeConfig.find(t => t.value === request.type)?.label}
                       </span>
                     </div>
                   </td>
@@ -94,26 +115,11 @@ const RequestsTracking = ({
                   <td className="px-4 md:px-6 py-3 md:py-4">
                     <div className="flex items-center gap-2">
                       {isOperations ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
-                              {getStatusIcon(request.status)}
-                              {getStatusBadge(request.status)}
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-[140px]">
-                            <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "pending")} className="gap-2">
-                              <Clock4 className="h-4 w-4 text-amber-500" /> Pendiente
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "approved")} className="gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Aprobar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "rejected")} className="gap-2 text-destructive focus:text-destructive">
-                              <XCircle className="h-4 w-4" /> Rechazar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <StatusDropdown
+                          statusConfig={LEAVE_STATUS_CONFIG}
+                          currentStatus={request.status as LeaveStatus}
+                          onStatusChange={(newStatus) => updateRequestStatus(request.id, newStatus)}
+                        />
                       ) : (
                         <>
                           {getStatusIcon(request.status)}
@@ -158,34 +164,21 @@ const RequestsTracking = ({
                       <div className="p-2 rounded-lg bg-muted border border-border text-foreground dark:border-transparent dark:bg-primary/10 dark:text-primary">
                         {request.type === 'vacation' ? <Palmtree className="h-4 w-4" /> :
                           request.type === 'birthday-leave' ? <Cake className="h-4 w-4" /> :
-                            <Briefcase className="h-4 w-4" />}
+                            request.type === 'custom' ? <FileText className="h-4 w-4" /> :
+                              <Briefcase className="h-4 w-4" />}
                       </div>
                       <span className="text-sm font-medium text-foreground">
-                        {requestTypeConfig.find(t => t.value === request.type)?.label}
+                        {request.type === 'custom' ? request.customTypeLabel || 'Personalizado' : requestTypeConfig.find(t => t.value === request.type)?.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       {isOperations ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="flex items-center gap-1.5 hover:opacity-80 transition-opacity outline-none">
-                              {getStatusIcon(request.status)}
-                              {getStatusBadge(request.status)}
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[140px]">
-                            <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "pending")} className="gap-2">
-                              <Clock4 className="h-4 w-4 text-amber-500" /> Pendiente
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "approved")} className="gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Aprobar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateRequestStatus(request.id, "rejected")} className="gap-2 text-destructive focus:text-destructive">
-                              <XCircle className="h-4 w-4" /> Rechazar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <StatusDropdown
+                          statusConfig={LEAVE_STATUS_CONFIG}
+                          currentStatus={request.status as LeaveStatus}
+                          onStatusChange={(newStatus) => updateRequestStatus(request.id, newStatus)}
+                          align="end"
+                        />
                       ) : (
                         <>
                           {getStatusIcon(request.status)}

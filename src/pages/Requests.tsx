@@ -68,18 +68,15 @@ const Requests = () => {
       toast.error("Por favor completa los campos obligatorios");
       return;
     }
-
     try {
-      const newRequestData = {
+      await addDoc(collection(db, "leave_requests"), {
         type: dialogType,
         ...form,
         status: "pending",
         createdAt: serverTimestamp(),
         userId: user.uid,
         userEmail: user.email,
-      };
-
-      await addDoc(collection(db, "leave_requests"), newRequestData);
+      });
 
       // Trigger email sending via PythonAnywhere API (Free fallback)
       const requestLabel = requestTypeConfig.find(t => t.value === dialogType)?.label;

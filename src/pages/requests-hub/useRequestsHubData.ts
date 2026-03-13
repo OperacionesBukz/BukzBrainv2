@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { LeaveRequest } from "../requests/types";
-import { RequestOrder } from "../bookstore/types";
+import { RequestOrder, OrderStatus } from "../bookstore/types";
 
 export function useRequestsHubData() {
   const { user } = useAuth();
@@ -98,6 +98,15 @@ export function useRequestsHubData() {
     }
   };
 
+  const handleStatusChangeOrder = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      await updateDoc(doc(db, "bookstore_requests", orderId), { status: newStatus });
+      toast.success("Estado actualizado");
+    } catch (error: any) {
+      toast.error("Error al actualizar estado: " + error.message);
+    }
+  };
+
   // Helper: formatDate
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "-";
@@ -115,6 +124,7 @@ export function useRequestsHubData() {
     updateRequestStatus,
     deleteRequest,
     handleDeleteOrder,
+    handleStatusChangeOrder,
     isDeletingOrder,
     formatDate,
   };

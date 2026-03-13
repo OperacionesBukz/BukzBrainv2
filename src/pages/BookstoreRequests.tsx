@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Product, Category, CartItem, RequestOrder, branches } from "./bookstore/types";
+import { Product, Category, CartItem, RequestOrder, OrderStatus, branches } from "./bookstore/types";
 import BookstoreOrderView from "./bookstore/BookstoreOrderView";
 import BookstoreOrderHistory from "./bookstore/BookstoreOrderHistory";
 import BookstoreProductManagement from "./bookstore/BookstoreProductManagement";
@@ -296,6 +296,15 @@ const BookstoreRequests = () => {
         return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+        try {
+            await updateDoc(doc(db, "bookstore_requests", orderId), { status: newStatus });
+            toast.success("Estado actualizado");
+        } catch (error: any) {
+            toast.error("Error al actualizar estado: " + error.message);
+        }
+    };
+
     const handleDeleteOrder = async (orderId: string) => {
         if (!confirm("¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.")) return;
         setIsDeletingOrder(orderId);
@@ -364,6 +373,7 @@ const BookstoreRequests = () => {
                                 selectedOrder={selectedOrder}
                                 setSelectedOrder={setSelectedOrder}
                                 handleDeleteOrder={handleDeleteOrder}
+                                handleStatusChange={handleStatusChange}
                                 isDeletingOrder={isDeletingOrder}
                                 isMobile={isMobile}
                                 formatDate={formatDate}

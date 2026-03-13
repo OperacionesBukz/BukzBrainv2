@@ -14,7 +14,6 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import {
     Table,
     TableBody,
@@ -23,13 +22,15 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { RequestOrder } from "./types";
+import StatusDropdown from "@/components/StatusDropdown";
+import { RequestOrder, OrderStatus, ORDER_STATUS_CONFIG } from "./types";
 
 interface BookstoreOrderHistoryProps {
     orders: RequestOrder[];
     selectedOrder: RequestOrder | null;
     setSelectedOrder: (order: RequestOrder | null) => void;
     handleDeleteOrder: (orderId: string) => void;
+    handleStatusChange: (orderId: string, newStatus: OrderStatus) => void;
     isDeletingOrder: string | null;
     isMobile: boolean;
     formatDate: (timestamp: any) => string;
@@ -40,6 +41,7 @@ const BookstoreOrderHistory = ({
     selectedOrder,
     setSelectedOrder,
     handleDeleteOrder,
+    handleStatusChange,
     isDeletingOrder,
     isMobile,
     formatDate,
@@ -75,9 +77,11 @@ const BookstoreOrderHistory = ({
                                     <TableCell className="text-muted-foreground text-sm">{order.userEmail}</TableCell>
                                     <TableCell className="text-center font-medium">{totalItems}</TableCell>
                                     <TableCell>
-                                        <Badge variant={order.status === 'pending' ? 'secondary' : 'default'}>
-                                            {order.status === 'pending' ? 'Pendiente' : order.status}
-                                        </Badge>
+                                        <StatusDropdown
+                                            statusConfig={ORDER_STATUS_CONFIG}
+                                            currentStatus={order.status}
+                                            onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)}
+                                        />
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
@@ -113,9 +117,12 @@ const BookstoreOrderHistory = ({
                                             {formatDate(order.createdAt)}
                                         </span>
                                     </div>
-                                    <Badge variant={order.status === 'pending' ? 'secondary' : 'default'}>
-                                        {order.status === 'pending' ? 'Pendiente' : order.status}
-                                    </Badge>
+                                    <StatusDropdown
+                                        statusConfig={ORDER_STATUS_CONFIG}
+                                        currentStatus={order.status}
+                                        onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)}
+                                        align="end"
+                                    />
                                 </div>
 
                                 <div className="text-sm space-y-1.5">
@@ -177,6 +184,16 @@ const BookstoreOrderHistory = ({
                     <div className="space-y-1 text-sm bg-muted/30 p-3 rounded-lg">
                         <p><span className="font-semibold">Solicitante:</span> {selectedOrder?.userEmail}</p>
                         <p><span className="font-semibold">ID Pedido:</span> {selectedOrder?.id.slice(0, 8)}</p>
+                        <div className="flex items-center gap-2 pt-1">
+                            <span className="font-semibold">Estado:</span>
+                            {selectedOrder && (
+                                <StatusDropdown
+                                    statusConfig={ORDER_STATUS_CONFIG}
+                                    currentStatus={selectedOrder.status}
+                                    onStatusChange={(newStatus) => handleStatusChange(selectedOrder.id, newStatus)}
+                                />
+                            )}
+                        </div>
                     </div>
 
                     {selectedOrder?.note && (

@@ -8,6 +8,7 @@ import {
   Package,
   Ship,
   ClipboardCheck,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 import type { WorkspaceId } from "@/lib/workspaces";
@@ -30,6 +31,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/requests-hub", label: "Hub Solicitudes", description: "Seguimiento centralizado de solicitudes", icon: ClipboardCheck, workspace: "operaciones" },
   { path: "/reposicion", label: "Reposición", description: "Gestión de reposición", icon: Package, workspace: "operaciones" },
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
+  { path: "/calculator", label: "Calculadora", description: "Conversor EUR a COP", icon: Calculator, workspace: "general" },
 ];
 
 export const ALL_PAGE_PATHS = PAGE_REGISTRY.map((p) => p.path);

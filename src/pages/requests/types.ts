@@ -1,10 +1,11 @@
 import { Palmtree, Briefcase, Ban, Cake } from "lucide-react";
 
-export type RequestType = "vacation" | "paid-leave" | "unpaid-leave" | "birthday-leave";
+export type RequestType = "vacation" | "paid-leave" | "unpaid-leave" | "birthday-leave" | "custom";
 
 export interface LeaveRequest {
   id: string;
   type: RequestType;
+  customTypeLabel?: string;
   fullName?: string;
   idDocument?: string;
   role?: string;
