@@ -19,13 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { LeaveRequest, requestTypeConfig } from "../requests/types";
+import { LeaveRequest, requestTypeConfig, getDisplayStatus, DisplayStatus } from "../requests/types";
 
 interface RequestsCalendarProps {
   requests: LeaveRequest[];
 }
 
-const statusConfig = {
+const statusConfig: Record<DisplayStatus, { label: string; dotClass: string; badgeClass: string; chipClass: string }> = {
   approved: {
     label: "Aprobado",
     dotClass: "bg-emerald-500",
@@ -44,7 +44,19 @@ const statusConfig = {
     badgeClass: "bg-destructive/10 text-destructive border-destructive/20",
     chipClass: "bg-destructive/15 text-destructive border-l-2 border-destructive",
   },
-} as const;
+  active: {
+    label: "En Vacaciones",
+    dotClass: "bg-cyan-500",
+    badgeClass: "bg-cyan-500/10 text-cyan-600 border-cyan-200",
+    chipClass: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-l-2 border-cyan-500",
+  },
+  finished: {
+    label: "Finalizado",
+    dotClass: "bg-muted-foreground",
+    badgeClass: "bg-muted text-muted-foreground border-muted-foreground/20",
+    chipClass: "bg-muted text-muted-foreground border-l-2 border-muted-foreground/40",
+  },
+};
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -69,7 +81,7 @@ function buildRequestsByDate(requests: LeaveRequest[]) {
 }
 
 function RequestChip({ request }: { request: LeaveRequest }) {
-  const sc = statusConfig[request.status];
+  const sc = statusConfig[getDisplayStatus(request)];
   const typeConf = requestTypeConfig.find((t) => t.value === request.type);
   const Icon = typeConf?.icon;
 
@@ -89,7 +101,7 @@ function RequestChip({ request }: { request: LeaveRequest }) {
 }
 
 function ChipPopoverDetail({ request }: { request: LeaveRequest }) {
-  const sc = statusConfig[request.status];
+  const sc = statusConfig[getDisplayStatus(request)];
   const typeConf = requestTypeConfig.find((t) => t.value === request.type);
   const Icon = typeConf?.icon;
 
@@ -182,7 +194,7 @@ function DayCell({
                 {dayRequests.map((req) => {
                   const typeConf = requestTypeConfig.find((t) => t.value === req.type);
                   const Icon = typeConf?.icon;
-                  const sc = statusConfig[req.status];
+                  const sc = statusConfig[getDisplayStatus(req)];
                   return (
                     <div key={req.id} className="flex items-center gap-2 text-sm">
                       {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}

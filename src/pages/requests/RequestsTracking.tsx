@@ -2,11 +2,11 @@ import { Palmtree, Briefcase, Cake, FileText, History, CheckCircle2, XCircle, Cl
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import StatusDropdown, { StatusOption } from "@/components/StatusDropdown";
-import { LeaveRequest, requestTypeConfig } from "./types";
+import { LeaveRequest, requestTypeConfig, DisplayStatus, getDisplayStatus } from "./types";
 
 type LeaveStatus = "pending" | "approved" | "rejected";
 
-const LEAVE_STATUS_CONFIG: Record<LeaveStatus, StatusOption> = {
+const LEAVE_STATUS_CONFIG: Record<DisplayStatus, StatusOption> = {
   pending: {
     label: "Pendiente",
     icon: Clock4,
@@ -28,6 +28,26 @@ const LEAVE_STATUS_CONFIG: Record<LeaveStatus, StatusOption> = {
     badgeClassName: "bg-destructive/10 text-destructive border-destructive/20",
     menuItemClassName: "text-destructive focus:text-destructive",
   },
+  active: {
+    label: "En Vacaciones",
+    icon: Palmtree,
+    iconClassName: "text-cyan-500",
+    badgeVariant: "default",
+    badgeClassName: "bg-cyan-500/10 text-cyan-600 border-cyan-200",
+  },
+  finished: {
+    label: "Finalizado",
+    icon: CheckCircle2,
+    iconClassName: "text-muted-foreground",
+    badgeVariant: "secondary",
+    badgeClassName: "bg-muted text-muted-foreground border-muted-foreground/20",
+  },
+};
+
+const LEAVE_DROPDOWN_CONFIG: Record<LeaveStatus, StatusOption> = {
+  pending: LEAVE_STATUS_CONFIG.pending,
+  approved: LEAVE_STATUS_CONFIG.approved,
+  rejected: LEAVE_STATUS_CONFIG.rejected,
 };
 
 interface RequestsTrackingProps {
@@ -116,14 +136,14 @@ const RequestsTracking = ({
                     <div className="flex items-center gap-2">
                       {isOperations ? (
                         <StatusDropdown
-                          statusConfig={LEAVE_STATUS_CONFIG}
+                          statusConfig={LEAVE_DROPDOWN_CONFIG}
                           currentStatus={request.status as LeaveStatus}
                           onStatusChange={(newStatus) => updateRequestStatus(request.id, newStatus)}
                         />
                       ) : (
                         <>
-                          {getStatusIcon(request.status)}
-                          {getStatusBadge(request.status)}
+                          {getStatusIcon(getDisplayStatus(request))}
+                          {getStatusBadge(getDisplayStatus(request))}
                         </>
                       )}
                     </div>
@@ -174,15 +194,15 @@ const RequestsTracking = ({
                     <div className="flex items-center gap-1.5">
                       {isOperations ? (
                         <StatusDropdown
-                          statusConfig={LEAVE_STATUS_CONFIG}
+                          statusConfig={LEAVE_DROPDOWN_CONFIG}
                           currentStatus={request.status as LeaveStatus}
                           onStatusChange={(newStatus) => updateRequestStatus(request.id, newStatus)}
                           align="end"
                         />
                       ) : (
                         <>
-                          {getStatusIcon(request.status)}
-                          {getStatusBadge(request.status)}
+                          {getStatusIcon(getDisplayStatus(request))}
+                          {getStatusBadge(getDisplayStatus(request))}
                         </>
                       )}
                     </div>

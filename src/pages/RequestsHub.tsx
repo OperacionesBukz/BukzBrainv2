@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { CheckCircle2, XCircle, Clock4, List, Calendar, Plus } from "lucide-react";
+import { CheckCircle2, XCircle, Clock4, List, Calendar, Plus, Palmtree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
@@ -20,6 +20,10 @@ const getStatusIcon = (status: string) => {
       return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
     case "rejected":
       return <XCircle className="h-4 w-4 text-destructive" />;
+    case "active":
+      return <Palmtree className="h-4 w-4 text-cyan-500" />;
+    case "finished":
+      return <CheckCircle2 className="h-4 w-4 text-muted-foreground" />;
     default:
       return <Clock4 className="h-4 w-4 text-amber-500" />;
   }
@@ -40,6 +44,21 @@ const getStatusBadge = (status: string) => {
           className="bg-destructive/10 text-destructive border-destructive/20"
         >
           Rechazado
+        </Badge>
+      );
+    case "active":
+      return (
+        <Badge className="bg-cyan-500/10 text-cyan-600 border-cyan-200">
+          En Vacaciones
+        </Badge>
+      );
+    case "finished":
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-muted text-muted-foreground border-muted-foreground/20"
+        >
+          Finalizado
         </Badge>
       );
     default:

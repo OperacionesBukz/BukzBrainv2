@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Clock, Palmtree, Briefcase, Ban, Cake, History, CheckCircle2, XCircle, Clock4, Search, ArrowRight, Trash2, Plus } from "lucide-react";
+import { getDisplayStatus } from "./requests/types";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/firebase";
@@ -253,6 +254,8 @@ ${form.idDocument}`;
     switch (status) {
       case "approved": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
       case "rejected": return <XCircle className="h-4 w-4 text-destructive" />;
+      case "active": return <Palmtree className="h-4 w-4 text-cyan-500" />;
+      case "finished": return <CheckCircle2 className="h-4 w-4 text-muted-foreground" />;
       default: return <Clock4 className="h-4 w-4 text-amber-500" />;
     }
   };
@@ -261,6 +264,8 @@ ${form.idDocument}`;
     switch (status) {
       case "approved": return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Aprobado</Badge>;
       case "rejected": return <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20">Rechazado</Badge>;
+      case "active": return <Badge className="bg-cyan-500/10 text-cyan-600 border-cyan-200">En Vacaciones</Badge>;
+      case "finished": return <Badge variant="secondary" className="bg-muted text-muted-foreground border-muted-foreground/20">Finalizado</Badge>;
       default: return <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-600 border-amber-200">Pendiente</Badge>;
     }
   };

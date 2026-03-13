@@ -35,6 +35,22 @@ export interface RequestFormState {
   reason: string;
 }
 
+export type DisplayStatus = "pending" | "approved" | "rejected" | "active" | "finished";
+
+export function getDisplayStatus(request: LeaveRequest): DisplayStatus {
+  if (request.status !== "approved") return request.status;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = new Date(request.startDate + "T00:00:00");
+  const end = new Date(request.endDate + "T00:00:00");
+
+  if (today > end) return "finished";
+  if (today >= start && today <= end) return "active";
+  return "approved";
+}
+
 export const requestTypeConfig: {
   value: RequestType;
   label: string;
