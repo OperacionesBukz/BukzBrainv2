@@ -19,6 +19,7 @@ import {
   Ship,
   ClipboardCheck,
   Calculator,
+  PackageSearch,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -54,6 +55,7 @@ const navItems = [
   { title: "Hub Solicitudes", path: "/requests-hub", icon: ClipboardCheck, tourId: "nav-requests-hub" },
   { title: "Reposición", path: "/reposicion", icon: Package, tourId: "nav-reposicion" },
   { title: "Celesa", path: "/celesa", icon: Ship, tourId: "nav-celesa" },
+  { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch, tourId: "nav-ingreso" },
   { title: "Calculadora", path: "/calculator", icon: Calculator, tourId: "nav-calculator" },
 ];
 
