@@ -7,9 +7,58 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useSearchByIsbn, useSearchByExcel } from "./hooks";
+import { downloadBlob } from "./api";
 import SearchResultsTable from "./SearchResultsTable";
 import FileUploadZone from "./FileUploadZone";
 import type { ProductSearchResult } from "./types";
+
+function esc(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function generateProductsExcelBlob(data: ProductSearchResult[]): Blob {
+  const cols = ["ISBN", "ID", "Variant ID", "Titulo", "Vendor", "Precio", "Categoria", "Cantidad"];
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles>
+ <Style ss:ID="head"><Font ss:Bold="1" ss:Color="#FFFFFF" ss:FontName="Arial" ss:Size="10"/><Interior ss:Color="#2C3E50" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>
+ <Style ss:ID="norm"><Font ss:FontName="Arial" ss:Size="10"/></Style>
+ <Style ss:ID="right"><Font ss:FontName="Arial" ss:Size="10"/><Alignment ss:Horizontal="Right"/></Style>
+</Styles>
+<Worksheet ss:Name="Productos">
+<Table>
+ ${cols.map(() => `<Column ss:Width="130"/>`).join("")}
+ <Row>${cols.map((c) => `<Cell ss:StyleID="head"><Data ss:Type="String">${esc(c)}</Data></Cell>`).join("")}</Row>`;
+
+  data.forEach((row) => {
+    xml += `
+ <Row>
+  <Cell ss:StyleID="norm"><Data ss:Type="String">${esc(row.ISBN)}</Data></Cell>
+  <Cell ss:StyleID="norm"><Data ss:Type="String">${esc(String(row.ID ?? ""))}</Data></Cell>
+  <Cell ss:StyleID="norm"><Data ss:Type="String">${esc(String(row["Variant ID"] ?? ""))}</Data></Cell>
+  <Cell ss:StyleID="norm"><Data ss:Type="String">${esc(row.Titulo)}</Data></Cell>
+  <Cell ss:StyleID="norm"><Data ss:Type="String">${esc(row.Vendor)}</Data></Cell>
+  <Cell ss:StyleID="right"><Data ss:Type="${row.Precio != null ? "Number" : "String"}">${row.Precio != null ? row.Precio : ""}</Data></Cell>
+  <Cell ss:StyleID="norm"><Data ss:Type="String">${esc(row.Categoria ?? "")}</Data></Cell>
+  <Cell ss:StyleID="right"><Data ss:Type="${row.Cantidad != null ? "Number" : "String"}">${row.Cantidad != null ? row.Cantidad : ""}</Data></Cell>
+ </Row>`;
+  });
+
+  xml += `
+</Table>
+</Worksheet>
+</Workbook>`;
+
+  return new Blob([xml], {
+    type: "application/vnd.ms-excel",
+  });
+}
 
 export default function ConsultaProductosTab() {
   // -- individual search --
@@ -27,18 +76,32 @@ export default function ConsultaProductosTab() {
     ? [searchQuery.data.product]
     : [];
 
+  const handleDownloadIndividual = () => {
+    if (individualResults.length === 0) return;
+    const blob = generateProductsExcelBlob(individualResults);
+    downloadBlob(blob, "Producto_Shopify.xls");
+  };
+
   // -- bulk search --
   const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkBlob, setBulkBlob] = useState<Blob | null>(null);
   const bulkMutation = useSearchByExcel();
 
   const handleBulkSearch = async () => {
     if (!bulkFile) return;
+    setBulkBlob(null);
     try {
-      await bulkMutation.mutateAsync(bulkFile);
-      toast.success("Archivo descargado con los resultados");
+      const blob = await bulkMutation.mutateAsync(bulkFile);
+      setBulkBlob(blob);
+      toast.success("Resultados listos para descargar");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al procesar");
     }
+  };
+
+  const handleDownloadBulk = () => {
+    if (!bulkBlob) return;
+    downloadBlob(bulkBlob, "Productos_Shopify.xlsx");
   };
 
   return (
@@ -78,7 +141,10 @@ export default function ConsultaProductosTab() {
             </p>
           )}
 
-          <SearchResultsTable data={individualResults} />
+          <SearchResultsTable
+            data={individualResults}
+            onDownload={individualResults.length > 0 ? handleDownloadIndividual : undefined}
+          />
         </CardContent>
       </Card>
 
@@ -95,22 +161,33 @@ export default function ConsultaProductosTab() {
             hint="Arrastra o haz clic — columnas: ISBN (y opcionalmente Cantidad)"
             isLoaded={bulkFile !== null}
             fileName={bulkFile?.name}
-            onFileSelected={setBulkFile}
+            onFileSelected={(file) => {
+              setBulkFile(file);
+              setBulkBlob(null);
+            }}
           />
 
           {bulkMutation.isPending && <Progress className="animate-pulse" />}
 
-          <Button
-            onClick={handleBulkSearch}
-            disabled={!bulkFile || bulkMutation.isPending}
-          >
-            {bulkMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="mr-2 h-4 w-4" />
+          <div className="flex gap-2">
+            <Button
+              onClick={handleBulkSearch}
+              disabled={!bulkFile || bulkMutation.isPending}
+            >
+              {bulkMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-4 w-4" />
+              )}
+              Consultar Información
+            </Button>
+
+            {bulkBlob && (
+              <Button variant="outline" onClick={handleDownloadBulk}>
+                Descargar Excel
+              </Button>
             )}
-            Consultar Información
-          </Button>
+          </div>
 
           {bulkMutation.isError && (
             <p className="text-sm text-destructive">

@@ -30,7 +30,6 @@ export function useSearchByIsbn(isbn: string) {
 export function useSearchByExcel() {
   return useMutation({
     mutationFn: (file: File) => searchByExcel(file),
-    onSuccess: (blob) => downloadBlob(blob, "Productos_Shopify.xlsx"),
   });
 }
 
