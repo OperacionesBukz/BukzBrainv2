@@ -54,10 +54,11 @@ def health_check():
 def debug_locations():
     """Diagnóstico: intenta obtener locations paso a paso."""
     import requests as req
+    from config import settings as cfg
     steps = []
     try:
-        headers = settings.get_shopify_headers()
-        rest_url = settings.get_rest_url()
+        headers = cfg.get_shopify_headers()
+        rest_url = cfg.get_rest_url()
         url = f"{rest_url}/locations.json"
         steps.append(f"URL: {url}")
 
