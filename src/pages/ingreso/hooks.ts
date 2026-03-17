@@ -38,6 +38,7 @@ export function useLocations() {
     queryKey: ["ingreso", "locations"],
     queryFn: getLocations,
     staleTime: Infinity,
+    retry: 1,
   });
 }
 
@@ -75,6 +76,5 @@ export function useInventoryExcel() {
       locationNames: string[];
       includeSales: boolean;
     }) => inventoryExcel(file, locationNames, includeSales),
-    onSuccess: (blob) => downloadBlob(blob, "Inventario_Bodegas.xlsx"),
   });
 }

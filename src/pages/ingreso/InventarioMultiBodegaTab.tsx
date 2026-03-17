@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCw, BarChart3 } from "lucide-react";
+import { Loader2, RefreshCw, BarChart3, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,28 +8,36 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLocations, useSalesLoad, useSalesStatus, useInventoryExcel } from "./hooks";
-import { MAIN_WAREHOUSES } from "./types";
+import { downloadBlob } from "./api";
+import { MAIN_WAREHOUSES, FALLBACK_WAREHOUSES, type LocationItem } from "./types";
 import LocationSelector from "./LocationSelector";
 import FileUploadZone from "./FileUploadZone";
 
 export default function InventarioMultiBodegaTab() {
   // -- Locations --
   const locationsQuery = useLocations();
-  const allLocations = locationsQuery.data?.locations ?? [];
-
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [initialized, setInitialized] = useState(false);
 
-  // Pre-select main warehouses once locations load
+  // Build location list: API data or fallback
+  const usingFallback = locationsQuery.isError || (!locationsQuery.isLoading && (locationsQuery.data?.locations ?? []).length === 0);
+  const allLocations: LocationItem[] = usingFallback
+    ? FALLBACK_WAREHOUSES.map((name, i) => ({ name, id: i }))
+    : (locationsQuery.data?.locations ?? []);
+
+  // Pre-select main warehouses once
   useEffect(() => {
-    if (allLocations.length > 0 && selectedLocations.length === 0) {
+    if (!initialized && allLocations.length > 0) {
       const mainSet = new Set<string>(MAIN_WAREHOUSES);
       const preselected = allLocations
         .filter((l) => mainSet.has(l.name))
         .map((l) => l.name);
       setSelectedLocations(preselected);
+      setInitialized(true);
     }
-  }, [allLocations, selectedLocations.length]);
+  }, [allLocations, initialized]);
 
   // -- Sales --
   const salesStatus = useSalesStatus(true);
@@ -40,9 +48,7 @@ export default function InventarioMultiBodegaTab() {
   const handleLoadSales = async () => {
     try {
       const result = await salesLoad.mutateAsync();
-      toast.success(
-        `Ventas cargadas: ${result.skus_count} SKUs`,
-      );
+      toast.success(`Ventas cargadas: ${result.skus_count} SKUs`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al cargar ventas");
     }
@@ -50,20 +56,28 @@ export default function InventarioMultiBodegaTab() {
 
   // -- Inventory --
   const [file, setFile] = useState<File | null>(null);
+  const [inventoryBlob, setInventoryBlob] = useState<Blob | null>(null);
   const inventoryMutation = useInventoryExcel();
 
   const handleProcess = async () => {
     if (!file || selectedLocations.length === 0) return;
+    setInventoryBlob(null);
     try {
-      await inventoryMutation.mutateAsync({
+      const blob = await inventoryMutation.mutateAsync({
         file,
         locationNames: selectedLocations,
         includeSales,
       });
-      toast.success("Archivo de inventario descargado");
+      setInventoryBlob(blob);
+      toast.success("Resultados listos para descargar");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al procesar inventario");
     }
+  };
+
+  const handleDownload = () => {
+    if (!inventoryBlob) return;
+    downloadBlob(inventoryBlob, "Inventario_Bodegas.xlsx");
   };
 
   return (
@@ -138,15 +152,21 @@ export default function InventarioMultiBodegaTab() {
         <CardHeader>
           <CardTitle className="text-lg">Selección de Bodegas</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {usingFallback && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                No se pudieron cargar las bodegas del servidor. Usando lista predeterminada.
+              </AlertDescription>
+            </Alert>
+          )}
           {locationsQuery.isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-5 w-40" />
               ))}
             </div>
-          ) : locationsQuery.isError ? (
-            <p className="text-sm text-destructive">Error al cargar bodegas</p>
           ) : (
             <LocationSelector
               locations={allLocations}
@@ -168,24 +188,35 @@ export default function InventarioMultiBodegaTab() {
             hint="Arrastra o haz clic — columnas: ISBN y Cantidad"
             isLoaded={file !== null}
             fileName={file?.name}
-            onFileSelected={setFile}
+            onFileSelected={(f) => {
+              setFile(f);
+              setInventoryBlob(null);
+            }}
           />
 
           {inventoryMutation.isPending && <Progress className="animate-pulse" />}
 
-          <Button
-            onClick={handleProcess}
-            disabled={
-              !file ||
-              selectedLocations.length === 0 ||
-              inventoryMutation.isPending
-            }
-          >
-            {inventoryMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            Consultar Existencias
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleProcess}
+              disabled={
+                !file ||
+                selectedLocations.length === 0 ||
+                inventoryMutation.isPending
+              }
+            >
+              {inventoryMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Consultar Existencias
+            </Button>
+
+            {inventoryBlob && (
+              <Button variant="outline" onClick={handleDownload}>
+                Descargar Excel
+              </Button>
+            )}
+          </div>
 
           {inventoryMutation.isError && (
             <p className="text-sm text-destructive">

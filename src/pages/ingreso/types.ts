@@ -10,6 +10,9 @@ export const MAIN_WAREHOUSES = [
   "Reserva B2B",
 ] as const;
 
+// Fallback si el endpoint /locations falla — solo las principales
+export const FALLBACK_WAREHOUSES = [...MAIN_WAREHOUSES];
+
 export interface ProductSearchResult {
   ISBN: string;
   ID: string | null;
