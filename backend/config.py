@@ -18,10 +18,13 @@ class Settings:
     SHOPIFY_API_VERSION: str = os.getenv("SHOPIFY_API_VERSION", "2025-01")
 
     # CORS - dominios permitidos (tu GitHub Pages + localhost para dev)
-    CORS_ORIGINS: list = os.getenv(
-        "CORS_ORIGINS",
-        "https://OperacionesBukz.github.io,http://localhost:5173,http://localhost:3000"
-    ).split(",")
+    CORS_ORIGINS: list = [
+        origin.strip().lower()
+        for origin in os.getenv(
+            "CORS_ORIGINS",
+            "https://operacionesbukz.github.io,http://localhost:5173,http://localhost:3000,http://localhost:8080"
+        ).split(",")
+    ]
 
     # Batching
     BATCH_SIZE: int = int(os.getenv("BATCH_SIZE", "50"))
