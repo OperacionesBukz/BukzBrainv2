@@ -43,7 +43,7 @@ def verify_shopify_connection() -> dict:
 
 
 def get_locations() -> dict:
-    """Obtiene ubicaciones/bodegas de Shopify."""
+    """Obtiene ubicaciones/bodegas de Shopify. Retorna dict {name: id} o lanza excepción."""
     headers = settings.get_shopify_headers()
     rest_url = settings.get_rest_url()
     url = f"{rest_url}/locations.json"
@@ -52,7 +52,9 @@ def get_locations() -> dict:
     if response.status_code == 200:
         locations_data = response.json().get("locations", [])
         return {loc["name"]: loc["id"] for loc in locations_data}
-    return {}
+    raise RuntimeError(
+        f"Shopify locations HTTP {response.status_code}: {response.text[:300]}"
+    )
 
 
 # ---------------------------------------------------------------------------

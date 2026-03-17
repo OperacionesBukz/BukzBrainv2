@@ -53,7 +53,10 @@ def health_check():
 @router.get("/locations")
 def list_locations():
     """Lista todas las bodegas/ubicaciones de Shopify."""
-    locations = shopify_service.get_locations()
+    try:
+        locations = shopify_service.get_locations()
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     if not locations:
         raise HTTPException(status_code=404, detail="No se encontraron bodegas")
     return {"locations": [{"name": k, "id": v} for k, v in locations.items()]}
