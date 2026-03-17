@@ -55,7 +55,7 @@ def list_locations():
     """Lista todas las bodegas/ubicaciones de Shopify."""
     try:
         locations = shopify_service.get_locations()
-    except RuntimeError as e:
+    except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
     if not locations:
         raise HTTPException(status_code=404, detail="No se encontraron bodegas")

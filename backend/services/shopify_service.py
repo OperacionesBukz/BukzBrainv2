@@ -44,17 +44,55 @@ def verify_shopify_connection() -> dict:
 
 def get_locations() -> dict:
     """Obtiene ubicaciones/bodegas de Shopify. Retorna dict {name: id} o lanza excepción."""
-    headers = settings.get_shopify_headers()
-    rest_url = settings.get_rest_url()
-    url = f"{rest_url}/locations.json"
+    # Intentar primero con REST API
+    try:
+        headers = settings.get_shopify_headers()
+        rest_url = settings.get_rest_url()
+        url = f"{rest_url}/locations.json"
 
-    response = requests.get(url, headers=headers, timeout=10)
-    if response.status_code == 200:
-        locations_data = response.json().get("locations", [])
-        return {loc["name"]: loc["id"] for loc in locations_data}
-    raise RuntimeError(
-        f"Shopify locations HTTP {response.status_code}: {response.text[:300]}"
-    )
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            locations_data = response.json().get("locations", [])
+            return {loc["name"]: loc["id"] for loc in locations_data}
+        rest_error = f"REST HTTP {response.status_code}: {response.text[:200]}"
+    except Exception as e:
+        rest_error = f"REST exception: {str(e)}"
+
+    # Fallback: intentar con GraphQL
+    try:
+        graphql_url = settings.get_graphql_url()
+        headers = settings.get_shopify_headers()
+        query = """
+        {
+          locations(first: 50) {
+            edges {
+              node {
+                id
+                name
+              }
+            }
+          }
+        }
+        """
+        response = requests.post(
+            graphql_url, json={"query": query}, headers=headers, timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json().get("data", {})
+            edges = data.get("locations", {}).get("edges", [])
+            if edges:
+                result = {}
+                for edge in edges:
+                    node = edge["node"]
+                    # GraphQL id es "gid://shopify/Location/123", extraer solo el número
+                    loc_id = int(node["id"].split("/")[-1])
+                    result[node["name"]] = loc_id
+                return result
+        graphql_error = f"GraphQL HTTP {response.status_code}: {response.text[:200]}"
+    except Exception as e:
+        graphql_error = f"GraphQL exception: {str(e)}"
+
+    raise RuntimeError(f"No se pudieron obtener bodegas. {rest_error} | {graphql_error}")
 
 
 # ---------------------------------------------------------------------------
