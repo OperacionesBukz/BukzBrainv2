@@ -52,23 +52,32 @@ def health_check():
 
 @router.get("/locations/debug")
 def debug_locations():
-    """Diagnóstico: intenta obtener locations paso a paso."""
+    """Diagnóstico: intenta obtener locations via REST y GraphQL."""
     import requests as req
     from config import settings as cfg
-    steps = []
+    results = {}
+
+    # REST
     try:
         headers = cfg.get_shopify_headers()
         rest_url = cfg.get_rest_url()
         url = f"{rest_url}/locations.json"
-        steps.append(f"URL: {url}")
-
         resp = req.get(url, headers=headers, timeout=10)
-        steps.append(f"Status: {resp.status_code}")
-        steps.append(f"Body (first 500 chars): {resp.text[:500]}")
-        return {"steps": steps}
+        results["rest"] = {"status": resp.status_code, "body": resp.text[:500]}
     except Exception as e:
-        steps.append(f"Error: {type(e).__name__}: {e}")
-        return {"steps": steps}
+        results["rest"] = {"error": f"{type(e).__name__}: {e}"}
+
+    # GraphQL
+    try:
+        headers = cfg.get_shopify_headers()
+        graphql_url = cfg.get_graphql_url()
+        query = '{ locations(first: 50) { edges { node { id name } } } }'
+        resp = req.post(graphql_url, json={"query": query}, headers=headers, timeout=10)
+        results["graphql"] = {"status": resp.status_code, "body": resp.text[:1000]}
+    except Exception as e:
+        results["graphql"] = {"error": f"{type(e).__name__}: {e}"}
+
+    return results
 
 
 @router.get("/locations")
