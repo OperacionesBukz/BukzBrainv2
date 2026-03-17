@@ -14,6 +14,7 @@ import { downloadBlob } from "./api";
 import { MAIN_WAREHOUSES, FALLBACK_WAREHOUSES, type LocationItem } from "./types";
 import LocationSelector from "./LocationSelector";
 import FileUploadZone from "./FileUploadZone";
+import InventoryPreview from "./InventoryPreview";
 
 export default function InventarioMultiBodegaTab() {
   // -- Locations --
@@ -196,27 +197,23 @@ export default function InventarioMultiBodegaTab() {
 
           {inventoryMutation.isPending && <Progress className="animate-pulse" />}
 
-          <div className="flex gap-2">
-            <Button
-              onClick={handleProcess}
-              disabled={
-                !file ||
-                selectedLocations.length === 0 ||
-                inventoryMutation.isPending
-              }
-            >
-              {inventoryMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Consultar Existencias
-            </Button>
+          <Button
+            onClick={handleProcess}
+            disabled={
+              !file ||
+              selectedLocations.length === 0 ||
+              inventoryMutation.isPending
+            }
+          >
+            {inventoryMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Consultar Existencias
+          </Button>
 
-            {inventoryBlob && (
-              <Button variant="outline" onClick={handleDownload}>
-                Descargar Excel
-              </Button>
-            )}
-          </div>
+          {inventoryBlob && (
+            <InventoryPreview blob={inventoryBlob} onDownload={handleDownload} />
+          )}
 
           {inventoryMutation.isError && (
             <p className="text-sm text-destructive">
