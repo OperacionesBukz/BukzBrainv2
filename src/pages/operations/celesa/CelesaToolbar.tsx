@@ -100,6 +100,19 @@ export default function CelesaToolbar({
               <option value="dias">Días hábiles</option>
             </select>
           </div>
+          {hasActiveFilters && (
+            <div className="border-t pt-2 text-right">
+              <span
+                className="text-xs text-primary hover:underline cursor-pointer"
+                onClick={() => {
+                  onFilterStatusChange("Todos");
+                  onSortChange("fecha-desc");
+                }}
+              >
+                Limpiar
+              </span>
+            </div>
+          )}
         </PopoverContent>
       </Popover>
 

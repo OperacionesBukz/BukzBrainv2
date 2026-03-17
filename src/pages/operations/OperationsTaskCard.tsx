@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { StringDatePicker } from "@/components/ui/date-picker";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Task } from "./types";
@@ -227,24 +228,20 @@ const OperationsTaskCard = ({
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="flex items-center gap-2 flex-1">
                     <label className="text-xs text-muted-foreground whitespace-nowrap w-10">Inicio</label>
-                    <input
-                      type="date"
+                    <StringDatePicker
                       value={task.startDate || ""}
-                      onChange={(e) => updateTask(task.id, { startDate: e.target.value || undefined })}
-                      className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      onChange={(val) => updateTask(task.id, { startDate: val || undefined })}
+                      className={cn("h-8 flex-1 text-xs")}
                     />
                   </div>
                   <div className="flex items-center gap-2 flex-1">
                     <label className={cn("text-xs whitespace-nowrap w-10", isOverdue ? "text-destructive" : "text-muted-foreground")}>Límite</label>
-                    <input
-                      type="date"
+                    <StringDatePicker
                       value={task.dueDate || ""}
-                      onChange={(e) => updateTask(task.id, { dueDate: e.target.value || undefined })}
+                      onChange={(val) => updateTask(task.id, { dueDate: val || undefined })}
                       className={cn(
-                        "h-8 flex-1 rounded-md border px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring",
-                        isOverdue
-                          ? "border-destructive/50 bg-destructive/5 text-destructive"
-                          : "border-border bg-background text-foreground"
+                        "h-8 flex-1 text-xs",
+                        isOverdue && "border-destructive/50 bg-destructive/5 text-destructive"
                       )}
                     />
                   </div>

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,5 +79,30 @@ export function DatePickerButton({
         />
       </PopoverContent>
     </Popover>
+  );
+}
+
+interface StringDatePickerProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+export function StringDatePicker({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: StringDatePickerProps) {
+  const dateValue = value ? parseISO(value) : undefined;
+
+  return (
+    <DatePickerButton
+      value={dateValue}
+      onChange={(date) => onChange(date ? format(date, "yyyy-MM-dd") : "")}
+      placeholder={placeholder}
+      className={className}
+    />
   );
 }

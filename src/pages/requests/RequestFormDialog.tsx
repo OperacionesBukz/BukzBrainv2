@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StringDatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -139,28 +140,25 @@ const RequestFormDialog = ({
                   <div className="grid gap-4 sm:grid-cols-3 text-center sm:text-left">
                     <div className="space-y-2">
                       <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Fecha Inicio *</label>
-                      <Input
-                        type="date"
+                      <StringDatePicker
                         value={form.startDate}
-                        onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                        onChange={(val) => setForm({ ...form, startDate: val })}
                         className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Fecha Fin *</label>
-                      <Input
-                        type="date"
+                      <StringDatePicker
                         value={form.endDate}
-                        onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                        onChange={(val) => setForm({ ...form, endDate: val })}
                         className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Reingreso *</label>
-                      <Input
-                        type="date"
+                      <StringDatePicker
                         value={form.returnDate}
-                        onChange={(e) => setForm({ ...form, returnDate: e.target.value })}
+                        onChange={(val) => setForm({ ...form, returnDate: val })}
                         className="h-11"
                       />
                     </div>
@@ -176,10 +174,9 @@ const RequestFormDialog = ({
                   <h4 className="text-base font-semibold">Fecha del Día de Cumpleaños</h4>
                   <div className="space-y-2">
                     <label className="text-sm text-foreground font-medium">Fecha *</label>
-                    <Input
-                      type="date"
+                    <StringDatePicker
                       value={form.startDate}
-                      onChange={(e) => setForm({ ...form, startDate: e.target.value, endDate: e.target.value })}
+                      onChange={(val) => setForm({ ...form, startDate: val, endDate: val })}
                       className="max-w-[240px] h-11"
                     />
                     <p className="text-xs text-muted-foreground">
@@ -208,19 +205,17 @@ const RequestFormDialog = ({
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-sm text-foreground font-medium">Fecha Inicio *</label>
-                      <Input
-                        type="date"
+                      <StringDatePicker
                         value={form.startDate}
-                        onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                        onChange={(val) => setForm({ ...form, startDate: val })}
                         className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-foreground font-medium">Fecha Fin *</label>
-                      <Input
-                        type="date"
+                      <StringDatePicker
                         value={form.endDate}
-                        onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                        onChange={(val) => setForm({ ...form, endDate: val })}
                         className="h-11"
                       />
                     </div>

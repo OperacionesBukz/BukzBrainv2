@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { StringDatePicker } from "@/components/ui/date-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,6 +129,27 @@ export default function CelesaTable({
       editingCell?.orderId === order.id && editingCell?.field === field;
 
     if (isEditing) {
+      if (field === "fechaPedido") {
+        return (
+          <StringDatePicker
+            value={editValue}
+            onChange={(val) => {
+              const updates: Record<string, string> = { fechaPedido: val };
+              if (order.estado !== "Agotado" && order.estado !== "Entregado") {
+                const days = businessDaysSince(val);
+                if (days > 30) {
+                  updates.estado = "Atrasado";
+                } else if (order.estado === "Atrasado") {
+                  updates.estado = "Pendiente";
+                }
+              }
+              onUpdate(order.id, updates);
+              setEditingCell(null);
+            }}
+            className="h-7 text-xs"
+          />
+        );
+      }
       return (
         <Input
           ref={inputRef}
@@ -139,7 +161,6 @@ export default function CelesaTable({
           }}
           onBlur={commitEdit}
           autoFocus
-          type={field === "fechaPedido" ? "date" : "text"}
           className="h-7 text-xs w-full min-w-[80px]"
         />
       );
@@ -275,13 +296,11 @@ export default function CelesaTable({
                 />
               </TableHead>
               <TableHead className="p-1">
-                <Input
-                  type="date"
+                <StringDatePicker
                   value={newRow.fechaPedido}
-                  onChange={(e) =>
-                    setNewRow((r) => ({ ...r, fechaPedido: e.target.value }))
+                  onChange={(val) =>
+                    setNewRow((r) => ({ ...r, fechaPedido: val }))
                   }
-                  onKeyDown={(e) => e.key === "Enter" && handleAddRow()}
                   className="h-7 text-xs"
                 />
               </TableHead>

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StringDatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -15,20 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { db } from "@/lib/firebase";
 import {
   collection,
   addDoc,
-  onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { toast } from "sonner";
-
-interface UserOption {
-  uid: string;
-  email: string;
-  displayName: string;
-}
 
 interface AdminAddPermissionDialogProps {
   open: boolean;
@@ -39,8 +33,7 @@ const AdminAddPermissionDialog = ({
   open,
   onOpenChange,
 }: AdminAddPermissionDialogProps) => {
-  const [users, setUsers] = useState<UserOption[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
   const [customTypeLabel, setCustomTypeLabel] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -48,24 +41,8 @@ const AdminAddPermissionDialog = ({
   const [status, setStatus] = useState<"pending" | "approved" | "rejected">("approved");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "users"), (snapshot) => {
-      const list: UserOption[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        list.push({
-          email: docSnap.id,
-          displayName: data.displayName || docSnap.id.split("@")[0],
-          uid: data.uid || "",
-        });
-      });
-      setUsers(list.sort((a, b) => a.displayName.localeCompare(b.displayName)));
-    });
-    return () => unsub();
-  }, []);
-
   const resetForm = () => {
-    setSelectedUserId("");
+    setEmployeeName("");
     setCustomTypeLabel("");
     setStartDate("");
     setEndDate("");
@@ -74,14 +51,8 @@ const AdminAddPermissionDialog = ({
   };
 
   const handleSubmit = async () => {
-    if (!selectedUserId || !customTypeLabel.trim() || !startDate || !endDate) {
+    if (!employeeName.trim() || !customTypeLabel.trim() || !startDate || !endDate) {
       toast.error("Por favor completa los campos obligatorios");
-      return;
-    }
-
-    const selectedUser = users.find((u) => u.uid === selectedUserId);
-    if (!selectedUser) {
-      toast.error("Usuario no encontrado");
       return;
     }
 
@@ -94,9 +65,7 @@ const AdminAddPermissionDialog = ({
         endDate,
         reason: reason.trim(),
         status,
-        fullName: selectedUser.displayName,
-        userId: selectedUser.uid,
-        userEmail: selectedUser.email,
+        fullName: employeeName.trim(),
         createdAt: serverTimestamp(),
       });
 
@@ -121,18 +90,12 @@ const AdminAddPermissionDialog = ({
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Empleado *</label>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Selecciona un empleado" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((u) => (
-                  <SelectItem key={u.uid} value={u.uid}>
-                    {u.displayName} ({u.email})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              value={employeeName}
+              onChange={(e) => setEmployeeName(e.target.value)}
+              placeholder="Nombre del empleado"
+              className="h-11"
+            />
           </div>
 
           <div className="space-y-2">
@@ -148,19 +111,17 @@ const AdminAddPermissionDialog = ({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Fecha Inicio *</label>
-              <Input
-                type="date"
+              <StringDatePicker
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
                 className="h-11"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Fecha Fin *</label>
-              <Input
-                type="date"
+              <StringDatePicker
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
                 className="h-11"
               />
             </div>

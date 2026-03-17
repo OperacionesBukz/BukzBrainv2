@@ -19,6 +19,7 @@ const Requests = lazy(() => import("./pages/Requests"));
 const BookstoreRequests = lazy(() => import("./pages/BookstoreRequests"));
 const Reposicion = lazy(() => import("./pages/Reposicion"));
 const Celesa = lazy(() => import("./pages/Celesa"));
+const IngresoMercancia = lazy(() => import("./pages/IngresoMercancia"));
 const RequestsHub = lazy(() => import("./pages/RequestsHub"));
 const CalculatorPage = lazy(() => import("./pages/Calculator"));
 const NavigationAdmin = lazy(() => import("./pages/NavigationAdmin"));
@@ -58,6 +59,7 @@ const App = () => (
                               <Route path="/requests-hub" element={<RequestsHub />} />
                               <Route path="/reposicion" element={<Reposicion />} />
                               <Route path="/celesa" element={<Celesa />} />
+                              <Route path="/ingreso" element={<IngresoMercancia />} />
                               <Route path="/calculator" element={<CalculatorPage />} />
                               <Route path="/nav-admin" element={<NavigationAdmin />} />
                               <Route path="/user-admin" element={<UserAdmin />} />
