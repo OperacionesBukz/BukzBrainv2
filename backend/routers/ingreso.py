@@ -51,11 +51,19 @@ def health_check():
 
 
 @router.get("/locations")
-def list_locations():
+async def list_locations():
     """Lista todas las bodegas/ubicaciones de Shopify."""
+    import asyncio
     import traceback
+    loop = asyncio.get_event_loop()
     try:
-        locations = shopify_service.get_locations()
+        locations = await asyncio.wait_for(
+            loop.run_in_executor(None, shopify_service.get_locations),
+            timeout=20,
+        )
+    except asyncio.TimeoutError:
+        print("[LOCATIONS ERROR] Timeout after 20s", flush=True)
+        raise HTTPException(status_code=504, detail="Timeout al obtener bodegas de Shopify")
     except Exception as e:
         tb = traceback.format_exc()
         print(f"[LOCATIONS ERROR] {e}\n{tb}", flush=True)
