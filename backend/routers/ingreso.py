@@ -53,10 +53,13 @@ def health_check():
 @router.get("/locations")
 def list_locations():
     """Lista todas las bodegas/ubicaciones de Shopify."""
+    import traceback
     try:
         locations = shopify_service.get_locations()
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        tb = traceback.format_exc()
+        print(f"[LOCATIONS ERROR] {e}\n{tb}", flush=True)
+        raise HTTPException(status_code=502, detail=f"Error al obtener bodegas: {e}")
     if not locations:
         raise HTTPException(status_code=404, detail="No se encontraron bodegas")
     return {"locations": [{"name": k, "id": v} for k, v in locations.items()]}
