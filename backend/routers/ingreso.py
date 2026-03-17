@@ -50,6 +50,26 @@ def health_check():
     return result
 
 
+@router.get("/locations/debug")
+def debug_locations():
+    """Diagnóstico: intenta obtener locations paso a paso."""
+    import requests as req
+    steps = []
+    try:
+        headers = settings.get_shopify_headers()
+        rest_url = settings.get_rest_url()
+        url = f"{rest_url}/locations.json"
+        steps.append(f"URL: {url}")
+
+        resp = req.get(url, headers=headers, timeout=10)
+        steps.append(f"Status: {resp.status_code}")
+        steps.append(f"Body (first 500 chars): {resp.text[:500]}")
+        return {"steps": steps}
+    except Exception as e:
+        steps.append(f"Error: {type(e).__name__}: {e}")
+        return {"steps": steps}
+
+
 @router.get("/locations")
 async def list_locations():
     """Lista todas las bodegas/ubicaciones de Shopify."""
