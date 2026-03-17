@@ -1,1 +1,46 @@
-"""\nBackend FastAPI para Panel de Operaciones BUKZ.\nExpone la lógica de negocio de los módulos Python como API REST.\n"""\nfrom fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\nfrom config import settings\nfrom routers import ingreso\n\napp = FastAPI(\n    title="BUKZ Operaciones API",\n    description="API backend para el Panel de Operaciones de BUKZ",\n    version="1.0.0",\n)\n\n# CORS — permite que tu frontend en GitHub Pages se comunique con este backend\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=settings.CORS_ORIGINS,\n    allow_credentials=True,\n    allow_methods=["*"],\n    allow_headers=["*"],\n)\n\n# Registrar routers\napp.include_router(ingreso.router)\n\n\n@app.get("/health")\ndef health():\n    """Health check general del backend."""\n    shopify_ok = settings.validate()\n    return {\n        "status": "ok",\n        "shopify_configured": shopify_ok,\n    }\n\n\n@app.get("/")\ndef root():\n    return {\n        "app": "BUKZ Operaciones API",\n        "docs": "/docs",\n        "health": "/health",\n    }\n
+"""
+Backend FastAPI para Panel de Operaciones BUKZ.
+Expone la lógica de negocio de los módulos Python como API REST.
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import settings
+from routers import ingreso
+
+app = FastAPI(
+    title="BUKZ Operaciones API",
+    description="API backend para el Panel de Operaciones de BUKZ",
+    version="1.0.0",
+)
+
+# CORS — permite que tu frontend en GitHub Pages se comunique con este backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Registrar routers
+app.include_router(ingreso.router)
+
+
+@app.get("/health")
+def health():
+    """Health check general del backend."""
+    shopify_ok = settings.validate()
+    return {
+        "status": "ok",
+        "shopify_configured": shopify_ok,
+    }
+
+
+@app.get("/")
+def root():
+    return {
+        "app": "BUKZ Operaciones API",
+        "docs": "/docs",
+        "health": "/health",
+    }

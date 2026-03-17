@@ -1,1 +1,507 @@
-"""\nServicio de Shopify — lógica de negocio extraída de IngresoMercancia.py\nSin dependencias de Streamlit. Puro Python + requests.\n"""\nimport json\nimport time\nimport requests\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nfrom datetime import datetime, timedelta\n\nfrom config import settings\n\n\n# ---------------------------------------------------------------------------\n# Helpers\n# ---------------------------------------------------------------------------\n\ndef chunk_list(lst: list, chunk_size: int):\n    """Divide una lista en chunks de tamaño específico."""\n    for i in range(0, len(lst), chunk_size):\n        yield lst[i:i + chunk_size]\n\n\n# ---------------------------------------------------------------------------\n# Conexión y bodegas\n# ---------------------------------------------------------------------------\n\ndef verify_shopify_connection() -> dict:\n    """Verifica conexión con Shopify. Retorna info de la tienda."""\n    headers = settings.get_shopify_headers()\n    rest_url = settings.get_rest_url()\n    url = f"{rest_url}/shop.json"\n\n    response = requests.get(url, headers=headers, timeout=10)\n    if response.status_code == 200:\n        shop_info = response.json().get("shop", {})\n        return {\n            "connected": True,\n            "shop_name": shop_info.get("name", ""),\n            "shop_url": shop_info.get("myshopify_domain", ""),\n        }\n    return {"connected": False, "error": f"HTTP {response.status_code}"}\n\n\ndef get_locations() -> dict:\n    """Obtiene ubicaciones/bodegas de Shopify."""\n    headers = settings.get_shopify_headers()\n    rest_url = settings.get_rest_url()\n    url = f"{rest_url}/locations.json"\n\n    response = requests.get(url, headers=headers, timeout=10)\n    if response.status_code == 200:\n        locations_data = response.json().get("locations", [])\n        return {loc["name"]: loc["id"] for loc in locations_data}\n    return {}\n\n\n# ---------------------------------------------------------------------------\n# Consulta de productos (búsqueda individual y masiva)\n# ---------------------------------------------------------------------------\n\ndef _build_batch_query(isbn_list: list[str]) -> str:\n    """Construye query GraphQL para múltiples ISBNs."""\n    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in isbn_list])\n    return """\n    {\n      productVariants(first: 100, query: \"%s\") {\n        edges {\n          node {\n            id\n            sku\n            barcode\n            price\n            inventoryItem { id }\n            product {\n              id\n              title\n              vendor\n              metafields(first: 50) {\n                edges {\n                  node { namespace key value }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n    """ % conditions\n\n\ndef _extract_categoria(metafields_edges: list) -> str:\n    """Extrae categoría de los metafields de un producto."""\n    for meta_edge in metafields_edges:\n        meta = meta_edge.get("node", {})\n        key = meta.get("key", "").lower()\n        if key == "categoria" or key == "category" or "categoria" in key:\n            valor = meta.get("value", "")\n            return (\n                valor.replace('["', "").replace('"]', "")\n                .replace("[", "").replace("]", "")\n                .replace('"', "").strip()\n            )\n    return "---"\n\n\ndef process_batch_info(\n    session: requests.Session,\n    isbn_batch: list[str],\n    isbn_to_qty: dict,\n) -> dict:\n    """Procesa un batch de ISBNs para consulta de información."""\n    graphql_url = settings.get_graphql_url()\n    results = {}\n\n    try:\n        query = _build_batch_query(isbn_batch)\n        response = session.post(graphql_url, json={"query": query}, timeout=30)\n\n        if response.status_code == 200:\n            data = response.json()\n            edges = (\n                data.get("data", {})\n                .get("productVariants", {})\n                .get("edges", [])\n            )\n\n            for edge in edges:\n                node = edge["node"]\n                sku = str(node.get("sku", "")).strip()\n                barcode = str(node.get("barcode", "")).strip()\n\n                matched_isbn = None\n                for isbn in isbn_batch:\n                    if sku == isbn or barcode == isbn:\n                        matched_isbn = isbn\n                        break\n\n                if matched_isbn and matched_isbn not in results:\n                    product_gid = node["product"].get("id", "")\n                    product_id = product_gid.split("/")[-1] if product_gid else "---"\n                    variant_gid = node.get("id", "")\n                    variant_id = variant_gid.split("/")[-1] if variant_gid else "---"\n                    metafields = node["product"].get("metafields", {}).get("edges", [])\n\n                    results[matched_isbn] = {\n                        "ISBN": matched_isbn,\n                        "ID": product_id,\n                        "Variant ID": variant_id,\n                        "Titulo": node["product"]["title"],\n                        "Vendor": node["product"].get("vendor") or "---",\n                        "Precio": float(node.get("price", 0)),\n                        "Categoria": _extract_categoria(metafields),\n                        "Cantidad": isbn_to_qty.get(matched_isbn, 0),\n                    }\n    except Exception:\n        pass\n\n    # Marcar no encontrados\n    for isbn in isbn_batch:\n        if isbn not in results:\n            results[isbn] = {\n                "ISBN": isbn,\n                "ID": "---",\n                "Variant ID": "---",\n                "Titulo": "No encontrado",\n                "Vendor": "---",\n                "Precio": 0.0,\n                "Categoria": "---",\n                "Cantidad": isbn_to_qty.get(isbn, 0),\n            }\n\n    return results\n\n\ndef search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:\n    """\n    Busca productos en Shopify por lista de ISBNs.\n    Retorna lista de resultados ordenados según el orden original.\n    """\n    headers = settings.get_shopify_headers()\n    batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))\n\n    all_results = {}\n    session = requests.Session()\n    session.headers.update(headers)\n\n    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:\n        futures = {\n            executor.submit(process_batch_info, session, batch, isbn_to_qty): i\n            for i, batch in enumerate(batches)\n        }\n        for future in as_completed(futures):\n            all_results.update(future.result())\n\n    # Mantener orden original\n    return [all_results[isbn] for isbn in isbn_list if isbn in all_results]\n\n\n# ---------------------------------------------------------------------------\n# Inventario multi-bodega\n# ---------------------------------------------------------------------------\n\ndef process_batch_inventory(\n    session: requests.Session,\n    isbn_batch: list[str],\n    isbn_to_qty: dict,\n    selected_locations: list[tuple],\n    sales_data: dict | None = None,\n) -> dict:\n    """Procesa un batch de ISBNs para inventario multi-bodega."""\n    graphql_url = settings.get_graphql_url()\n    rest_url = settings.get_rest_url()\n    headers = settings.get_shopify_headers()\n\n    results = {}\n    inventory_items = {}\n\n    try:\n        query = _build_batch_query(isbn_batch)\n        response = session.post(graphql_url, json={"query": query}, timeout=30)\n\n        if response.status_code == 200:\n            data = response.json()\n            edges = (\n                data.get("data", {})\n                .get("productVariants", {})\n                .get("edges", [])\n            )\n\n            for edge in edges:\n                node = edge["node"]\n                sku = str(node.get("sku", "")).strip()\n                barcode = str(node.get("barcode", "")).strip()\n\n                matched_isbn = None\n                for isbn in isbn_batch:\n                    if sku == isbn or barcode == isbn:\n                        matched_isbn = isbn\n                        break\n\n                if matched_isbn and matched_isbn not in results:\n                    inv_item_gid = node["inventoryItem"]["id"]\n                    inv_item_id = inv_item_gid.split("/")[-1]\n                    inventory_items[matched_isbn] = inv_item_id\n\n                    item = {\n                        "ISBN": matched_isbn,\n                        "Title": node["product"]["title"],\n                        "Vendor": node["product"].get("vendor") or "---",\n                        "Solicitado": isbn_to_qty.get(matched_isbn, 0),\n                    }\n\n                    if sales_data is not None:\n                        ventas = sales_data.get(sku, 0)\n                        if ventas == 0 and barcode:\n                            ventas = sales_data.get(barcode, 0)\n                        item["Ventas 12M"] = ventas\n\n                    for b_name, _ in selected_locations:\n                        item[b_name] = 0\n\n                    results[matched_isbn] = item\n\n            # Consultar inventario por bodega\n            if inventory_items:\n                inv_ids = ",".join(inventory_items.values())\n                inv_url = f"{rest_url}/inventory_levels.json"\n                inv_id_to_isbn = {v: k for k, v in inventory_items.items()}\n\n                for b_name, b_id in selected_locations:\n                    try:\n                        inv_response = session.get(\n                            inv_url,\n                            params={\n                                "inventory_item_ids": inv_ids,\n                                "location_ids": str(b_id),\n                            },\n                            timeout=15,\n                        )\n                        if inv_response.status_code == 200:\n                            levels = inv_response.json().get("inventory_levels", [])\n                            for level in levels:\n                                inv_item_id = str(level.get("inventory_item_id"))\n                                available = level.get("available", 0)\n                                isbn = inv_id_to_isbn.get(inv_item_id)\n                                if isbn and isbn in results:\n                                    results[isbn][b_name] = available if available else 0\n                    except Exception:\n                        pass\n\n    except Exception:\n        pass\n\n    # No encontrados\n    for isbn in isbn_batch:\n        if isbn not in results:\n            item = {\n                "ISBN": isbn,\n                "Title": "No encontrado",\n                "Vendor": "---",\n                "Solicitado": isbn_to_qty.get(isbn, 0),\n            }\n            if sales_data is not None:\n                item["Ventas 12M"] = 0\n            for b_name, _ in selected_locations:\n                item[b_name] = 0\n            results[isbn] = item\n\n    return results\n\n\ndef search_inventory(\n    isbn_list: list[str],\n    isbn_to_qty: dict,\n    location_names: list[str],\n    sales_data: dict | None = None,\n) -> list[dict]:\n    """\n    Busca inventario multi-bodega en Shopify.\n    location_names: lista de nombres de bodegas a consultar.\n    """\n    headers = settings.get_shopify_headers()\n    loc_map = get_locations()\n\n    # Filtrar solo las bodegas solicitadas que existen\n    selected_locations = [\n        (name, loc_map[name]) for name in location_names if name in loc_map\n    ]\n\n    if not selected_locations:\n        return []\n\n    batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))\n    all_results = {}\n    session = requests.Session()\n    session.headers.update(headers)\n\n    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:\n        futures = {\n            executor.submit(\n                process_batch_inventory,\n                session,\n                batch,\n                isbn_to_qty,\n                selected_locations,\n                sales_data,\n            ): i\n            for i, batch in enumerate(batches)\n        }\n        for future in as_completed(futures):\n            all_results.update(future.result())\n\n    return [all_results[isbn] for isbn in isbn_list if isbn in all_results]\n\n\n# ---------------------------------------------------------------------------\n# Ventas Bulk Operations (últimos 12 meses)\n# ---------------------------------------------------------------------------\n\ndef start_bulk_operation() -> tuple[str | None, str | None]:\n    """Inicia Bulk Operation para exportar órdenes de los últimos 12 meses."""\n    graphql_url = settings.get_graphql_url()\n    headers = settings.get_shopify_headers()\n    date_12m_ago = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00Z")\n\n    mutation = \"\"\"\n    mutation {\n      bulkOperationRunQuery(\n        query: \\\"\\\"\\\"\n        {\n          orders(query: \"created_at:>=%s AND financial_status:paid\") {\n            edges {\n              node {\n                id\n                lineItems {\n                  edges {\n                    node {\n                      sku\n                      quantity\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n        \\\"\\\"\\\"\n      ) {\n        bulkOperation { id status }\n        userErrors { field message }\n      }\n    }\n    \"\"\" % date_12m_ago\n\n    try:\n        response = requests.post(\n            graphql_url, json={"query": mutation}, headers=headers, timeout=30\n        )\n        if response.status_code == 200:\n            data = response.json()\n            if "errors" in data:\n                return None, f"Error GraphQL: {data['errors']}"\n\n            bulk_result = data.get("data", {}).get("bulkOperationRunQuery")\n            if bulk_result:\n                user_errors = bulk_result.get("userErrors", [])\n                if user_errors:\n                    return None, "; ".join(e.get("message", "") for e in user_errors)\n                if bulk_result.get("bulkOperation"):\n                    return bulk_result["bulkOperation"]["id"], None\n\n        return None, f"HTTP {response.status_code}"\n    except Exception as e:\n        return None, str(e)\n\n\ndef check_bulk_operation_status() -> dict:\n    """Verifica el estado de la Bulk Operation actual."""\n    graphql_url = settings.get_graphql_url()\n    headers = settings.get_shopify_headers()\n\n    query = \"\"\"\n    {\n      currentBulkOperation {\n        id status errorCode createdAt completedAt objectCount fileSize url\n      }\n    }\n    \"\"\"\n\n    try:\n        response = requests.post(\n            graphql_url, json={"query": query}, headers=headers, timeout=30\n        )\n        if response.status_code == 200:\n            data = response.json()\n            op = data.get("data", {}).get("currentBulkOperation")\n            if op:\n                return {\n                    "status": op.get("status"),\n                    "url": op.get("url"),\n                    "object_count": op.get("objectCount", 0),\n                    "error_code": op.get("errorCode"),\n                    "created_at": op.get("createdAt"),\n                    "completed_at": op.get("completedAt"),\n                }\n    except Exception:\n        pass\n\n    return {"status": None, "url": None, "object_count": 0}\n\n\ndef download_and_process_bulk_results(url: str) -> dict:\n    """Descarga JSONL de resultados y procesa ventas por SKU."""\n    sales_by_sku = {}\n\n    try:\n        response = requests.get(url, timeout=120, stream=True)\n        if response.status_code == 200:\n            for line in response.iter_lines():\n                if line:\n                    try:\n                        data = json.loads(line.decode("utf-8"))\n                        if "sku" in data and "quantity" in data:\n                            sku = str(data.get("sku", "")).strip()\n                            if sku:\n                                quantity = data.get("quantity", 0)\n                                sales_by_sku[sku] = sales_by_sku.get(sku, 0) + quantity\n                    except json.JSONDecodeError:\n                        continue\n    except Exception:\n        pass\n\n    return sales_by_sku\n\n\ndef load_sales_sync() -> tuple[dict | None, str | None]:\n    """\n    Carga ventas usando Bulk Operations de forma síncrona.\n    Espera hasta que termine (máximo ~10 min).\n    Retorna (sales_data, error).\n    """\n    operation_id, error = start_bulk_operation()\n    if error:\n        return None, f"Error iniciando: {error}"\n    if not operation_id:\n        return None, "No se pudo iniciar la operación"\n\n    max_attempts = 120\n    for attempt in range(max_attempts):\n        result = check_bulk_operation_status()\n        status = result.get("status")\n\n        if status == "COMPLETED":\n            url = result.get("url")\n            if url:\n                sales_data = download_and_process_bulk_results(url)\n                return sales_data, None\n            return {}, None\n        elif status == "FAILED":\n            return None, "La operación falló en Shopify"\n        elif status == "CANCELED":\n            return None, "La operación fue cancelada"\n\n        time.sleep(5)\n\n    return None, "Timeout - la operación tardó demasiado"\n
+"""
+Servicio de Shopify — lógica de negocio extraída de IngresoMercancia.py
+Sin dependencias de Streamlit. Puro Python + requests.
+"""
+import json
+import time
+import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+
+from config import settings
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def chunk_list(lst: list, chunk_size: int):
+    """Divide una lista en chunks de tamaño específico."""
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i:i + chunk_size]
+
+
+# ---------------------------------------------------------------------------
+# Conexión y bodegas
+# ---------------------------------------------------------------------------
+
+def verify_shopify_connection() -> dict:
+    """Verifica conexión con Shopify. Retorna info de la tienda."""
+    headers = settings.get_shopify_headers()
+    rest_url = settings.get_rest_url()
+    url = f"{rest_url}/shop.json"
+
+    response = requests.get(url, headers=headers, timeout=10)
+    if response.status_code == 200:
+        shop_info = response.json().get("shop", {})
+        return {
+            "connected": True,
+            "shop_name": shop_info.get("name", ""),
+            "shop_url": shop_info.get("myshopify_domain", ""),
+        }
+    return {"connected": False, "error": f"HTTP {response.status_code}"}
+
+
+def get_locations() -> dict:
+    """Obtiene ubicaciones/bodegas de Shopify."""
+    headers = settings.get_shopify_headers()
+    rest_url = settings.get_rest_url()
+    url = f"{rest_url}/locations.json"
+
+    response = requests.get(url, headers=headers, timeout=10)
+    if response.status_code == 200:
+        locations_data = response.json().get("locations", [])
+        return {loc["name"]: loc["id"] for loc in locations_data}
+    return {}
+
+
+# ---------------------------------------------------------------------------
+# Consulta de productos (búsqueda individual y masiva)
+# ---------------------------------------------------------------------------
+
+def _build_batch_query(isbn_list: list[str]) -> str:
+    """Construye query GraphQL para múltiples ISBNs."""
+    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in isbn_list])
+    return """
+    {
+      productVariants(first: 100, query: "%s") {
+        edges {
+          node {
+            id
+            sku
+            barcode
+            price
+            inventoryItem { id }
+            product {
+              id
+              title
+              vendor
+              metafields(first: 50) {
+                edges {
+                  node { namespace key value }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """ % conditions
+
+
+def _extract_categoria(metafields_edges: list) -> str:
+    """Extrae categoría de los metafields de un producto."""
+    for meta_edge in metafields_edges:
+        meta = meta_edge.get("node", {})
+        key = meta.get("key", "").lower()
+        if key == "categoria" or key == "category" or "categoria" in key:
+            valor = meta.get("value", "")
+            return (
+                valor.replace('["', "").replace('"]', "")
+                .replace("[", "").replace("]", "")
+                .replace('"', "").strip()
+            )
+    return "---"
+
+
+def process_batch_info(
+    session: requests.Session,
+    isbn_batch: list[str],
+    isbn_to_qty: dict,
+) -> dict:
+    """Procesa un batch de ISBNs para consulta de información."""
+    graphql_url = settings.get_graphql_url()
+    results = {}
+
+    try:
+        query = _build_batch_query(isbn_batch)
+        response = session.post(graphql_url, json={"query": query}, timeout=30)
+
+        if response.status_code == 200:
+            data = response.json()
+            edges = (
+                data.get("data", {})
+                .get("productVariants", {})
+                .get("edges", [])
+            )
+
+            for edge in edges:
+                node = edge["node"]
+                sku = str(node.get("sku", "")).strip()
+                barcode = str(node.get("barcode", "")).strip()
+
+                matched_isbn = None
+                for isbn in isbn_batch:
+                    if sku == isbn or barcode == isbn:
+                        matched_isbn = isbn
+                        break
+
+                if matched_isbn and matched_isbn not in results:
+                    product_gid = node["product"].get("id", "")
+                    product_id = product_gid.split("/")[-1] if product_gid else "---"
+                    variant_gid = node.get("id", "")
+                    variant_id = variant_gid.split("/")[-1] if variant_gid else "---"
+                    metafields = node["product"].get("metafields", {}).get("edges", [])
+
+                    results[matched_isbn] = {
+                        "ISBN": matched_isbn,
+                        "ID": product_id,
+                        "Variant ID": variant_id,
+                        "Titulo": node["product"]["title"],
+                        "Vendor": node["product"].get("vendor") or "---",
+                        "Precio": float(node.get("price", 0)),
+                        "Categoria": _extract_categoria(metafields),
+                        "Cantidad": isbn_to_qty.get(matched_isbn, 0),
+                    }
+    except Exception:
+        pass
+
+    # Marcar no encontrados
+    for isbn in isbn_batch:
+        if isbn not in results:
+            results[isbn] = {
+                "ISBN": isbn,
+                "ID": "---",
+                "Variant ID": "---",
+                "Titulo": "No encontrado",
+                "Vendor": "---",
+                "Precio": 0.0,
+                "Categoria": "---",
+                "Cantidad": isbn_to_qty.get(isbn, 0),
+            }
+
+    return results
+
+
+def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
+    """
+    Busca productos en Shopify por lista de ISBNs.
+    Retorna lista de resultados ordenados según el orden original.
+    """
+    headers = settings.get_shopify_headers()
+    batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))
+
+    all_results = {}
+    session = requests.Session()
+    session.headers.update(headers)
+
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(process_batch_info, session, batch, isbn_to_qty): i
+            for i, batch in enumerate(batches)
+        }
+        for future in as_completed(futures):
+            all_results.update(future.result())
+
+    # Mantener orden original
+    return [all_results[isbn] for isbn in isbn_list if isbn in all_results]
+
+
+# ---------------------------------------------------------------------------
+# Inventario multi-bodega
+# ---------------------------------------------------------------------------
+
+def process_batch_inventory(
+    session: requests.Session,
+    isbn_batch: list[str],
+    isbn_to_qty: dict,
+    selected_locations: list[tuple],
+    sales_data: dict | None = None,
+) -> dict:
+    """Procesa un batch de ISBNs para inventario multi-bodega."""
+    graphql_url = settings.get_graphql_url()
+    rest_url = settings.get_rest_url()
+    headers = settings.get_shopify_headers()
+
+    results = {}
+    inventory_items = {}
+
+    try:
+        query = _build_batch_query(isbn_batch)
+        response = session.post(graphql_url, json={"query": query}, timeout=30)
+
+        if response.status_code == 200:
+            data = response.json()
+            edges = (
+                data.get("data", {})
+                .get("productVariants", {})
+                .get("edges", [])
+            )
+
+            for edge in edges:
+                node = edge["node"]
+                sku = str(node.get("sku", "")).strip()
+                barcode = str(node.get("barcode", "")).strip()
+
+                matched_isbn = None
+                for isbn in isbn_batch:
+                    if sku == isbn or barcode == isbn:
+                        matched_isbn = isbn
+                        break
+
+                if matched_isbn and matched_isbn not in results:
+                    inv_item_gid = node["inventoryItem"]["id"]
+                    inv_item_id = inv_item_gid.split("/")[-1]
+                    inventory_items[matched_isbn] = inv_item_id
+
+                    item = {
+                        "ISBN": matched_isbn,
+                        "Title": node["product"]["title"],
+                        "Vendor": node["product"].get("vendor") or "---",
+                        "Solicitado": isbn_to_qty.get(matched_isbn, 0),
+                    }
+
+                    if sales_data is not None:
+                        ventas = sales_data.get(sku, 0)
+                        if ventas == 0 and barcode:
+                            ventas = sales_data.get(barcode, 0)
+                        item["Ventas 12M"] = ventas
+
+                    for b_name, _ in selected_locations:
+                        item[b_name] = 0
+
+                    results[matched_isbn] = item
+
+            # Consultar inventario por bodega
+            if inventory_items:
+                inv_ids = ",".join(inventory_items.values())
+                inv_url = f"{rest_url}/inventory_levels.json"
+                inv_id_to_isbn = {v: k for k, v in inventory_items.items()}
+
+                for b_name, b_id in selected_locations:
+                    try:
+                        inv_response = session.get(
+                            inv_url,
+                            params={
+                                "inventory_item_ids": inv_ids,
+                                "location_ids": str(b_id),
+                            },
+                            timeout=15,
+                        )
+                        if inv_response.status_code == 200:
+                            levels = inv_response.json().get("inventory_levels", [])
+                            for level in levels:
+                                inv_item_id = str(level.get("inventory_item_id"))
+                                available = level.get("available", 0)
+                                isbn = inv_id_to_isbn.get(inv_item_id)
+                                if isbn and isbn in results:
+                                    results[isbn][b_name] = available if available else 0
+                    except Exception:
+                        pass
+
+    except Exception:
+        pass
+
+    # No encontrados
+    for isbn in isbn_batch:
+        if isbn not in results:
+            item = {
+                "ISBN": isbn,
+                "Title": "No encontrado",
+                "Vendor": "---",
+                "Solicitado": isbn_to_qty.get(isbn, 0),
+            }
+            if sales_data is not None:
+                item["Ventas 12M"] = 0
+            for b_name, _ in selected_locations:
+                item[b_name] = 0
+            results[isbn] = item
+
+    return results
+
+
+def search_inventory(
+    isbn_list: list[str],
+    isbn_to_qty: dict,
+    location_names: list[str],
+    sales_data: dict | None = None,
+) -> list[dict]:
+    """
+    Busca inventario multi-bodega en Shopify.
+    location_names: lista de nombres de bodegas a consultar.
+    """
+    headers = settings.get_shopify_headers()
+    loc_map = get_locations()
+
+    # Filtrar solo las bodegas solicitadas que existen
+    selected_locations = [
+        (name, loc_map[name]) for name in location_names if name in loc_map
+    ]
+
+    if not selected_locations:
+        return []
+
+    batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))
+    all_results = {}
+    session = requests.Session()
+    session.headers.update(headers)
+
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(
+                process_batch_inventory,
+                session,
+                batch,
+                isbn_to_qty,
+                selected_locations,
+                sales_data,
+            ): i
+            for i, batch in enumerate(batches)
+        }
+        for future in as_completed(futures):
+            all_results.update(future.result())
+
+    return [all_results[isbn] for isbn in isbn_list if isbn in all_results]
+
+
+# ---------------------------------------------------------------------------
+# Ventas Bulk Operations (últimos 12 meses)
+# ---------------------------------------------------------------------------
+
+def start_bulk_operation() -> tuple[str | None, str | None]:
+    """Inicia Bulk Operation para exportar órdenes de los últimos 12 meses."""
+    graphql_url = settings.get_graphql_url()
+    headers = settings.get_shopify_headers()
+    date_12m_ago = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00Z")
+
+    mutation = """
+    mutation {
+      bulkOperationRunQuery(
+        query: \"\"\"
+        {
+          orders(query: "created_at:>=%s AND financial_status:paid") {
+            edges {
+              node {
+                id
+                lineItems {
+                  edges {
+                    node {
+                      sku
+                      quantity
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        \"\"\"
+      ) {
+        bulkOperation { id status }
+        userErrors { field message }
+      }
+    }
+    """ % date_12m_ago
+
+    try:
+        response = requests.post(
+            graphql_url, json={"query": mutation}, headers=headers, timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if "errors" in data:
+                return None, f"Error GraphQL: {data['errors']}"
+
+            bulk_result = data.get("data", {}).get("bulkOperationRunQuery")
+            if bulk_result:
+                user_errors = bulk_result.get("userErrors", [])
+                if user_errors:
+                    return None, "; ".join(e.get("message", "") for e in user_errors)
+                if bulk_result.get("bulkOperation"):
+                    return bulk_result["bulkOperation"]["id"], None
+
+        return None, f"HTTP {response.status_code}"
+    except Exception as e:
+        return None, str(e)
+
+
+def check_bulk_operation_status() -> dict:
+    """Verifica el estado de la Bulk Operation actual."""
+    graphql_url = settings.get_graphql_url()
+    headers = settings.get_shopify_headers()
+
+    query = """
+    {
+      currentBulkOperation {
+        id status errorCode createdAt completedAt objectCount fileSize url
+      }
+    }
+    """
+
+    try:
+        response = requests.post(
+            graphql_url, json={"query": query}, headers=headers, timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            op = data.get("data", {}).get("currentBulkOperation")
+            if op:
+                return {
+                    "status": op.get("status"),
+                    "url": op.get("url"),
+                    "object_count": op.get("objectCount", 0),
+                    "error_code": op.get("errorCode"),
+                    "created_at": op.get("createdAt"),
+                    "completed_at": op.get("completedAt"),
+                }
+    except Exception:
+        pass
+
+    return {"status": None, "url": None, "object_count": 0}
+
+
+def download_and_process_bulk_results(url: str) -> dict:
+    """Descarga JSONL de resultados y procesa ventas por SKU."""
+    sales_by_sku = {}
+
+    try:
+        response = requests.get(url, timeout=120, stream=True)
+        if response.status_code == 200:
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        data = json.loads(line.decode("utf-8"))
+                        if "sku" in data and "quantity" in data:
+                            sku = str(data.get("sku", "")).strip()
+                            if sku:
+                                quantity = data.get("quantity", 0)
+                                sales_by_sku[sku] = sales_by_sku.get(sku, 0) + quantity
+                    except json.JSONDecodeError:
+                        continue
+    except Exception:
+        pass
+
+    return sales_by_sku
+
+
+def load_sales_sync() -> tuple[dict | None, str | None]:
+    """
+    Carga ventas usando Bulk Operations de forma síncrona.
+    Espera hasta que termine (máximo ~10 min).
+    Retorna (sales_data, error).
+    """
+    operation_id, error = start_bulk_operation()
+    if error:
+        return None, f"Error iniciando: {error}"
+    if not operation_id:
+        return None, "No se pudo iniciar la operación"
+
+    max_attempts = 120
+    for attempt in range(max_attempts):
+        result = check_bulk_operation_status()
+        status = result.get("status")
+
+        if status == "COMPLETED":
+            url = result.get("url")
+            if url:
+                sales_data = download_and_process_bulk_results(url)
+                return sales_data, None
+            return {}, None
+        elif status == "FAILED":
+            return None, "La operación falló en Shopify"
+        elif status == "CANCELED":
+            return None, "La operación fue cancelada"
+
+        time.sleep(5)
+
+    return None, "Timeout - la operación tardó demasiado"
