@@ -1,8 +1,12 @@
 """
 Configuración centralizada del backend - lee desde variables de entorno.
-En EasyPanel, estas variables se configuran en el panel de administración del servicio.
+Usa python-dotenv para cargar variables desde archivo .env si existe.
 """
 import os
+from dotenv import load_dotenv
+
+# Cargar .env si existe (EasyPanel lo crea automáticamente)
+load_dotenv()
 
 
 class Settings:
