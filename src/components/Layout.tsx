@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   Calculator,
   PackageSearch,
+  SearchCode,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -56,6 +57,7 @@ const navItems = [
   { title: "Reposición", path: "/reposicion", icon: Package, tourId: "nav-reposicion" },
   { title: "Celesa", path: "/celesa", icon: Ship, tourId: "nav-celesa" },
   { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch, tourId: "nav-ingreso" },
+  { title: "Scrap Bukz", path: "/scrap", icon: SearchCode, tourId: "nav-scrap" },
   { title: "Calculadora", path: "/calculator", icon: Calculator, tourId: "nav-calculator" },
 ];
 

@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   Calculator,
   PackageSearch,
+  SearchCode,
   type LucideIcon,
 } from "lucide-react";
 import type { WorkspaceId } from "@/lib/workspaces";
@@ -33,6 +34,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/reposicion", label: "Reposición", description: "Gestión de reposición", icon: Package, workspace: "operaciones" },
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
   { path: "/ingreso", label: "Ingreso Mercancía", description: "Consulta y gestión de ingreso de productos", icon: PackageSearch, workspace: "operaciones" },
+  { path: "/scrap", label: "Scrap Bukz", description: "Enriquecimiento de metadatos de libros por ISBN", icon: SearchCode, workspace: "operaciones" },
   { path: "/calculator", label: "Calculadora", description: "Conversor EUR a COP", icon: Calculator, workspace: "general" },
 ];
 
