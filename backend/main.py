@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import ingreso
+from routers import scrap
 
 app = FastAPI(
     title="BUKZ Operaciones API",
@@ -25,6 +26,7 @@ app.add_middleware(
 
 # Registrar routers
 app.include_router(ingreso.router)
+app.include_router(scrap.router)
 
 
 @app.get("/health")
