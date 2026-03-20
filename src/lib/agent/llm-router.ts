@@ -1,54 +1,34 @@
-import type { LLMProvider, ProviderResponse, ToolDefinition } from "./types";
-import { createGeminiProvider } from "./providers/gemini";
-import { createGroqProvider } from "./providers/groq";
-import { createOpenRouterProvider } from "./providers/openrouter";
+import type { ProviderResponse, ToolDefinition } from "./types";
 
-const TIMEOUT_MS = 30_000;
-
-function buildProviders(): LLMProvider[] {
-  const providers: LLMProvider[] = [];
-  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-  const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-
-  // Gemini 2.5 Flash first (250K TPM, best tool calling), Groq as fallback
-  if (geminiKey) providers.push(createGeminiProvider({ apiKey: geminiKey }));
-  if (groqKey) providers.push(createGroqProvider({ apiKey: groqKey }));
-  if (openrouterKey) providers.push(createOpenRouterProvider({ apiKey: openrouterKey }));
-
-  return providers;
-}
-
-let cachedProviders: LLMProvider[] | null = null;
-
-function getProviders(): LLMProvider[] {
-  if (!cachedProviders) cachedProviders = buildProviders();
-  return cachedProviders;
-}
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
 
 export async function sendToLLM(
   messages: { role: string; content: string }[],
   tools: ToolDefinition[]
 ): Promise<ProviderResponse & { provider: string }> {
-  const providers = getProviders();
-  if (providers.length === 0) {
-    throw new Error("No hay API keys configuradas para los proveedores LLM");
+  // Convert tool definitions to the format the backend expects (JSON Schema only, no execute fn)
+  const toolDefs = tools.map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: t.parameters,
+  }));
+
+  const res = await fetch(`${BACKEND_URL}/agent/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, tools: toolDefs }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    console.warn("[agent] Backend error:", res.status, errText);
+    throw new Error("Error al conectar con el asistente. Intenta de nuevo.");
   }
 
-  for (const provider of providers) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-      const response = await provider.sendMessage(messages, tools, controller.signal);
-      clearTimeout(timeout);
-
-      return { ...response, provider: provider.name };
-    } catch (err) {
-      console.warn(`[agent] ${provider.name} failed:`, err);
-      continue;
-    }
-  }
-
-  throw new Error("Todos los modelos están ocupados. Intenta en unos minutos.");
+  const data = await res.json();
+  return {
+    message: data.message ?? "",
+    toolCalls: data.toolCalls ?? [],
+    provider: data.provider ?? "backend",
+  };
 }
