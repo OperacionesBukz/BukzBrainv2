@@ -7,7 +7,7 @@ import CelesaKpiCards from "./CelesaKpiCards";
 import CelesaAlertBar from "./CelesaAlertBar";
 import CelesaToolbar from "./CelesaToolbar";
 import CelesaTable from "./CelesaTable";
-import type { CelesaStatus } from "./types";
+import type { CelesaOrder, CelesaStatus } from "./types";
 import type { SortOption } from "./CelesaToolbar";
 
 export default function CelesaTab() {
@@ -84,6 +84,16 @@ export default function CelesaTab() {
         onAdd={addOrder}
         onUpdate={updateOrder}
         onDelete={deleteOrder}
+        onDuplicate={(order: CelesaOrder) => {
+          addOrder({
+            numeroPedido: order.numeroPedido,
+            cliente: order.cliente,
+            producto: order.producto,
+            isbn: order.isbn,
+            fechaPedido: order.fechaPedido,
+            estado: "Pendiente",
+          });
+        }}
       />
     </div>
   );

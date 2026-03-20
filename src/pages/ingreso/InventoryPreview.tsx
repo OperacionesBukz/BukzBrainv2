@@ -35,14 +35,15 @@ export default function InventoryPreview({ blob, onDownload }: InventoryPreviewP
     blob.arrayBuffer().then((buffer) => {
       if (cancelled) return;
       try {
-        const wb = read(buffer, { type: "array" });
+        const wb = read(new Uint8Array(buffer));
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const json = utils.sheet_to_json<Row>(sheet, { defval: "" });
         if (json.length > 0) {
           setHeaders(Object.keys(json[0]));
         }
         setRows(json);
-      } catch {
+      } catch (e) {
+        console.error("Error parsing Excel:", e);
         setError("No se pudo leer el archivo Excel");
       } finally {
         setParsing(false);

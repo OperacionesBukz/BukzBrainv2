@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "Bash(dir:*)",
       "Bash(npm install:*)",
@@ -26,7 +27,30 @@
       "Bash(node -e:*)",
       "Bash(netstat:*)",
       "Bash(git status:*)",
-      "Skill(commit-commands:commit-push-pr)"
+      "Skill(commit-commands:commit-push-pr)",
+      "Bash(cp:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(touch:*)",
+      "Bash(git:*)",
+      "Bash(rm:*)",
+      "WebSearch",
+      "WebFetch(domain:www.humanlayer.dev)",
+      "WebFetch(domain:www.builder.io)",
+      "WebFetch(domain:claude.com)",
+      "Bash(npx vitest:*)",
+      "Bash(npx gh-pages:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh auth:*)",
+      "Bash(find \"C:\\\\Users\\\\opera\\\\OneDrive\\\\Documentos\\\\BUKZ\\\\08 - PYTHON\\\\BukzBrainv2-main\" -name \"*Reposicion*\" -type f 2>/dev/null | head -20)",
+      "Bash(find \"/c/Users/opera/OneDrive/Documentos/BUKZ/08 - PYTHON/BukzBrainv2-main\" -name \"*Bukz*\" -type f 2>/dev/null | grep -i \"html\\\\|reposicion\")",
+      "Bash(find \"/c/Users/opera/OneDrive/Documentos/BUKZ/08 - PYTHON/BukzBrainv2-main\" -name \"*.html\" -type f 2>/dev/null | xargs grep -l \"Reposicion\" 2>/dev/null || echo \"No HTML files found with Reposicion content\")",
+      "Bash(find 'C:\\\\Users\\\\opera\\\\OneDrive\\\\Documentos\\\\BUKZ\\\\08 - PYTHON\\\\BukzBrainv2-main\\\\src' -name *ingreso* -o -name *Ingreso*)",
+      "Read(//c/Users/opera/OneDrive/Documentos/BUKZ/08 - PYTHON/bukz-metadata-scraper/**)",
+      "Bash(python -c \":*)",
+      "Bash(find C:UsersoperaOneDriveDocumentosBUKZ -type d -name *panel* -o -type d -name *backend* -o -type d -name *api* -o -type d -name *operaciones*)",
+      "Bash(gh run:*)",
+      "Skill(update-config)"
     ]
   }
 }

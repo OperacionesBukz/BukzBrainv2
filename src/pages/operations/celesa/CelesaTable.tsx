@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Copy, Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -21,6 +21,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   CELESA_STATUS_CONFIG,
@@ -44,6 +50,7 @@ interface CelesaTableProps {
     updates: Partial<Omit<CelesaOrder, "id" | "createdAt" | "createdBy">>
   ) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onDuplicate: (order: CelesaOrder) => void;
 }
 
 interface EditingCell {
@@ -65,6 +72,7 @@ export default function CelesaTable({
   onAdd,
   onUpdate,
   onDelete,
+  onDuplicate,
 }: CelesaTableProps) {
   const [newRow, setNewRow] = useState({ ...emptyNew });
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -74,7 +82,10 @@ export default function CelesaTable({
 
   const handleAddRow = async () => {
     if (!newRow.numeroPedido.trim() || !newRow.cliente.trim()) return;
-    await onAdd(newRow);
+    const numero = newRow.numeroPedido.trim().startsWith("#")
+      ? newRow.numeroPedido.trim()
+      : `#${newRow.numeroPedido.trim()}`;
+    await onAdd({ ...newRow, numeroPedido: numero });
     setNewRow({ ...emptyNew });
   };
 
@@ -167,13 +178,21 @@ export default function CelesaTable({
     }
 
     return (
-      <span
-        onClick={() => startEdit(order.id, field, order[field])}
-        className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 block truncate"
-        title={order[field]}
-      >
-        {order[field] || "—"}
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            onClick={() => startEdit(order.id, field, order[field])}
+            className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 block truncate"
+          >
+            {order[field] || "—"}
+          </span>
+        </TooltipTrigger>
+        {order[field] && (
+          <TooltipContent side="bottom" className="max-w-xs">
+            {order[field]}
+          </TooltipContent>
+        )}
+      </Tooltip>
     );
   };
 
@@ -235,9 +254,9 @@ export default function CelesaTable({
   };
 
   return (
-    <>
+    <TooltipProvider delayDuration={200}>
       <div className="overflow-x-auto rounded-lg border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow className="bg-muted/30">
               <TableHead className="w-[130px]">N° Pedido</TableHead>
@@ -298,9 +317,17 @@ export default function CelesaTable({
               <TableHead className="p-1">
                 <StringDatePicker
                   value={newRow.fechaPedido}
-                  onChange={(val) =>
-                    setNewRow((r) => ({ ...r, fechaPedido: val }))
-                  }
+                  onChange={(val) => {
+                    const numero = newRow.numeroPedido.trim();
+                    const cliente = newRow.cliente.trim();
+                    if (numero && cliente) {
+                      const numeroPedido = numero.startsWith("#") ? numero : `#${numero}`;
+                      onAdd({ ...newRow, numeroPedido, fechaPedido: val });
+                      setNewRow({ ...emptyNew });
+                    } else {
+                      setNewRow((r) => ({ ...r, fechaPedido: val }));
+                    }
+                  }}
                   className="h-7 text-xs"
                 />
               </TableHead>
@@ -364,6 +391,15 @@ export default function CelesaTable({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
+                      onClick={() => onDuplicate(order)}
+                      title="Duplicar pedido"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
                       onClick={() =>
                         startEdit(order.id, "numeroPedido", order.numeroPedido)
                       }
@@ -414,6 +450,6 @@ export default function CelesaTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </TooltipProvider>
   );
 }
