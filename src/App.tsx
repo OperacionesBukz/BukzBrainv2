@@ -9,6 +9,8 @@ import { Layout } from "@/components/Layout";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { AgentProvider } from "@/contexts/AgentContext";
+import { AgentChatProvider } from "@/lib/agent/use-agent-chat";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Operations = lazy(() => import("./pages/Operations"));
@@ -27,6 +29,7 @@ const NavigationAdmin = lazy(() => import("./pages/NavigationAdmin"));
 const UserAdmin = lazy(() => import("./pages/UserAdmin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Login = lazy(() => import("./pages/Login"));
+const Assistant = lazy(() => import("./pages/Assistant"));
 
 const queryClient = new QueryClient();
 
@@ -38,7 +41,9 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter basename="/BukzBrainv2">
-            <ErrorBoundary>
+            <AgentProvider>
+              <AgentChatProvider>
+                <ErrorBoundary>
               <Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/login" replace />} />
@@ -62,6 +67,7 @@ const App = () => (
                               <Route path="/celesa" element={<Celesa />} />
                               <Route path="/ingreso" element={<IngresoMercancia />} />
                               <Route path="/scrap" element={<ScrapBukz />} />
+                              <Route path="/assistant" element={<Assistant />} />
                               <Route path="/calculator" element={<CalculatorPage />} />
                               <Route path="/nav-admin" element={<NavigationAdmin />} />
                               <Route path="/user-admin" element={<UserAdmin />} />
@@ -74,7 +80,9 @@ const App = () => (
                   />
                 </Routes>
               </Suspense>
-            </ErrorBoundary>
+                </ErrorBoundary>
+              </AgentChatProvider>
+            </AgentProvider>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>

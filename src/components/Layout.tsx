@@ -45,6 +45,7 @@ import { useNavigationPermissions } from "@/hooks/useNavigationPermissions";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useTour } from "@/hooks/useTour";
+import { ChatBubble } from "@/components/agent/ChatBubble";
 
 const navItems = [
   { title: "Dashboard", path: "/dashboard", icon: Home, tourId: "nav-dashboard" },
@@ -601,6 +602,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ChatBubble />
     </div>
   );
 }
