@@ -26,7 +26,11 @@ export function createGroqProvider(config: ProviderConfig): LLMProvider {
         signal,
       });
 
-      if (!res.ok) throw new Error(`Groq error: ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        console.warn("[agent] Groq error body:", errBody);
+        throw new Error(`Groq error: ${res.status} ${res.statusText}`);
+      }
 
       const data = await res.json();
       const choice = data.choices?.[0]?.message;

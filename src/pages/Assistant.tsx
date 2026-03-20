@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MessageSquare, Bot } from "lucide-react";
+import { Plus, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { useAgentChat } from "@/lib/agent/use-agent-chat";
 
 const Assistant = () => {
   const { isAdmin } = useAuth();
-  const { conversations, conversationId, selectConversation, startNewConversation } = useAgentChat();
+  const { conversations, conversationId, selectConversation, startNewConversation, deleteConversation } = useAgentChat();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (!isAdmin) {
@@ -33,19 +33,35 @@ const Assistant = () => {
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-1">
               {conversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => selectConversation(conv.id)}
                   className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors",
+                    "group flex items-center rounded-lg transition-colors overflow-hidden",
                     conv.id === conversationId
                       ? "bg-primary/15 text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  <MessageSquare className="h-3 w-3 inline mr-2" />
-                  {conv.title}
-                </button>
+                  <button
+                    onClick={() => selectConversation(conv.id)}
+                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm min-w-0 overflow-hidden"
+                  >
+                    <MessageSquare className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{conv.title}</span>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 mr-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteConversation(conv.id);
+                    }}
+                    title="Eliminar conversación"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               ))}
               {conversations.length === 0 && (
                 <p className="text-xs text-muted-foreground px-3 py-4 text-center">

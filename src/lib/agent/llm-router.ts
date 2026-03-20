@@ -3,7 +3,7 @@ import { createGeminiProvider } from "./providers/gemini";
 import { createGroqProvider } from "./providers/groq";
 import { createOpenRouterProvider } from "./providers/openrouter";
 
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 30_000;
 
 function buildProviders(): LLMProvider[] {
   const providers: LLMProvider[] = [];
@@ -11,6 +11,7 @@ function buildProviders(): LLMProvider[] {
   const groqKey = import.meta.env.VITE_GROQ_API_KEY;
   const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 
+  // Gemini 2.5 Flash first (250K TPM, best tool calling), Groq as fallback
   if (geminiKey) providers.push(createGeminiProvider({ apiKey: geminiKey }));
   if (groqKey) providers.push(createGroqProvider({ apiKey: groqKey }));
   if (openrouterKey) providers.push(createOpenRouterProvider({ apiKey: openrouterKey }));

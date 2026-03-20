@@ -23,7 +23,7 @@ export const productTools: ToolDefinition[] = [
           description: "Término de búsqueda: ISBN numérico o texto del título",
         },
         limit: {
-          type: "number",
+          type: "string",
           description: "Número máximo de resultados (por defecto 10)",
         },
       },
@@ -32,7 +32,7 @@ export const productTools: ToolDefinition[] = [
     execute: async (params) => {
       try {
         const searchQuery = params.query as string;
-        const limit = typeof params.limit === "number" ? params.limit : 10;
+        const limit = params.limit ? Number(params.limit) : 10;
         const ref = collection(db, "products");
         let q;
 

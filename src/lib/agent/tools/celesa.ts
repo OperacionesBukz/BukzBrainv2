@@ -1,4 +1,3 @@
-// src/lib/agent/tools/celesa.ts
 import {
   collection,
   getDocs,
@@ -11,35 +10,55 @@ import type { ToolDefinition } from "../types";
 export const celesaTools: ToolDefinition[] = [
   {
     name: "queryCelesaOrders",
-    description: "Consulta pedidos de Celesa con filtro opcional por estado y límite de resultados.",
+    description: "Consulta pedidos de Celesa. Puede buscar por número de pedido, por estado, o listar todos. Campos de cada pedido: numeroPedido, cliente, producto, isbn, fechaPedido, estado (En curso/Entregado/Agotado/Atrasado).",
     parameters: {
       type: "object",
       properties: {
-        status: {
+        numeroPedido: {
           type: "string",
-          description: "Filtrar por estado del pedido (opcional)",
+          description: "Número de pedido exacto para buscar (ej: '192197')",
+        },
+        estado: {
+          type: "string",
+          description: "Filtrar por estado: Pendiente, Entregado, Agotado, Atrasado",
         },
         limit: {
-          type: "number",
-          description: "Número máximo de resultados a devolver (por defecto 20)",
+          type: "string",
+          description: "Máximo de resultados (por defecto 20)",
         },
       },
-      required: [],
     },
     execute: async (params) => {
       try {
         const ref = collection(db, "celesa_orders");
         const constraints = [];
-        if (params.status) {
-          constraints.push(where("status", "==", params.status));
+        if (params.numeroPedido) {
+          // numeroPedido in Firestore is stored with # prefix (e.g. "#192197")
+          let num = String(params.numeroPedido).trim();
+          if (!num.startsWith("#")) num = "#" + num;
+          constraints.push(where("numeroPedido", "==", num));
+        }
+        if (params.estado) {
+          constraints.push(where("estado", "==", params.estado));
         }
         const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref);
         const snapshot = await getDocs(q);
-        const limit = typeof params.limit === "number" ? params.limit : 20;
-        const data = snapshot.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
+        const limit = params.limit ? Number(params.limit) : 20;
+        const orders = snapshot.docs
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              numeroPedido: data.numeroPedido,
+              cliente: data.cliente,
+              producto: data.producto,
+              isbn: data.isbn,
+              fechaPedido: data.fechaPedido,
+              estado: data.estado,
+            };
+          })
           .slice(0, limit);
-        return { success: true, data };
+        return { success: true, data: { count: orders.length, orders } };
       } catch (error) {
         return { success: false, error: (error as Error).message };
       }
@@ -51,7 +70,6 @@ export const celesaTools: ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {},
-      required: [],
     },
     execute: async () => {
       try {
@@ -59,8 +77,8 @@ export const celesaTools: ToolDefinition[] = [
         const snapshot = await getDocs(ref);
         const byStatus: Record<string, number> = {};
         snapshot.docs.forEach((d) => {
-          const status = (d.data().status as string) ?? "unknown";
-          byStatus[status] = (byStatus[status] ?? 0) + 1;
+          const estado = (d.data().estado as string) ?? "desconocido";
+          byStatus[estado] = (byStatus[estado] ?? 0) + 1;
         });
         return {
           success: true,

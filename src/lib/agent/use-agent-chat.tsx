@@ -1,13 +1,13 @@
 // src/lib/agent/use-agent-chat.ts
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
 import {
-  collection, addDoc, doc, updateDoc, onSnapshot, query, orderBy, where, serverTimestamp, limit as firestoreLimit
+  collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, orderBy, where, serverTimestamp, limit as firestoreLimit
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentContext } from "@/contexts/AgentContext";
 import { sendToLLM } from "./llm-router";
-import { getAllTools } from "./tool-registry";
+import { getToolsForModule } from "./tool-registry";
 import { buildSystemPrompt } from "./system-prompt";
 import { RateLimiter } from "./rate-limiter";
 import type { AgentMessage, AgentConversation, ToolCallResult } from "./types";
@@ -25,6 +25,7 @@ interface AgentChatState {
   sendMessage: (content: string) => Promise<void>;
   startNewConversation: () => Promise<string | undefined>;
   selectConversation: (id: string) => void;
+  deleteConversation: (id: string) => Promise<void>;
   cancelRequest: () => void;
 }
 
@@ -86,6 +87,20 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  const deleteConversation = useCallback(async (id: string) => {
+    // Delete all messages in subcollection first
+    const msgsSnap = await getDocs(collection(db, "agent_conversations", id, "messages"));
+    const deletePromises = msgsSnap.docs.map((d) => deleteDoc(d.ref));
+    await Promise.all(deletePromises);
+    // Delete the conversation doc
+    await deleteDoc(doc(db, "agent_conversations", id));
+    // If we deleted the active conversation, clear it
+    if (conversationId === id) {
+      setConversationId(null);
+      setMessages([]);
+    }
+  }, [conversationId]);
+
   const sendMessage = useCallback(async (content: string) => {
     if (!user || !content.trim()) return;
     if (!rateLimiter.canSend()) {
@@ -124,7 +139,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
 
     // Build LLM messages
-    const tools = getAllTools();
+    const tools = getToolsForModule(currentModule);
     const systemPrompt = buildSystemPrompt({
       userName: user.displayName ?? user.email?.split("@")[0] ?? "Usuario",
       userEmail: user.email ?? "",
@@ -218,7 +233,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   return (
     <AgentChatCtx.Provider value={{
       messages, conversations, conversationId, loading, error, rateLimited,
-      sendMessage, startNewConversation, selectConversation, cancelRequest,
+      sendMessage, startNewConversation, selectConversation, deleteConversation, cancelRequest,
     }}>
       {children}
     </AgentChatCtx.Provider>

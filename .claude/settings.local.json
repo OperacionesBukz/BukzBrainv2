@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "auto",
     "allow": [
       "Bash(dir:*)",
       "Bash(npm install:*)",
@@ -50,7 +49,12 @@
       "Bash(python -c \":*)",
       "Bash(find C:UsersoperaOneDriveDocumentosBUKZ -type d -name *panel* -o -type d -name *backend* -o -type d -name *api* -o -type d -name *operaciones*)",
       "Bash(gh run:*)",
-      "Skill(update-config)"
-    ]
+      "Skill(update-config)",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyBADC5xlehn4u_TBu5i4dbb9n-koHldTto\" -H \"Content-Type: application/json\" -d '{\"\"\"\"contents\"\"\"\":[{\"\"\"\"parts\"\"\"\":[{\"\"\"\"text\"\"\"\":\"\"\"\"Hola\"\"\"\"}]}]}')",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" \"https://api.groq.com/openai/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer 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\" -d '{\"\"\"\"model\"\"\"\":\"\"\"\"llama-3.3-70b-versatile\"\"\"\",\"\"\"\"messages\"\"\"\":[{\"\"\"\"role\"\"\"\":\"\"\"\"user\"\"\"\",\"\"\"\"content\"\"\"\":\"\"\"\"Hola\"\"\"\"}]}')",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" \"https://openrouter.ai/api/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer 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\" -d '{\"\"\"\"model\"\"\"\":\"\"\"\"meta-llama/llama-3.3-70b-instruct:free\"\"\"\",\"\"\"\"messages\"\"\"\":[{\"\"\"\"role\"\"\"\":\"\"\"\"user\"\"\"\",\"\"\"\"content\"\"\"\":\"\"\"\"Hola\"\"\"\"}]}')",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" \"https://api.groq.com/openai/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer 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\" -d '{\"\"\"\"model\"\"\"\":\"\"\"\"llama-3.3-70b-versatile\"\"\"\",\"\"\"\"messages\"\"\"\":[{\"\"\"\"role\"\"\"\":\"\"\"\"system\"\"\"\",\"\"\"\"content\"\"\"\":\"\"\"\"Eres un asistente.\"\"\"\"},{\"\"\"\"role\"\"\"\":\"\"\"\"user\"\"\"\",\"\"\"\"content\"\"\"\":\"\"\"\"Hola\"\"\"\"}],\"\"\"\"tools\"\"\"\":[{\"\"\"\"type\"\"\"\":\"\"\"\"function\"\"\"\",\"\"\"\"function\"\"\"\":{\"\"\"\"name\"\"\"\":\"\"\"\"test\"\"\"\",\"\"\"\"description\"\"\"\":\"\"\"\"test tool\"\"\"\",\"\"\"\"parameters\"\"\"\":{\"\"\"\"type\"\"\"\":\"\"\"\"object\"\"\"\",\"\"\"\"properties\"\"\"\":{\"\"\"\"title\"\"\"\":{\"\"\"\"type\"\"\"\":\"\"\"\"string\"\"\"\"}}}}}],\"\"\"\"tool_choice\"\"\"\":\"\"\"\"auto\"\"\"\"}')"
+    ],
+    "defaultMode": "auto"
   }
 }
