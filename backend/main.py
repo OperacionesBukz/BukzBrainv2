@@ -9,6 +9,7 @@ from config import settings
 from routers import ingreso
 from routers import scrap
 from routers import agent
+from routers import cortes
 
 app = FastAPI(
     title="BUKZ Operaciones API",
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(ingreso.router)
 app.include_router(scrap.router)
 app.include_router(agent.router)
+app.include_router(cortes.router)
 
 
 @app.get("/health")
