@@ -97,5 +97,13 @@ service cloud.firestore {
     match /celesa_orders/{orderId} {
       allow read, write: if isAuthenticated();
     }
+
+    // ─── Directory (Empleados, Temporales, Proveedores) ──────
+    // Cualquier usuario autenticado puede leer.
+    // Solo admin puede crear, editar y eliminar.
+    match /directory/{entryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
   }
 }

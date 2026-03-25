@@ -329,7 +329,7 @@ const BookstoreRequests = () => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-muted/50 p-1 mb-6">
+                <TabsList className="mb-6">
                     <TabsTrigger value="order" className="gap-2">
                         <Store className="h-4 w-4" />
                         Nuevo Pedido

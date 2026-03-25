@@ -5,6 +5,8 @@ import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
+export const SUPER_ADMIN_EMAIL = "operaciones@bukz.co";
+
 interface AuthContextType {
     user: User | null;
     loading: boolean;
@@ -112,7 +114,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => unsub();
     }, [user?.email]);
 
-    const isAdmin = role === "admin";
+    const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL;
+    const isAdmin = isSuperAdmin || role === "admin";
 
     return (
         <AuthContext.Provider value={{ user, loading, role, roleLoading, isAdmin }}>

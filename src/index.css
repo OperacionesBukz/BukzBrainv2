@@ -39,6 +39,7 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 92.16%; /* #EBEBEB */
+    --sidebar-background-alt: 0 0% 97%;
     --sidebar-foreground: 108 10% 9%;
     --sidebar-primary: 55 95% 65%;
     --sidebar-primary-foreground: 108 10% 9%;
@@ -87,6 +88,7 @@
     --ring: 55 95% 65%;
 
     --sidebar-background: 0 0% 5%;
+    --sidebar-background-alt: 0 0% 3%;
     --sidebar-foreground: 0 0% 85%;
     --sidebar-primary: 55 95% 65%;
     --sidebar-primary-foreground: 108 10% 9%;

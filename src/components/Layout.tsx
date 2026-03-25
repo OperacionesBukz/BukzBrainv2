@@ -2,25 +2,13 @@ import { ReactNode, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import logoSrc from "@/assets/LOGO_BUKZ.png";
 import {
-  Home,
-  ListChecks,
-  BookOpen,
-  CalendarDays,
-  ClipboardList,
   Menu,
   LogOut,
-  Store,
-  ShieldCheck,
-  UserPlus,
+  Users,
   Settings,
   ChevronDown,
+  ChevronLeft,
   HelpCircle,
-  Package,
-  Ship,
-  ClipboardCheck,
-  Calculator,
-  PackageSearch,
-  SearchCode,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -46,31 +34,27 @@ import { useWorkspace } from "@/hooks/useWorkspace";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useTour } from "@/hooks/useTour";
 import { ChatBubble } from "@/components/agent/ChatBubble";
+import { PAGE_REGISTRY } from "@/lib/pages";
 
-const navItems = [
-  { title: "Dashboard", path: "/dashboard", icon: Home, tourId: "nav-dashboard" },
-  { title: "Tareas Bukz", path: "/operations", icon: ListChecks, tourId: "nav-operations" },
-  { title: "Tareas", path: "/tasks", icon: ClipboardList, tourId: "nav-tasks" },
-  { title: "Guías", path: "/instructions", icon: BookOpen, tourId: "nav-instructions" },
-  { title: "Solicitudes", path: "/requests", icon: CalendarDays, tourId: "nav-requests" },
-  { title: "Solicitud Librerías", path: "/bookstore-requests", icon: Store, tourId: "nav-bookstore" },
-  { title: "Hub Solicitudes", path: "/requests-hub", icon: ClipboardCheck, tourId: "nav-requests-hub" },
-  { title: "Reposición", path: "/reposicion", icon: Package, tourId: "nav-reposicion" },
-  { title: "Celesa", path: "/celesa", icon: Ship, tourId: "nav-celesa" },
-  { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch, tourId: "nav-ingreso" },
-  { title: "Scrap Bukz", path: "/scrap", icon: SearchCode, tourId: "nav-scrap" },
-  { title: "Calculadora", path: "/calculator", icon: Calculator, tourId: "nav-calculator" },
-];
+const navItems = PAGE_REGISTRY.map((p) => ({
+  title: p.label,
+  path: p.path,
+  icon: p.icon,
+  tourId: `nav-${p.path.replace("/", "")}`,
+}));
 
 const adminSubItems = [
-  { title: "Permisos Navegación", path: "/nav-admin", icon: ShieldCheck },
-  { title: "Gestión Usuarios", path: "/user-admin", icon: UserPlus },
+  { title: "Gestionar Usuarios", path: "/user-admin", icon: Users },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(() => window.location.pathname.startsWith("/nav-admin") || window.location.pathname.startsWith("/user-admin"));
+  const [activeSubMenu, setActiveSubMenu] = useState<string | null>(() => {
+    const p = window.location.pathname;
+    if (p.startsWith("/user-admin")) return "admin";
+    return null;
+  });
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
@@ -94,12 +78,18 @@ export function Layout({ children }: { children: ReactNode }) {
     (item) => workspace.paths.includes(item.path) && allowedPages.has(item.path)
   );
 
+  // Sub-sidebar state
+  const subSidebarOpen = activeSubMenu !== null && !isMobile && !collapsed;
+  const subMenuData = activeSubMenu === "admin"
+    ? { title: "Administración", items: adminSubItems }
+    : null;
+
   // Redirect if current route doesn't belong to the active workspace
   useEffect(() => {
     if (loading || !user) return;
     const currentPath = location.pathname;
     const isInWorkspace = workspace.paths.includes(currentPath);
-    const isAdminPath = currentPath.startsWith("/nav-admin") || currentPath.startsWith("/user-admin");
+    const isAdminPath = currentPath.startsWith("/user-admin");
     if (!isInWorkspace && !isAdminPath) {
       const firstAvailable = visibleNavItems[0]?.path ?? workspace.paths[0];
       if (firstAvailable) navigate(firstAvailable, { replace: true });
@@ -116,6 +106,18 @@ export function Layout({ children }: { children: ReactNode }) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Escape cierra sub-sidebar y colapsa expandedPaths
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (activeSubMenu) setActiveSubMenu(null);
+        if (expandedPaths.size > 0) setExpandedPaths(new Set());
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeSubMenu, expandedPaths]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -147,7 +149,8 @@ export function Layout({ children }: { children: ReactNode }) {
       <aside
         className={cn(
           "fixed top-0 bottom-0 left-0 z-30 flex flex-col bg-sidebar transition-all duration-300",
-          isMobile ? "hidden" : (collapsed ? "w-16" : "w-60")
+          isMobile ? "hidden" : (collapsed ? "w-16" : "w-60"),
+          subSidebarOpen && "shadow-[4px_0_16px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_16px_rgba(0,0,0,0.3)]"
         )}
       >
         {/* Nav push down to go under header */}
@@ -204,6 +207,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     <NavLink
                       to={item.path}
                       id={item.tourId}
+                      onClick={() => setActiveSubMenu(null)}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                         isActive
@@ -259,44 +263,23 @@ export function Layout({ children }: { children: ReactNode }) {
           {isAdmin && workspace.showAdmin && (
             <div className="mt-2 pt-3">
               <button
-                onClick={() => setAdminOpen(!adminOpen)}
+                onClick={() => {
+                  if (collapsed) {
+                    navigate(adminSubItems[0].path);
+                  } else {
+                    setActiveSubMenu((prev) => (prev === "admin" ? null : "admin"));
+                  }
+                }}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                  adminSubItems.some(s => location.pathname === s.path)
+                  adminSubItems.some(s => location.pathname === s.path) || activeSubMenu === "admin"
                     ? "bg-primary/15 text-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <Settings className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">Admin</span>
-                    <ChevronDown className={cn(
-                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                      adminOpen && "rotate-180"
-                    )} />
-                  </>
-                )}
+                {!collapsed && <span className="flex-1 text-left">Admin</span>}
               </button>
-              {adminOpen && !collapsed && (
-                <div className="ml-9 space-y-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                  {adminSubItems.map((sub) => (
-                    <NavLink
-                      key={sub.path}
-                      to={sub.path}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
-                        location.pathname === sub.path
-                          ? "text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
-                      )}
-                    >
-                      <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
-                      <span>{sub.title}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </nav>
@@ -316,6 +299,53 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
+
+      {/* Sub-sidebar panel — desktop only */}
+      {!isMobile && (
+        <aside
+          className={cn(
+            "fixed top-0 bottom-0 z-20 flex flex-col border-r border-border/40 transition-all duration-300 overflow-hidden bg-[hsl(var(--sidebar-background-alt))]",
+            collapsed ? "left-16" : "left-60",
+            subSidebarOpen ? "w-52 opacity-100" : "w-0 opacity-0"
+          )}
+        >
+          <div className="h-14 shrink-0" />
+          {subMenuData && (
+            <div className="flex-1 p-4 pt-6 min-w-[13rem]">
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4 px-3">
+                {subMenuData.title}
+              </h3>
+              <nav className="space-y-1">
+                {subMenuData.items.map((sub) => (
+                  <NavLink
+                    key={sub.path}
+                    to={sub.path}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                      location.pathname === sub.path
+                        ? "bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                    )}
+                  >
+                    <sub.icon className="h-4 w-4 shrink-0" />
+                    <span>{sub.title}</span>
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          )}
+          {/* Flecha sutil para cerrar */}
+          <div className="p-2 min-w-[13rem] flex justify-end">
+            <button
+              onClick={() => setActiveSubMenu(null)}
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted transition-all duration-200"
+              title="Cerrar panel (Esc)"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Mobile drawer menu */}
       {isMobile && (
@@ -430,11 +460,11 @@ export function Layout({ children }: { children: ReactNode }) {
                     );
                   })}
 
-                {/* Admin — solo administradores */}
+                {/* Admin — solo administradores (acordeón en mobile) */}
                 {isAdmin && workspace.showAdmin && (
                   <div className="mt-2 border-t border-border/40 pt-3">
                     <button
-                      onClick={() => setAdminOpen(!adminOpen)}
+                      onClick={() => setActiveSubMenu((prev) => (prev === "admin" ? null : "admin"))}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                         adminSubItems.some(s => location.pathname === s.path)
@@ -446,10 +476,10 @@ export function Layout({ children }: { children: ReactNode }) {
                       <span className="flex-1 text-left">Admin</span>
                       <ChevronDown className={cn(
                         "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                        adminOpen && "rotate-180"
+                        activeSubMenu === "admin" && "rotate-180"
                       )} />
                     </button>
-                    {adminOpen && (
+                    {activeSubMenu === "admin" && (
                       <div className="ml-9 space-y-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
                         {adminSubItems.map((sub) => (
                           <NavLink
@@ -565,13 +595,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main
-        className={cn(
-          "flex-1 transition-all duration-300 bg-sidebar",
-          isMobile ? "ml-0" : (collapsed ? "ml-16" : "ml-60")
-        )}
+        className="flex-1 transition-all duration-300 bg-sidebar"
         style={{
+          marginLeft: isMobile ? 0 : (collapsed ? 64 : 240) + (subSidebarOpen ? 208 : 0),
           marginTop: 'calc(3.5rem + env(safe-area-inset-top))',
-          marginBottom: 'calc(3.5rem + env(safe-area-inset-bottom))'
+          marginBottom: 'calc(3.5rem + env(safe-area-inset-bottom))',
         }}
       >
         <div className="h-full bg-background rounded-none p-4 md:p-6 animate-fade-in shadow-sm">

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useCelesaOrders } from "./useCelesaOrders";
 import { businessDaysSince } from "./types";
 import { exportCelesaCSV } from "./csv-export";
@@ -7,6 +8,8 @@ import CelesaKpiCards from "./CelesaKpiCards";
 import CelesaAlertBar from "./CelesaAlertBar";
 import CelesaToolbar from "./CelesaToolbar";
 import CelesaTable from "./CelesaTable";
+import CelesaImportDialog from "./CelesaImportDialog";
+import type { ParsedCelesaRow } from "./excel-import";
 import type { CelesaOrder, CelesaStatus } from "./types";
 import type { SortOption } from "./CelesaToolbar";
 
@@ -18,6 +21,16 @@ export default function CelesaTab() {
     "Todos"
   );
   const [sortBy, setSortBy] = useState<SortOption>("fecha-desc");
+  const [importOpen, setImportOpen] = useState(false);
+
+  const handleBulkImport = async (rows: ParsedCelesaRow[]) => {
+    let count = 0;
+    for (const row of rows) {
+      await addOrder({ ...row, estado: "Pendiente" });
+      count++;
+    }
+    toast.success(`${count} pedido${count !== 1 ? "s" : ""} importado${count !== 1 ? "s" : ""}`);
+  };
 
   const filtered = useMemo(() => {
     let result = orders;
@@ -78,6 +91,7 @@ export default function CelesaTab() {
         onSortChange={setSortBy}
         count={filtered.length}
         onExport={() => exportCelesaCSV(filtered)}
+        onImport={() => setImportOpen(true)}
       />
       <CelesaTable
         orders={filtered}
@@ -94,6 +108,11 @@ export default function CelesaTab() {
             estado: "Pendiente",
           });
         }}
+      />
+      <CelesaImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={handleBulkImport}
       />
     </div>
   );

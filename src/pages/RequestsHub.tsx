@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { CheckCircle2, XCircle, Clock4, List, Calendar, Plus, Palmtree } from "lucide-react";
+import { CheckCircle2, XCircle, Clock4, List, Calendar, Plus, Palmtree, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -73,11 +74,6 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-const tabOptions = [
-  { id: "permisos", label: "Permisos" },
-  { id: "pedidos", label: "Pedidos" },
-];
-
 const viewOptions = [
   { id: "list", label: "Lista", icon: List },
   { id: "calendar", label: "Calendario", icon: Calendar },
@@ -108,22 +104,28 @@ const RequestsHub = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-            Hub Solicitudes
-          </h1>
-          <p className="mt-1 text-base text-muted-foreground">
-            Seguimiento centralizado de solicitudes de permisos y pedidos de librerías
-          </p>
-        </div>
-        <ViewSwitcher
-          options={tabOptions}
-          current={activeTab}
-          onSwitch={setActiveTab}
-          className="shrink-0"
-        />
+      <div>
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+          Hub Solicitudes
+        </h1>
+        <p className="mt-1 text-base text-muted-foreground">
+          Seguimiento centralizado de solicitudes de permisos y pedidos de librerías
+        </p>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+        <TabsList>
+          {[
+            { value: "permisos", label: "Permisos", icon: Palmtree },
+            { value: "pedidos", label: "Pedidos", icon: ShoppingBag },
+          ].map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              <tab.icon className="h-4 w-4 mr-2" />
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       <RequestsHubKpiCards
         leaveRequests={leaveRequests}

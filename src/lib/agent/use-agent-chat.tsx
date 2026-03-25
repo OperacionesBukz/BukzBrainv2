@@ -6,6 +6,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentContext } from "@/contexts/AgentContext";
+import { useAgentPermissions } from "@/hooks/use-agent-permissions";
 import { sendToLLM } from "./llm-router";
 import { getToolsForModule } from "./tool-registry";
 import { buildSystemPrompt } from "./system-prompt";
@@ -34,6 +35,7 @@ const AgentChatCtx = createContext<AgentChatState | null>(null);
 export function AgentChatProvider({ children }: { children: ReactNode }) {
   const { user, role } = useAuth();
   const { currentModule } = useAgentContext();
+  const { allowedModules } = useAgentPermissions();
 
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -139,7 +141,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
 
     // Build LLM messages
-    const tools = getToolsForModule(currentModule);
+    const tools = getToolsForModule(currentModule, allowedModules);
     const systemPrompt = buildSystemPrompt({
       userName: user.displayName ?? user.email?.split("@")[0] ?? "Usuario",
       userEmail: user.email ?? "",
@@ -222,7 +224,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       abortRef.current = null;
       setLoading(false);
     }
-  }, [user, role, conversationId, messages, currentModule, startNewConversation]);
+  }, [user, role, conversationId, messages, currentModule, allowedModules, startNewConversation]);
 
   const cancelRequest = useCallback(() => {
     abortRef.current?.abort();

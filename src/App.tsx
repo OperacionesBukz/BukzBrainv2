@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyWithReload } from "@/lib/lazy-with-reload";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,24 +13,25 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { AgentProvider } from "@/contexts/AgentContext";
 import { AgentChatProvider } from "@/lib/agent/use-agent-chat";
 
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Operations = lazy(() => import("./pages/Operations"));
-const Tasks = lazy(() => import("./pages/Tasks"));
-const Instructions = lazy(() => import("./pages/Instructions"));
-const GuideDetail = lazy(() => import("./pages/GuideDetail"));
-const Requests = lazy(() => import("./pages/Requests"));
-const BookstoreRequests = lazy(() => import("./pages/BookstoreRequests"));
-const Reposicion = lazy(() => import("./pages/Reposicion"));
-const Celesa = lazy(() => import("./pages/Celesa"));
-const IngresoMercancia = lazy(() => import("./pages/IngresoMercancia"));
-const ScrapBukz = lazy(() => import("./pages/ScrapBukz"));
-const RequestsHub = lazy(() => import("./pages/RequestsHub"));
-const CalculatorPage = lazy(() => import("./pages/Calculator"));
-const NavigationAdmin = lazy(() => import("./pages/NavigationAdmin"));
-const UserAdmin = lazy(() => import("./pages/UserAdmin"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Login = lazy(() => import("./pages/Login"));
-const Assistant = lazy(() => import("./pages/Assistant"));
+const Dashboard = lazyWithReload(() => import("./pages/Dashboard"));
+const Operations = lazyWithReload(() => import("./pages/Operations"));
+const Tasks = lazyWithReload(() => import("./pages/Tasks"));
+const Instructions = lazyWithReload(() => import("./pages/Instructions"));
+const GuideDetail = lazyWithReload(() => import("./pages/GuideDetail"));
+const Requests = lazyWithReload(() => import("./pages/Requests"));
+const BookstoreRequests = lazyWithReload(() => import("./pages/BookstoreRequests"));
+const Reposicion = lazyWithReload(() => import("./pages/Reposicion"));
+const Celesa = lazyWithReload(() => import("./pages/Celesa"));
+const IngresoMercancia = lazyWithReload(() => import("./pages/IngresoMercancia"));
+const ScrapBukz = lazyWithReload(() => import("./pages/ScrapBukz"));
+const Cortes = lazyWithReload(() => import("./pages/Cortes"));
+const Directorio = lazyWithReload(() => import("./pages/Directorio"));
+const RequestsHub = lazyWithReload(() => import("./pages/RequestsHub"));
+const CalculatorPage = lazyWithReload(() => import("./pages/Calculator"));
+const UserManagement = lazyWithReload(() => import("./pages/admin/UserManagement"));
+const NotFound = lazyWithReload(() => import("./pages/NotFound"));
+const Login = lazyWithReload(() => import("./pages/Login"));
+const Assistant = lazyWithReload(() => import("./pages/Assistant"));
 
 const queryClient = new QueryClient();
 
@@ -67,10 +69,12 @@ const App = () => (
                               <Route path="/celesa" element={<Celesa />} />
                               <Route path="/ingreso" element={<IngresoMercancia />} />
                               <Route path="/scrap" element={<ScrapBukz />} />
+                              <Route path="/cortes" element={<Cortes />} />
+                              <Route path="/directorio" element={<Directorio />} />
                               <Route path="/assistant" element={<Assistant />} />
                               <Route path="/calculator" element={<CalculatorPage />} />
-                              <Route path="/nav-admin" element={<NavigationAdmin />} />
-                              <Route path="/user-admin" element={<UserAdmin />} />
+                              <Route path="/user-admin" element={<UserManagement />} />
+                              <Route path="/nav-admin" element={<Navigate to="/user-admin" replace />} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </Suspense>

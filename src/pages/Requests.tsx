@@ -289,7 +289,7 @@ ${form.idDocument}`;
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-muted/50 p-1 mb-8">
+        <TabsList className="mb-8">
           <TabsTrigger value="new-request" className="gap-2">
             <Plus className="h-4 w-4" />
             Nueva Solicitud

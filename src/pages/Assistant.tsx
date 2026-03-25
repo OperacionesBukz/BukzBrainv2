@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { Plus, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAgentPermissions } from "@/hooks/use-agent-permissions";
 import { ChatPanel } from "@/components/agent/ChatPanel";
 import { useAgentChat } from "@/lib/agent/use-agent-chat";
 
 const Assistant = () => {
-  const { isAdmin } = useAuth();
+  const { hasAgentAccess, loading: agentLoading } = useAgentPermissions();
   const { conversations, conversationId, selectConversation, startNewConversation, deleteConversation } = useAgentChat();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  if (!isAdmin) {
+  if (agentLoading) return null;
+
+  if (!hasAgentAccess) {
     return (
       <div className="flex items-center justify-center h-[60vh] text-muted-foreground">
-        No tienes acceso a esta página.
+        No tienes acceso a esta pagina.
       </div>
     );
   }
@@ -30,13 +31,13 @@ const Assistant = () => {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <div className="p-2 space-y-1">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
                   className={cn(
-                    "group flex items-center rounded-lg transition-colors overflow-hidden",
+                    "group relative flex items-center rounded-lg transition-colors",
                     conv.id === conversationId
                       ? "bg-primary/15 text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -44,15 +45,17 @@ const Assistant = () => {
                 >
                   <button
                     onClick={() => selectConversation(conv.id)}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm min-w-0 overflow-hidden"
+                    className="w-full text-left px-3 py-2 pr-8 text-sm overflow-hidden"
                   >
-                    <MessageSquare className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{conv.title}</span>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-3 w-3 shrink-0" />
+                      <span className="block truncate">{conv.title}</span>
+                    </div>
                   </button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0 mr-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="absolute right-0.5 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteConversation(conv.id);
@@ -69,7 +72,7 @@ const Assistant = () => {
                 </p>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       )}
 

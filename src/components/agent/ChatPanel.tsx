@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Square, Bot, Maximize2, AlertCircle } from "lucide-react";
+import { Send, Square, Bot, Maximize2, Minimize2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -9,10 +9,12 @@ import { useNavigate } from "react-router-dom";
 
 interface ChatPanelProps {
   onClose: () => void;
+  onExpand?: () => void;
+  onMinimize?: () => void;
   className?: string;
 }
 
-export function ChatPanel({ onClose, className }: ChatPanelProps) {
+export function ChatPanel({ onClose, onExpand, onMinimize, className }: ChatPanelProps) {
   const {
     messages, loading, error, rateLimited,
     sendMessage, cancelRequest,
@@ -48,13 +50,23 @@ export function ChatPanel({ onClose, className }: ChatPanelProps) {
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-muted/30">
         <Bot className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold flex-1">BukzBrain Assistant</span>
-        <Button
-          variant="ghost" size="icon" className="h-7 w-7"
-          onClick={() => { onClose(); navigate("/assistant"); }}
-          title="Abrir en página completa"
-        >
-          <Maximize2 className="h-3.5 w-3.5" />
-        </Button>
+        {onMinimize ? (
+          <Button
+            variant="ghost" size="icon" className="h-7 w-7"
+            onClick={onMinimize}
+            title="Minimizar"
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost" size="icon" className="h-7 w-7"
+            onClick={() => onExpand ? onExpand() : (() => { onClose(); navigate("/assistant"); })()}
+            title="Expandir"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
         <Button
           variant="ghost" size="icon" className="h-7 w-7"
           onClick={onClose}

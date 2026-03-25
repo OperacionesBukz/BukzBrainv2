@@ -1,4 +1,5 @@
 import type { ToolDefinition, ModuleContext } from "./types";
+import type { AgentModuleMap } from "@/lib/agent-modules";
 import { taskTools } from "./tools/tasks";
 import { requestTools } from "./tools/requests";
 import { celesaTools } from "./tools/celesa";
@@ -33,10 +34,31 @@ const moduleTools: Partial<Record<ModuleContext, ToolDefinition[]>> = {
   "Asistente": allTools,
 };
 
+// Map tool arrays to their agent module id
+const toolModuleMapping = new Map<ToolDefinition, string>();
+taskTools.forEach((t) => toolModuleMapping.set(t, "tasks"));
+requestTools.forEach((t) => toolModuleMapping.set(t, "requests"));
+celesaTools.forEach((t) => toolModuleMapping.set(t, "celesa"));
+productTools.forEach((t) => toolModuleMapping.set(t, "products"));
+bookstoreTools.forEach((t) => toolModuleMapping.set(t, "bookstore"));
+dashboardTools.forEach((t) => toolModuleMapping.set(t, "dashboard"));
+
 export function getAllTools(): ToolDefinition[] {
   return allTools;
 }
 
-export function getToolsForModule(module: ModuleContext): ToolDefinition[] {
-  return moduleTools[module] ?? coreTool;
+export function getToolsForModule(
+  module: ModuleContext,
+  allowedModules?: AgentModuleMap
+): ToolDefinition[] {
+  let tools = moduleTools[module] ?? coreTool;
+
+  if (allowedModules) {
+    tools = tools.filter((tool) => {
+      const moduleId = toolModuleMapping.get(tool);
+      return moduleId ? (allowedModules[moduleId as keyof AgentModuleMap] ?? true) : true;
+    });
+  }
+
+  return tools;
 }
