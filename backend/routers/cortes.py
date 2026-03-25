@@ -1,10 +1,10 @@
 """
-Router de Cortes — endpoint para procesar archivos de corte con deteccion de regalos 3X2.
+Router de Cortes — endpoints para procesar archivos de corte con promociones.
 """
 from io import BytesIO
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Form, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from services import orders_service
@@ -107,4 +107,79 @@ async def process_cortes(file: UploadFile = File(...)):
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=corte_procesado.xlsx"},
+    )
+
+
+@router.post("/descuento")
+async def process_descuento(
+    file: UploadFile = File(...),
+    porcentaje: float = Form(...),
+):
+    """
+    Recibe un Excel y un porcentaje esperado. Consulta Shopify para detectar
+    que libros tienen descuento aplicado y cual es el % real.
+    """
+    if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos .xlsx o .xls")
+
+    try:
+        contents = await file.read()
+        df = pd.read_excel(BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error leyendo el archivo: {e}")
+
+    required = ["Order name", "Discount name", "Product variant SKU"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Columnas faltantes: {', '.join(missing)}",
+        )
+
+    df["Detalle"] = ""
+    df["% Real"] = 0.0
+
+    # Extraer todos los order names unicos
+    unique_orders = df["Order name"].dropna().unique().tolist()
+    unique_orders = [str(o).strip() for o in unique_orders if str(o).strip()]
+
+    if not unique_orders:
+        output = BytesIO()
+        df.to_excel(output, index=False)
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=descuento_procesado.xlsx"},
+        )
+
+    # Consultar Shopify
+    try:
+        orders_data = orders_service.get_orders_details(unique_orders)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error consultando Shopify: {e}")
+
+    # Calcular % de descuento real por orden+sku
+    discount_by_order = orders_service.identify_discounted_items(orders_data)
+
+    for idx in df.index:
+        order_name = str(df.at[idx, "Order name"] or "").strip()
+        sku = str(df.at[idx, "Product variant SKU"] or "").strip()
+
+        pct_real = discount_by_order.get(order_name, {}).get(sku, 0.0)
+        df.at[idx, "% Real"] = round(pct_real, 1)
+
+        if pct_real > 0:
+            df.at[idx, "Detalle"] = "Con descuento"
+        else:
+            df.at[idx, "Detalle"] = "Sin descuento"
+
+    output = BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=descuento_procesado.xlsx"},
     )

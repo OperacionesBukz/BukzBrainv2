@@ -13,3 +13,15 @@ export interface CortesRow {
   detalle: string;
   udsConDescuento: number;
 }
+
+export interface DescuentoRow {
+  orderName: string;
+  sku: string;
+  productTitle: string;
+  vendor: string;
+  discountName: string;
+  netItemsSold: number;
+  pctEsperado: number;
+  pctReal: number;
+  detalle: string;
+}

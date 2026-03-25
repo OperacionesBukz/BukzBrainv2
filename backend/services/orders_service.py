@@ -182,3 +182,30 @@ def identify_gifts(line_items: list[dict]) -> dict[str, int]:
         gifts[sku] = gifts.get(sku, 0) + 1
 
     return gifts
+
+
+def identify_discounted_items(orders_data: dict[str, list[dict]]) -> dict[str, dict[str, float]]:
+    """
+    Para cada orden, calcula el % de descuento real por SKU.
+    Retorna dict {order_name: {sku: pct_descuento}}.
+    """
+    result: dict[str, dict[str, float]] = {}
+
+    for order_name, line_items in orders_data.items():
+        skus: dict[str, float] = {}
+        for li in line_items:
+            sku = li.get("sku", "")
+            unit_price = li.get("unit_price", 0)
+            total_discount = li.get("total_discount", 0)
+            quantity = li.get("quantity", 1)
+
+            if unit_price > 0 and quantity > 0:
+                total_price = unit_price * quantity
+                pct = (total_discount / total_price) * 100
+                skus[sku] = round(pct, 1)
+            else:
+                skus[sku] = 0.0
+
+        result[order_name] = skus
+
+    return result
