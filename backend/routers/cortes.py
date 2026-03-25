@@ -65,14 +65,16 @@ async def process_cortes(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error consultando Shopify: {e}")
 
-    # Identificar regalo por orden
-    gift_by_order: dict[str, str | None] = {}
+    # Identificar regalos por orden (puede haber mas de 1: 6 libros → 2 regalos)
+    gifts_by_order: dict[str, dict[str, int]] = {}
     for order_name in unique_orders:
         line_items = orders_data.get(order_name, [])
-        gift_by_order[order_name] = orders_service.identify_gift_sku(line_items)
+        gifts_by_order[order_name] = orders_service.identify_gifts(line_items)
 
-    # Asignar Detalle (solo 1 regalo por orden)
-    gift_assigned: set[str] = set()
+    # Contador de regalos restantes por orden+sku
+    remaining: dict[str, dict[str, int]] = {
+        order: dict(skus) for order, skus in gifts_by_order.items()
+    }
 
     for idx in df.index:
         discount = str(df.at[idx, "Discount name"] or "").upper()
@@ -81,14 +83,17 @@ async def process_cortes(file: UploadFile = File(...)):
 
         order_name = str(df.at[idx, "Order name"] or "").strip()
         sku = str(df.at[idx, "Product variant SKU"] or "").strip()
-        gift_sku = gift_by_order.get(order_name)
+        order_remaining = remaining.get(order_name, {})
+        sku_remaining = order_remaining.get(sku, 0)
 
         net_items = int(df.at[idx, "Net items sold"]) if "Net items sold" in df.columns else 1
 
-        if gift_sku and sku == gift_sku and order_name not in gift_assigned:
+        if sku_remaining > 0:
+            # Cuantas unidades de esta fila son regalo (min entre restantes y uds de la fila)
+            gift_qty = min(sku_remaining, net_items)
             df.at[idx, "Detalle"] = "Regalo"
-            df.at[idx, "Uds con descuento"] = 1
-            gift_assigned.add(order_name)
+            df.at[idx, "Uds con descuento"] = gift_qty
+            order_remaining[sku] = sku_remaining - gift_qty
         else:
             df.at[idx, "Detalle"] = "NO APLICA"
             df.at[idx, "Uds con descuento"] = 0
