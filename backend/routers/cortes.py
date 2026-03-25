@@ -36,8 +36,9 @@ async def process_cortes(file: UploadFile = File(...)):
             detail=f"Columnas faltantes: {', '.join(missing)}",
         )
 
-    # Inicializar columna Detalle
+    # Inicializar columnas
     df["Detalle"] = ""
+    df["Uds con descuento"] = 0
 
     # Filtrar filas con 3X2
     mask_3x2 = df["Discount name"].fillna("").str.upper().str.contains("3X2")
@@ -82,11 +83,15 @@ async def process_cortes(file: UploadFile = File(...)):
         sku = str(df.at[idx, "Product variant SKU"] or "").strip()
         gift_sku = gift_by_order.get(order_name)
 
+        net_items = int(df.at[idx, "Net items sold"]) if "Net items sold" in df.columns else 1
+
         if gift_sku and sku == gift_sku and order_name not in gift_assigned:
             df.at[idx, "Detalle"] = "Regalo"
+            df.at[idx, "Uds con descuento"] = 1
             gift_assigned.add(order_name)
         else:
             df.at[idx, "Detalle"] = "NO APLICA"
+            df.at[idx, "Uds con descuento"] = 0
 
     # Generar Excel de salida
     output = BytesIO()
