@@ -143,8 +143,9 @@ def get_orders_details(order_names: list[str]) -> dict[str, list[dict]]:
 def identify_gifts(line_items: list[dict]) -> dict[str, int]:
     """
     Identifica los SKUs regalados en una orden 3X2.
-    Por cada 3 libros comprados, el mas barato es regalo.
-    Ej: 3 libros → 1 regalo, 6 → 2, 9 → 3.
+    Usa dos metodos y toma el mayor:
+      - Conteo: total_unidades // 3
+      - Descuento: cuantas unidades cubre el descuento total por line item
     Retorna dict {sku: cantidad_regalada}.
     """
     if not line_items:
@@ -156,15 +157,26 @@ def identify_gifts(line_items: list[dict]) -> dict[str, int]:
         for _ in range(li.get("quantity", 1)):
             units.append(li)
 
-    # Numero de regalos: 1 por cada grupo de 3
-    num_gifts = len(units) // 3
+    # Metodo 1: por conteo (cada 3 libros, 1 regalo)
+    gifts_by_count = len(units) // 3
+
+    # Metodo 2: por descuento (cuantas unidades cubre el descuento)
+    gifts_by_discount = 0
+    for li in line_items:
+        unit_price = li.get("unit_price", 0)
+        total_discount = li.get("total_discount", 0)
+        if unit_price > 0 and total_discount > 0:
+            gifts_by_discount += int(total_discount / unit_price + 0.01)
+
+    num_gifts = max(gifts_by_count, gifts_by_discount)
     if num_gifts == 0:
         return {}
 
     # Ordenar por precio unitario ascendente (los mas baratos primero)
     units_sorted = sorted(units, key=lambda x: x.get("unit_price", float("inf")))
 
-    # Los N mas baratos son regalos
+    # Los N mas baratos son regalos (sin exceder total de unidades)
+    num_gifts = min(num_gifts, len(units_sorted))
     gifts: dict[str, int] = {}
     for i in range(num_gifts):
         sku = units_sorted[i]["sku"]
