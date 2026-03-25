@@ -110,7 +110,6 @@ async def enviar_cortes_ventas(
     mes: str = Form(...),
     anio: str = Form(...),
     remitente: str = Form(...),
-    firma: str = Form(...),
 ):
     """Procesa ventas mensuales, genera Excel por proveedor y envía emails."""
 
@@ -175,7 +174,7 @@ async def enviar_cortes_ventas(
     )
 
     # --- Enviar emails + generar archivos ---
-    html_body = build_ventas_html(mes, firma)
+    html_body = build_ventas_html(mes)
     resultados: list[dict] = []
     zip_buf = BytesIO()
 
@@ -257,7 +256,6 @@ async def enviar_cortes_no_ventas(
     mes: str = Form(...),
     anio: str = Form(...),
     remitente: str = Form(...),
-    firma: str = Form(...),
 ):
     """Identifica proveedores sin ventas y les envía notificación por email."""
 
@@ -299,7 +297,7 @@ async def enviar_cortes_no_ventas(
     no_ventas_df = no_ventas_df[~no_ventas_df["Proveedores"].isin(PROVEEDORES_EXCLUIR)]
 
     # --- Enviar emails ---
-    html_body = build_no_ventas_html(mes, firma)
+    html_body = build_no_ventas_html(mes)
     resultados: list[dict] = []
 
     for _, row in no_ventas_df.iterrows():

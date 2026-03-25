@@ -18,7 +18,6 @@ export async function enviarCortesVentas(
   mes: string,
   anio: string,
   remitente: string,
-  firma: string,
 ): Promise<VentasResponse> {
   const form = new FormData();
   form.append("proveedores_file", proveedoresFile);
@@ -26,7 +25,6 @@ export async function enviarCortesVentas(
   form.append("mes", mes);
   form.append("anio", anio);
   form.append("remitente", remitente);
-  form.append("firma", firma);
 
   return handleResponse(
     await resilientFetch(`${API_BASE}/api/envio-cortes/ventas`, {
@@ -43,7 +41,6 @@ export async function enviarCortesNoVentas(
   mes: string,
   anio: string,
   remitente: string,
-  firma: string,
 ): Promise<NoVentasResponse> {
   const form = new FormData();
   form.append("proveedores_file", proveedoresFile);
@@ -51,7 +48,6 @@ export async function enviarCortesNoVentas(
   form.append("mes", mes);
   form.append("anio", anio);
   form.append("remitente", remitente);
-  form.append("firma", firma);
 
   return handleResponse(
     await resilientFetch(`${API_BASE}/api/envio-cortes/no-ventas`, {

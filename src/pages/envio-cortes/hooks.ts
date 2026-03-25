@@ -9,7 +9,6 @@ export function useEnviarCortesVentas() {
       mes: string;
       anio: string;
       remitente: string;
-      firma: string;
     }) =>
       enviarCortesVentas(
         params.proveedoresFile,
@@ -17,7 +16,6 @@ export function useEnviarCortesVentas() {
         params.mes,
         params.anio,
         params.remitente,
-        params.firma,
       ),
   });
 }
@@ -30,7 +28,6 @@ export function useEnviarCortesNoVentas() {
       mes: string;
       anio: string;
       remitente: string;
-      firma: string;
     }) =>
       enviarCortesNoVentas(
         params.proveedoresFile,
@@ -38,7 +35,6 @@ export function useEnviarCortesNoVentas() {
         params.mes,
         params.anio,
         params.remitente,
-        params.firma,
       ),
   });
 }

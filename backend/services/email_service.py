@@ -10,13 +10,7 @@ from email import encoders
 
 from config import settings
 
-LOGO_URL = (
-    "https://ci3.googleusercontent.com/mail-sig/"
-    "AIorK4zk7DTZK_4Nl0qLnpmzJnoAhaN3t08JpWQmDUdtbhe-nJySTGmVsdjlqZr7sVzEJzCFTSGzHY8"
-)
-
-
-def build_ventas_html(mes: str, firma: str) -> str:
+def build_ventas_html(mes: str) -> str:
     """Template HTML para correo de cortes con ventas."""
     return f"""<p>Buenas tardes,</p>
 
@@ -30,15 +24,10 @@ def build_ventas_html(mes: str, firma: str) -> str:
 <ul>
     <li>Facturaci&oacute;n: facturacion@bukz.co</li>
     <li>Bodega y Devoluciones: cedi@bukz.co</li>
-</ul>
-
-<p>Saludos cordiales,</p>
-
-<p><strong style="color: gray;">{firma}</strong></p>
-<p><img src="{LOGO_URL}" alt="Logo Bukz" style="width: 150px;"></p>"""
+</ul>"""
 
 
-def build_no_ventas_html(mes: str, firma: str) -> str:
+def build_no_ventas_html(mes: str) -> str:
     """Template HTML para correo de proveedores sin ventas."""
     return f"""<p>Buenos d&iacute;as,</p>
 
@@ -48,12 +37,7 @@ def build_no_ventas_html(mes: str, firma: str) -> str:
 <ul>
     <li>Facturaci&oacute;n: facturacion@bukz.co</li>
     <li>Bodega y Devoluciones: cedi@bukz.co</li>
-</ul>
-
-<p>Saludos cordiales,</p>
-
-<p><strong style="color: gray;">{firma}</strong></p>
-<p><img src="{LOGO_URL}" alt="Logo Bukz" style="width: 150px;"></p>"""
+</ul>"""
 
 
 def send_email(

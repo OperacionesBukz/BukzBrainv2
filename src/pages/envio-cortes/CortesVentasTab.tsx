@@ -27,15 +27,14 @@ export default function CortesVentasTab() {
   const [mes, setMes] = useState("");
   const [anio, setAnio] = useState(String(new Date().getFullYear()));
   const [remitente, setRemitente] = useState("Sebastian Barrios - Bukz");
-  const [firma, setFirma] = useState("Sebastian Barrios - Lider de Operaciones");
   const [response, setResponse] = useState<VentasResponse | null>(null);
 
   const mutation = useEnviarCortesVentas();
 
-  const canSubmit = provFile && ventasFile && mes && anio && remitente && firma;
+  const canSubmit = provFile && ventasFile && mes && anio && remitente;
 
   const handleSubmit = useCallback(async () => {
-    if (!provFile || !ventasFile || !mes || !anio || !remitente || !firma) return;
+    if (!provFile || !ventasFile || !mes || !anio || !remitente) return;
 
     setStep("processing");
 
@@ -46,7 +45,6 @@ export default function CortesVentasTab() {
         mes,
         anio,
         remitente,
-        firma,
       },
       {
         onSuccess: (data) => {
@@ -64,7 +62,7 @@ export default function CortesVentasTab() {
         },
       },
     );
-  }, [provFile, ventasFile, mes, anio, remitente, firma, mutation]);
+  }, [provFile, ventasFile, mes, anio, remitente, mutation]);
 
   const handleDownloadZip = useCallback(() => {
     if (response?.zip_base64) {
@@ -103,7 +101,7 @@ export default function CortesVentasTab() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
               <Label>Mes</Label>
               <Select value={mes} onValueChange={setMes}>
@@ -135,15 +133,6 @@ export default function CortesVentasTab() {
                 id="remitente"
                 value={remitente}
                 onChange={(e) => setRemitente(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="firma">Firma</Label>
-              <Input
-                id="firma"
-                value={firma}
-                onChange={(e) => setFirma(e.target.value)}
               />
             </div>
           </div>

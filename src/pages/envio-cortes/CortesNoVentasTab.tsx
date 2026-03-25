@@ -26,18 +26,14 @@ export default function CortesNoVentasTab() {
   const [mes, setMes] = useState("");
   const [anio, setAnio] = useState(String(new Date().getFullYear()));
   const [remitente, setRemitente] = useState("Sebastian Barrios - Bukz");
-  const [firma, setFirma] = useState(
-    "Sebastian Barrios - Analista de Operaciones",
-  );
   const [response, setResponse] = useState<NoVentasResponse | null>(null);
 
   const mutation = useEnviarCortesNoVentas();
 
-  const canSubmit = provFile && estadoFile && mes && anio && remitente && firma;
+  const canSubmit = provFile && estadoFile && mes && anio && remitente;
 
   const handleSubmit = useCallback(async () => {
-    if (!provFile || !estadoFile || !mes || !anio || !remitente || !firma)
-      return;
+    if (!provFile || !estadoFile || !mes || !anio || !remitente) return;
 
     setStep("processing");
 
@@ -48,7 +44,6 @@ export default function CortesNoVentasTab() {
         mes,
         anio,
         remitente,
-        firma,
       },
       {
         onSuccess: (data) => {
@@ -68,7 +63,7 @@ export default function CortesNoVentasTab() {
         },
       },
     );
-  }, [provFile, estadoFile, mes, anio, remitente, firma, mutation]);
+  }, [provFile, estadoFile, mes, anio, remitente, mutation]);
 
   const handleReset = useCallback(() => {
     setStep("config");
@@ -98,7 +93,7 @@ export default function CortesNoVentasTab() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
               <Label>Mes</Label>
               <Select value={mes} onValueChange={setMes}>
@@ -130,15 +125,6 @@ export default function CortesNoVentasTab() {
                 id="remitente-nv"
                 value={remitente}
                 onChange={(e) => setRemitente(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="firma-nv">Firma</Label>
-              <Input
-                id="firma-nv"
-                value={firma}
-                onChange={(e) => setFirma(e.target.value)}
               />
             </div>
           </div>
