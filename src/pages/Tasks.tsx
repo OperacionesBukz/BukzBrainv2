@@ -166,7 +166,7 @@ const Tasks = () => {
     if (!newTaskTitle.trim() || !user) return false;
 
     try {
-      const newTaskData: Record<string, any> = {
+      const newTaskData: Record<string, unknown> = {
         title: newTaskTitle.trim(),
         priority: newTaskPriority,
         status: "todo",
@@ -197,7 +197,7 @@ const Tasks = () => {
     if (!assignTitle.trim() || !assignTo || !user) return;
 
     try {
-      const assignData: Record<string, any> = {
+      const assignData: Record<string, unknown> = {
         title: assignTitle.trim(),
         priority: assignPriority,
         status: "todo",

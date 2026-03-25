@@ -32,8 +32,8 @@ const Login = () => {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("¡Bienvenido!");
       navigate("/dashboard");
-    } catch (error: any) {
-      console.error("Error al iniciar sesión:", error.message);
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
       toast.error("Error: Credenciales inválidas o problema de conexión.");
     } finally {
       setLoading(false);

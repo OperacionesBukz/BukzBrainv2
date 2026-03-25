@@ -99,7 +99,7 @@ const Operations = () => {
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
-      const newTaskData: Record<string, any> = {
+      const newTaskData: Record<string, unknown> = {
         title: newTaskTitle.trim(),
         department: newTaskDept,
         status: "todo",
@@ -117,9 +117,9 @@ const Operations = () => {
       setNewDueDate("");
       setShowNewTaskForm(false);
       toast.success("Tarea agregada correctamente");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error adding task:", error);
-      toast.error("Error al agregar tarea: " + error.message);
+      toast.error("Error al agregar tarea: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -134,7 +134,7 @@ const Operations = () => {
     try {
       const taskRef = doc(db, "tasks", id);
       await updateDoc(taskRef, updates);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating task:", error);
       toast.error("Error al actualizar tarea");
     }
@@ -144,7 +144,7 @@ const Operations = () => {
     try {
       await deleteDoc(doc(db, "tasks", id));
       toast.success("Tarea eliminada");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting task:", error);
       toast.error("Error al eliminar tarea");
     }
@@ -249,7 +249,7 @@ const Operations = () => {
 
       const destItems = Array.from(destList);
 
-      let simulatedList = [...destItems];
+      const simulatedList = [...destItems];
       if (sourceListId === destListId) {
         const [removed] = simulatedList.splice(source.index, 1);
         simulatedList.splice(destination.index, 0, removed);

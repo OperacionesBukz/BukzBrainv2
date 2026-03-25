@@ -523,18 +523,19 @@ export const taskTools: ToolDefinition[] = [
         const scope = (params.scope as string) ?? "overdue";
         const tasks = snapshot.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((t: any) => {
+          .filter((t: Record<string, unknown>) => {
             if (!t.dueDate) return scope === "all_with_dates" ? false : false;
-            const due = t.dueDate.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
+            const dueDate = t.dueDate as { toDate?: () => Date };
+            const due = dueDate.toDate ? dueDate.toDate() : new Date(t.dueDate as string);
             if (scope === "overdue") return due < now;
             if (scope === "this_week") return due <= endOfWeek;
             return true;
           })
-          .map((t: any) => ({
+          .map((t: Record<string, unknown>) => ({
             id: t.id,
             title: t.title,
             priority: t.priority,
-            dueDate: t.dueDate?.toDate ? t.dueDate.toDate().toISOString() : t.dueDate,
+            dueDate: (() => { const d = t.dueDate as { toDate?: () => Date } | string | undefined; return d && typeof d === "object" && d.toDate ? d.toDate().toISOString() : d; })(),
           }));
 
         return { success: true, data: { tasks, count: tasks.length, scope } };

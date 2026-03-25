@@ -282,15 +282,15 @@ const BookstoreRequests = () => {
             setSelectedBranch("");
             setOrderNote("");
 
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error submitting order:", error);
-            toast.error("Error al enviar la solicitud: " + error.message);
+            toast.error("Error al enviar la solicitud: " + (error instanceof Error ? error.message : "Error desconocido"));
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const formatDate = (timestamp: any) => {
+    const formatDate = (timestamp: { toDate: () => Date } | null | undefined) => {
         if (!timestamp) return "-";
         const date = timestamp.toDate();
         return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -300,8 +300,8 @@ const BookstoreRequests = () => {
         try {
             await updateDoc(doc(db, "bookstore_requests", orderId), { status: newStatus });
             toast.success("Estado actualizado");
-        } catch (error: any) {
-            toast.error("Error al actualizar estado: " + error.message);
+        } catch (error) {
+            toast.error("Error al actualizar estado: " + (error instanceof Error ? error.message : "Error desconocido"));
         }
     };
 
@@ -312,8 +312,8 @@ const BookstoreRequests = () => {
             await deleteDoc(doc(db, "bookstore_requests", orderId));
             if (selectedOrder?.id === orderId) setSelectedOrder(null);
             toast.success("Pedido eliminado correctamente");
-        } catch (error: any) {
-            toast.error("Error al eliminar el pedido: " + error.message);
+        } catch (error) {
+            toast.error("Error al eliminar el pedido: " + (error instanceof Error ? error.message : "Error desconocido"));
         } finally {
             setIsDeletingOrder(null);
         }

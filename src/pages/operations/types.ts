@@ -12,7 +12,7 @@ export interface Task {
   notes: string;
   subtasks: SubTask[];
   createdBy?: string;
-  createdAt?: any;
+  createdAt?: { toDate: () => Date } | null;
   order?: number;
   startDate?: string;
   dueDate?: string;

@@ -17,7 +17,7 @@ export interface LeaveRequest {
   returnDate?: string;
   reason: string;
   status: "pending" | "approved" | "rejected";
-  createdAt: any;
+  createdAt: { toDate: () => Date } | null;
   userId: string;
   userEmail: string;
 }

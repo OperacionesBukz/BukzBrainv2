@@ -214,9 +214,9 @@ ${form.idDocument}`;
         reason: "",
       });
       setDialogType(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error submitting request:", error);
-      toast.error("Error al enviar la solicitud: " + error.message);
+      toast.error("Error al enviar la solicitud: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -224,9 +224,9 @@ ${form.idDocument}`;
     try {
       await deleteDoc(doc(db, "leave_requests", requestId));
       toast.success("Solicitud eliminada correctamente");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting request:", error);
-      toast.error("Error al eliminar la solicitud: " + error.message);
+      toast.error("Error al eliminar la solicitud: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -241,9 +241,9 @@ ${form.idDocument}`;
         rejected: "Rechazado"
       };
       toast.success(`Estado actualizado a ${statusLabels[newStatus]}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating request status:", error);
-      toast.error("Error al actualizar el estado: " + error.message);
+      toast.error("Error al actualizar el estado: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 

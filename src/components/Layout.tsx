@@ -273,7 +273,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                 onClick={() => {
                                   setExpandedPaths((prev) => {
                                     const next = new Set(prev);
-                                    next.has(item.path) ? next.delete(item.path) : next.add(item.path);
+                                    if (next.has(item.path)) { next.delete(item.path); } else { next.add(item.path); }
                                     return next;
                                   });
                                   navigate(item.path);
@@ -513,7 +513,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                         onClick={() => {
                                           setExpandedPaths((prev) => {
                                             const next = new Set(prev);
-                                            next.has("/workflow") ? next.delete("/workflow") : next.add("/workflow");
+                                            if (next.has("/workflow")) { next.delete("/workflow"); } else { next.add("/workflow"); }
                                             return next;
                                           });
                                         }}
@@ -557,7 +557,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                       onClick={() => {
                                         setExpandedPaths((prev) => {
                                           const next = new Set(prev);
-                                          next.has(item.path) ? next.delete(item.path) : next.add(item.path);
+                                          if (next.has(item.path)) { next.delete(item.path); } else { next.add(item.path); }
                                           return next;
                                         });
                                         navigate(item.path);

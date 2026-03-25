@@ -57,9 +57,9 @@ export function useDirectory() {
         updatedAt: serverTimestamp(),
       });
       toast.success("Registro agregado");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error adding directory entry:", error);
-      toast.error("Error al agregar registro: " + error.message);
+      toast.error("Error al agregar registro: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -72,7 +72,7 @@ export function useDirectory() {
         ...updates,
         updatedAt: serverTimestamp(),
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating directory entry:", error);
       toast.error("Error al actualizar registro");
     }
@@ -82,7 +82,7 @@ export function useDirectory() {
     try {
       await deleteDoc(doc(db, "directory", id));
       toast.success("Registro eliminado");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting directory entry:", error);
       toast.error("Error al eliminar registro");
     }

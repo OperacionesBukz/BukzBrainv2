@@ -67,8 +67,8 @@ export function useRequestsHubData() {
         rejected: "Rechazado",
       };
       toast.success(`Estado actualizado a ${statusLabels[newStatus]}`);
-    } catch (error: any) {
-      toast.error("Error al actualizar el estado: " + error.message);
+    } catch (error) {
+      toast.error("Error al actualizar el estado: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -76,8 +76,8 @@ export function useRequestsHubData() {
     try {
       await deleteDoc(doc(db, "leave_requests", requestId));
       toast.success("Solicitud eliminada correctamente");
-    } catch (error: any) {
-      toast.error("Error al eliminar la solicitud: " + error.message);
+    } catch (error) {
+      toast.error("Error al eliminar la solicitud: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -91,8 +91,8 @@ export function useRequestsHubData() {
     try {
       await deleteDoc(doc(db, "bookstore_requests", orderId));
       toast.success("Pedido eliminado correctamente");
-    } catch (error: any) {
-      toast.error("Error al eliminar el pedido: " + error.message);
+    } catch (error) {
+      toast.error("Error al eliminar el pedido: " + (error instanceof Error ? error.message : "Error desconocido"));
     } finally {
       setIsDeletingOrder(null);
     }
@@ -102,13 +102,13 @@ export function useRequestsHubData() {
     try {
       await updateDoc(doc(db, "bookstore_requests", orderId), { status: newStatus });
       toast.success("Estado actualizado");
-    } catch (error: any) {
-      toast.error("Error al actualizar estado: " + error.message);
+    } catch (error) {
+      toast.error("Error al actualizar estado: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
   // Helper: formatDate
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: { toDate: () => Date } | null | undefined) => {
     if (!timestamp) return "-";
     const date = timestamp.toDate();
     return (

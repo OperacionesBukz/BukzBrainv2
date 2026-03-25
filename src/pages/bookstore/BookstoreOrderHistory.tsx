@@ -33,7 +33,7 @@ interface BookstoreOrderHistoryProps {
     handleStatusChange: (orderId: string, newStatus: OrderStatus) => void;
     isDeletingOrder: string | null;
     isMobile: boolean;
-    formatDate: (timestamp: any) => string;
+    formatDate: (timestamp: { toDate: () => Date } | null | undefined) => string;
 }
 
 const BookstoreOrderHistory = ({

@@ -4,13 +4,13 @@ export interface Product {
     code?: string;
     category?: string;
     isVisible: boolean;
-    createdAt?: any;
+    createdAt?: { toDate: () => Date } | null;
 }
 
 export interface Category {
     id: string;
     name: string;
-    createdAt?: any;
+    createdAt?: { toDate: () => Date } | null;
 }
 
 export interface CartItem extends Product {
@@ -49,7 +49,7 @@ export interface RequestOrder {
     branch: string;
     userEmail: string;
     status: OrderStatus;
-    createdAt: any;
+    createdAt: { toDate: () => Date } | null;
     note?: string;
     items: {
         productId: string;

@@ -79,9 +79,9 @@ export function useCelesaOrders() {
         updatedAt: serverTimestamp(),
       });
       toast.success("Pedido agregado");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error adding celesa order:", error);
-      toast.error("Error al agregar pedido: " + error.message);
+      toast.error("Error al agregar pedido: " + (error instanceof Error ? error.message : "Error desconocido"));
     }
   };
 
@@ -94,7 +94,7 @@ export function useCelesaOrders() {
         ...updates,
         updatedAt: serverTimestamp(),
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating celesa order:", error);
       toast.error("Error al actualizar pedido");
     }
@@ -104,7 +104,7 @@ export function useCelesaOrders() {
     try {
       await deleteDoc(doc(db, "celesa_orders", id));
       toast.success("Pedido eliminado");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting celesa order:", error);
       toast.error("Error al eliminar pedido");
     }

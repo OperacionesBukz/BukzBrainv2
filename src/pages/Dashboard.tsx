@@ -28,7 +28,7 @@ interface Task {
   title: string;
   status: string;
   priority: string;
-  createdAt: any;
+  createdAt: { toDate: () => Date } | null;
   assignedTo?: string;
   assignedBy?: string;
 }
@@ -39,7 +39,7 @@ interface DevTask {
   department: string;
   status: string;
   createdBy?: string;
-  createdAt: any;
+  createdAt: { toDate: () => Date } | null;
   dueDate?: string;
 }
 

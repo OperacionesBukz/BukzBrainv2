@@ -72,9 +72,9 @@ const AdminAddPermissionDialog = ({
       toast.success("Permiso registrado correctamente");
       resetForm();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error adding permission:", error);
-      toast.error("Error al registrar el permiso: " + error.message);
+      toast.error("Error al registrar el permiso: " + (error instanceof Error ? error.message : "Error desconocido"));
     } finally {
       setSubmitting(false);
     }
