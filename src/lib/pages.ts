@@ -13,9 +13,10 @@ import {
   SearchCode,
   Scissors,
   ContactRound,
+  GitBranchPlus,
   type LucideIcon,
 } from "lucide-react";
-import type { WorkspaceId } from "@/lib/workspaces";
+export type WorkspaceId = "general" | "operaciones";
 
 export interface PageDefinition {
   path: string;
@@ -35,9 +36,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/requests-hub", label: "Hub Solicitudes", description: "Seguimiento centralizado de solicitudes", icon: ClipboardCheck, workspace: "operaciones" },
   { path: "/reposicion", label: "Reposición", description: "Gestión de reposición", icon: Package, workspace: "operaciones" },
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
-  { path: "/ingreso", label: "Ingreso Mercancía", description: "Consulta y gestión de ingreso de productos", icon: PackageSearch, workspace: "operaciones" },
-  { path: "/scrap", label: "Scrap Bukz", description: "Enriquecimiento de metadatos de libros por ISBN", icon: SearchCode, workspace: "operaciones" },
-  { path: "/cortes", label: "Cortes", description: "Procesamiento de promociones 3X2", icon: Scissors, workspace: "operaciones" },
+  { path: "/workflow", label: "Workflow", description: "Ingreso de mercancía, scrap y cortes", icon: GitBranchPlus, workspace: "operaciones" },
   { path: "/directorio", label: "Directorio", description: "Base de datos de empleados, temporales y proveedores", icon: ContactRound, workspace: "operaciones" },
   { path: "/calculator", label: "Calculadora", description: "Conversor EUR a COP", icon: Calculator, workspace: "general" },
 ];

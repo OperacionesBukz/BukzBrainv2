@@ -1,7 +1,7 @@
 import { LayoutGrid, Truck, type LucideIcon } from "lucide-react";
-import { PAGE_REGISTRY } from "@/lib/pages";
+import { PAGE_REGISTRY, type WorkspaceId } from "@/lib/pages";
 
-export type WorkspaceId = "general" | "operaciones";
+export type { WorkspaceId };
 
 export interface WorkspaceConfig {
   id: WorkspaceId;
