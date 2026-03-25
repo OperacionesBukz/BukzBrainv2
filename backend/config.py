@@ -30,6 +30,12 @@ class Settings:
     BATCH_SIZE: int = int(os.getenv("BATCH_SIZE", "50"))
     MAX_WORKERS: int = int(os.getenv("MAX_WORKERS", "5"))
 
+    # SMTP (Gmail) - nombres de vars tal como están en EasyPanel
+    SMTP_USER: str = os.getenv("smtp_user_operaciones", "")
+    SMTP_PASSWORD: str = os.getenv("smtp_password_operaciones", "")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
+
     @classmethod
     def get_shopify_headers(cls) -> dict:
         return {

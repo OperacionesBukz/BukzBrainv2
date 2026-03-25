@@ -1,5 +1,6 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useMemo, useCallback, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import logoSrc from "@/assets/LOGO_BUKZ.png";
 import {
   Menu,
@@ -9,6 +10,11 @@ import {
   ChevronDown,
   ChevronLeft,
   HelpCircle,
+  PackageSearch,
+  SearchCode,
+  Scissors,
+  GitBranchPlus,
+  Mail,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -47,19 +53,29 @@ const adminSubItems = [
   { title: "Gestionar Usuarios", path: "/user-admin", icon: Users },
 ];
 
+const workflowSubItems = [
+  { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch },
+  { title: "Scrap Bukz", path: "/scrap", icon: SearchCode },
+  { title: "Descuentos Cortes", path: "/cortes", icon: Scissors },
+  { title: "Envío Cortes", path: "/envio-cortes", icon: Mail },
+];
+
+const WORKFLOW_PATHS = workflowSubItems.map((s) => s.path);
+
 export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(() => {
     const p = window.location.pathname;
     if (p.startsWith("/user-admin")) return "admin";
+    if (WORKFLOW_PATHS.includes(p)) return "workflow";
     return null;
   });
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading, isAdmin } = useAuth();
-  const { allowedPages, allowedWorkspaces, loaded } = useNavigationPermissions();
+  const { allowedPages, allowedWorkspaces, navOrder, updateNavOrder, loaded } = useNavigationPermissions();
   const { workspace, switchWorkspace } = useWorkspace();
 
   // Force fallback to "general" if user doesn't have access to current workspace
@@ -72,23 +88,64 @@ export function Layout({ children }: { children: ReactNode }) {
   const { startTour } = useTour(allowedPages);
   const [tourDialogOpen, setTourDialogOpen] = useState(false);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const subSidebarRef = useRef<HTMLElement>(null);
+  const [subSidebarWidth, setSubSidebarWidth] = useState(0);
 
   // Filter nav items: must be in workspace AND allowed by permissions
-  const visibleNavItems = navItems.filter(
+  const filteredNavItems = navItems.filter(
     (item) => workspace.paths.includes(item.path) && allowedPages.has(item.path)
   );
 
+  // Apply custom order from Firestore (if saved)
+  const visibleNavItems = useMemo(() => {
+    const order = navOrder?.[workspace.id];
+    if (!order?.length) return filteredNavItems;
+    const orderMap = new Map(order.map((path, i) => [path, i]));
+    return [...filteredNavItems].sort((a, b) => {
+      const aIdx = orderMap.get(a.path) ?? Infinity;
+      const bIdx = orderMap.get(b.path) ?? Infinity;
+      return aIdx - bIdx;
+    });
+  }, [filteredNavItems, navOrder, workspace.id]);
+
+  const handleNavDragEnd = useCallback((result: DropResult) => {
+    if (!result.destination || result.source.index === result.destination.index) return;
+    const reordered = [...visibleNavItems];
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    updateNavOrder(workspace.id, reordered.map((item) => item.path));
+  }, [visibleNavItems, workspace.id, updateNavOrder]);
+
+  const canDragNav = isAdmin && !collapsed;
+
   // Sub-sidebar state
   const subSidebarOpen = activeSubMenu !== null && !isMobile && !collapsed;
+  const visibleWorkflowItems = workflowSubItems.filter(
+    (sub) => allowedPages.has(sub.path)
+  );
   const subMenuData = activeSubMenu === "admin"
     ? { title: "Administración", items: adminSubItems }
+    : activeSubMenu === "workflow"
+    ? { title: "Workflow", items: visibleWorkflowItems }
     : null;
+
+  // Measure sub-sidebar width for main content margin
+  useEffect(() => {
+    const el = subSidebarRef.current;
+    if (!el) return;
+    if (subSidebarOpen) {
+      const frame = requestAnimationFrame(() => setSubSidebarWidth(el.offsetWidth));
+      return () => cancelAnimationFrame(frame);
+    } else {
+      setSubSidebarWidth(0);
+    }
+  }, [subSidebarOpen, activeSubMenu]);
 
   // Redirect if current route doesn't belong to the active workspace
   useEffect(() => {
     if (loading || !user) return;
     const currentPath = location.pathname;
-    const isInWorkspace = workspace.paths.includes(currentPath);
+    const isInWorkspace = workspace.paths.includes(currentPath) || WORKFLOW_PATHS.includes(currentPath);
     const isAdminPath = currentPath.startsWith("/user-admin");
     if (!isInWorkspace && !isAdminPath) {
       const firstAvailable = visibleNavItems[0]?.path ?? workspace.paths[0];
@@ -156,105 +213,153 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* Nav push down to go under header */}
         <div className="h-14 shrink-0" />
         {/* Workspace Switcher */}
-        <div className="px-2 pt-3 pb-1 border-b border-border/40">
+        <div className="px-2 py-3 border-b border-border/40">
           <WorkspaceSwitcher current={workspace} onSwitch={switchWorkspace} collapsed={collapsed} allowedWorkspaces={allowedWorkspaces} />
         </div>
         {/* Nav */}
         <nav className="flex-1 space-y-1 p-2 pt-4">
-          {visibleNavItems
-            .map((item) => {
-              const isActive = location.pathname === item.path;
-              const hasSubItems = !!item.subItems && !collapsed;
-              const isExpanded = expandedPaths.has(item.path);
+          <DragDropContext onDragEnd={handleNavDragEnd}>
+            <Droppable droppableId="desktop-nav" isDropDisabled={!canDragNav}>
+              {(droppableProvided) => (
+                <div ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
+                  {visibleNavItems.map((item, index) => {
+                    const isSubMenuTrigger = item.path === "/workflow";
+                    const isActive = isSubMenuTrigger
+                      ? activeSubMenu === "workflow" || WORKFLOW_PATHS.includes(location.pathname)
+                      : location.pathname === item.path;
+                    const hasSubItems = !!item.subItems && !collapsed;
+                    const isExpanded = expandedPaths.has(item.path);
 
-              return (
-                <div key={item.path} className="space-y-1">
-                  {hasSubItems ? (
-                    <button
-                      id={item.tourId}
-                      onClick={() => {
-                        setExpandedPaths((prev) => {
-                          const next = new Set(prev);
-                          next.has(item.path) ? next.delete(item.path) : next.add(item.path);
-                          return next;
-                        });
-                        navigate(item.path);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                        isActive
-                          ? "bg-primary/15 text-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )}
-                    >
-                      <item.icon
-                        className={cn(
-                          "h-4 w-4 shrink-0 transition-transform duration-200",
-                          isActive && "text-foreground"
-                        )}
-                      />
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 text-left">{item.title}</span>
-                          <ChevronDown className={cn(
-                            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                            isExpanded && "rotate-180"
-                          )} />
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <NavLink
-                      to={item.path}
-                      id={item.tourId}
-                      onClick={() => setActiveSubMenu(null)}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                        isActive
-                          ? "bg-primary/15 text-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
-                      )}
-                    >
-                      <item.icon
-                        className={cn(
-                          "h-4 w-4 shrink-0 transition-transform duration-200",
-                          isActive && "text-foreground"
-                        )}
-                      />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  )}
-
-                  {hasSubItems && isExpanded && item.subItems && (
-                    <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                      {item.subItems.map((sub) => {
-                        const isSubActive =
-                          location.pathname + location.search === sub.path ||
-                          (sub.path === "/operations?tab=tasks" &&
-                            location.pathname === "/operations" &&
-                            !location.search);
-
-                        return (
-                          <NavLink
-                            key={sub.path}
-                            to={sub.path}
-                            className={cn(
-                              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
-                              isSubActive
-                                ? "text-foreground"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
-                            )}
+                    return (
+                      <Draggable key={item.path} draggableId={item.path} index={index} isDragDisabled={!canDragNav}>
+                        {(draggableProvided, snapshot) => (
+                          <div
+                            ref={draggableProvided.innerRef}
+                            {...draggableProvided.draggableProps}
+                            {...draggableProvided.dragHandleProps}
+                            className={cn("space-y-1", snapshot.isDragging && "opacity-80 rounded-lg bg-sidebar shadow-lg")}
                           >
-                            <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
-                            <span>{sub.title}</span>
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
+                            {isSubMenuTrigger ? (
+                              <div
+                                id={item.tourId}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => {
+                                  if (collapsed) {
+                                    navigate(visibleWorkflowItems[0]?.path ?? "/ingreso");
+                                  } else {
+                                    setActiveSubMenu((prev) => (prev === "workflow" ? null : "workflow"));
+                                  }
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
+                                className={cn(
+                                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out cursor-pointer select-none",
+                                  isActive
+                                    ? "bg-primary/15 text-foreground"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                              >
+                                <item.icon
+                                  className={cn(
+                                    "h-4 w-4 shrink-0 transition-transform duration-200",
+                                    isActive && "text-foreground"
+                                  )}
+                                />
+                                {!collapsed && <span className="flex-1 text-left">{item.title}</span>}
+                              </div>
+                            ) : hasSubItems ? (
+                              <button
+                                id={item.tourId}
+                                onClick={() => {
+                                  setExpandedPaths((prev) => {
+                                    const next = new Set(prev);
+                                    next.has(item.path) ? next.delete(item.path) : next.add(item.path);
+                                    return next;
+                                  });
+                                  navigate(item.path);
+                                }}
+                                className={cn(
+                                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                  isActive
+                                    ? "bg-primary/15 text-foreground"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                              >
+                                <item.icon
+                                  className={cn(
+                                    "h-4 w-4 shrink-0 transition-transform duration-200",
+                                    isActive && "text-foreground"
+                                  )}
+                                />
+                                {!collapsed && (
+                                  <>
+                                    <span className="flex-1 text-left">{item.title}</span>
+                                    <ChevronDown className={cn(
+                                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                                      isExpanded && "rotate-180"
+                                    )} />
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <NavLink
+                                to={item.path}
+                                id={item.tourId}
+                                onClick={() => setActiveSubMenu(null)}
+                                className={cn(
+                                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                  isActive
+                                    ? "bg-primary/15 text-foreground"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                                )}
+                              >
+                                <item.icon
+                                  className={cn(
+                                    "h-4 w-4 shrink-0 transition-transform duration-200",
+                                    isActive && "text-foreground"
+                                  )}
+                                />
+                                {!collapsed && <span>{item.title}</span>}
+                              </NavLink>
+                            )}
+
+                            {hasSubItems && isExpanded && item.subItems && (
+                              <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                {item.subItems.map((sub) => {
+                                  const isSubActive =
+                                    location.pathname + location.search === sub.path ||
+                                    (sub.path === "/operations?tab=tasks" &&
+                                      location.pathname === "/operations" &&
+                                      !location.search);
+
+                                  return (
+                                    <NavLink
+                                      key={sub.path}
+                                      to={sub.path}
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                                        isSubActive
+                                          ? "text-foreground"
+                                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                                      )}
+                                    >
+                                      <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                                      <span>{sub.title}</span>
+                                    </NavLink>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {droppableProvided.placeholder}
                 </div>
-              );
-            })}
+              )}
+            </Droppable>
+          </DragDropContext>
 
           {/* Separador visual después de nav items */}
           <div className="border-b border-border/40 pb-3" />
@@ -303,15 +408,16 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Sub-sidebar panel — desktop only */}
       {!isMobile && (
         <aside
+          ref={subSidebarRef}
           className={cn(
-            "fixed top-0 bottom-0 z-20 flex flex-col border-r border-border/40 transition-all duration-300 overflow-hidden bg-[hsl(var(--sidebar-background-alt))]",
+            "fixed top-0 bottom-0 z-20 flex flex-col border-r border-border/40 transition-all duration-300 bg-[hsl(var(--sidebar-background-alt))]",
             collapsed ? "left-16" : "left-60",
-            subSidebarOpen ? "w-52 opacity-100" : "w-0 opacity-0"
+            subSidebarOpen ? "w-fit opacity-100" : "w-0 opacity-0 overflow-hidden"
           )}
         >
           <div className="h-14 shrink-0" />
           {subMenuData && (
-            <div className="flex-1 p-4 pt-6 min-w-[13rem]">
+            <div className="flex-1 p-4 pt-6 min-w-[13rem] whitespace-nowrap">
               <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4 px-3">
                 {subMenuData.title}
               </h3>
@@ -373,92 +479,158 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
 
               {/* Workspace Switcher - mobile */}
-              <div className="px-2 pt-3 pb-1 border-b border-border/40">
+              <div className="px-2 py-3 border-b border-border/40">
                 <WorkspaceSwitcher current={workspace} onSwitch={switchWorkspace} allowedWorkspaces={allowedWorkspaces} />
               </div>
 
               {/* Navegación - mismo contenido que sidebar */}
               <nav className="flex-1 space-y-1 p-2 pt-4 overflow-y-auto">
-                {visibleNavItems
-                  .map((item) => {
-                    const isActive = location.pathname === item.path;
-                    const hasSubItems = !!item.subItems;
-                    const isExpanded = expandedPaths.has(item.path);
+                <DragDropContext onDragEnd={handleNavDragEnd}>
+                  <Droppable droppableId="mobile-nav" isDropDisabled={!isAdmin}>
+                    {(droppableProvided) => (
+                      <div ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
+                        {visibleNavItems.map((item, index) => {
+                          const isSubMenuTrigger = item.path === "/workflow";
+                          const isActive = isSubMenuTrigger
+                            ? WORKFLOW_PATHS.includes(location.pathname)
+                            : location.pathname === item.path;
+                          const hasSubItems = !!item.subItems;
+                          const isExpanded = expandedPaths.has(item.path);
+                          const isMobileWorkflowExpanded = expandedPaths.has("/workflow");
 
-                    return (
-                      <div key={item.path} className="space-y-1">
-                        {hasSubItems ? (
-                          <button
-                            onClick={() => {
-                              setExpandedPaths((prev) => {
-                                const next = new Set(prev);
-                                next.has(item.path) ? next.delete(item.path) : next.add(item.path);
-                                return next;
-                              });
-                              navigate(item.path);
-                              setMobileMenuOpen(false);
-                            }}
-                            className={cn(
-                              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                              isActive
-                                ? "bg-primary/15 text-foreground"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            )}
-                          >
-                            <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            <span className="flex-1 text-left">{item.title}</span>
-                            <ChevronDown className={cn(
-                              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                              isExpanded && "rotate-180"
-                            )} />
-                          </button>
-                        ) : (
-                          <NavLink
-                            to={item.path}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                              isActive
-                                ? "bg-primary/15 text-foreground"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
-                            )}
-                          >
-                            <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                            <span>{item.title}</span>
-                          </NavLink>
-                        )}
-
-                        {hasSubItems && isExpanded && item.subItems && (
-                          <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                            {item.subItems.map((sub) => {
-                              const isSubActive =
-                                location.pathname + location.search === sub.path ||
-                                (sub.path === "/operations?tab=tasks" &&
-                                  location.pathname === "/operations" &&
-                                  !location.search);
-
-                              return (
-                                <NavLink
-                                  key={sub.path}
-                                  to={sub.path}
-                                  onClick={() => setMobileMenuOpen(false)}
-                                  className={cn(
-                                    "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
-                                    isSubActive
-                                      ? "text-foreground"
-                                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
-                                  )}
+                          return (
+                            <Draggable key={item.path} draggableId={`mobile-${item.path}`} index={index} isDragDisabled={!isAdmin}>
+                              {(draggableProvided, snapshot) => (
+                                <div
+                                  ref={draggableProvided.innerRef}
+                                  {...draggableProvided.draggableProps}
+                                  {...draggableProvided.dragHandleProps}
+                                  className={cn("space-y-1", snapshot.isDragging && "opacity-80 rounded-lg bg-sidebar shadow-lg")}
                                 >
-                                  <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
-                                  <span>{sub.title}</span>
-                                </NavLink>
-                              );
-                            })}
-                          </div>
-                        )}
+                                  {isSubMenuTrigger ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setExpandedPaths((prev) => {
+                                            const next = new Set(prev);
+                                            next.has("/workflow") ? next.delete("/workflow") : next.add("/workflow");
+                                            return next;
+                                          });
+                                        }}
+                                        className={cn(
+                                          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                          isActive
+                                            ? "bg-primary/15 text-foreground"
+                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        )}
+                                      >
+                                        <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                                        <span className="flex-1 text-left">{item.title}</span>
+                                        <ChevronDown className={cn(
+                                          "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                                          isMobileWorkflowExpanded && "rotate-180"
+                                        )} />
+                                      </button>
+                                      {isMobileWorkflowExpanded && (
+                                        <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                          {visibleWorkflowItems.map((sub) => (
+                                            <NavLink
+                                              key={sub.path}
+                                              to={sub.path}
+                                              onClick={() => setMobileMenuOpen(false)}
+                                              className={cn(
+                                                "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                                                location.pathname === sub.path
+                                                  ? "text-foreground"
+                                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                                              )}
+                                            >
+                                              <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                                              <span>{sub.title}</span>
+                                            </NavLink>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : hasSubItems ? (
+                                    <button
+                                      onClick={() => {
+                                        setExpandedPaths((prev) => {
+                                          const next = new Set(prev);
+                                          next.has(item.path) ? next.delete(item.path) : next.add(item.path);
+                                          return next;
+                                        });
+                                        navigate(item.path);
+                                        setMobileMenuOpen(false);
+                                      }}
+                                      className={cn(
+                                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                        isActive
+                                          ? "bg-primary/15 text-foreground"
+                                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      )}
+                                    >
+                                      <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                                      <span className="flex-1 text-left">{item.title}</span>
+                                      <ChevronDown className={cn(
+                                        "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                                        isExpanded && "rotate-180"
+                                      )} />
+                                    </button>
+                                  ) : (
+                                    <NavLink
+                                      to={item.path}
+                                      onClick={() => setMobileMenuOpen(false)}
+                                      className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                        isActive
+                                          ? "bg-primary/15 text-foreground"
+                                          : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                                      )}
+                                    >
+                                      <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                                      <span>{item.title}</span>
+                                    </NavLink>
+                                  )}
+
+                                  {hasSubItems && isExpanded && item.subItems && (
+                                    <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                      {item.subItems.map((sub) => {
+                                        const isSubActive =
+                                          location.pathname + location.search === sub.path ||
+                                          (sub.path === "/operations?tab=tasks" &&
+                                            location.pathname === "/operations" &&
+                                            !location.search);
+
+                                        return (
+                                          <NavLink
+                                            key={sub.path}
+                                            to={sub.path}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className={cn(
+                                              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                                              isSubActive
+                                                ? "text-foreground"
+                                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                                            )}
+                                          >
+                                            <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                                            <span>{sub.title}</span>
+                                          </NavLink>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {droppableProvided.placeholder}
                       </div>
-                    );
-                  })}
+                    )}
+                  </Droppable>
+                </DragDropContext>
 
                 {/* Admin — solo administradores (acordeón en mobile) */}
                 {isAdmin && workspace.showAdmin && (
@@ -597,7 +769,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main
         className="flex-1 transition-all duration-300 bg-sidebar"
         style={{
-          marginLeft: isMobile ? 0 : (collapsed ? 64 : 240) + (subSidebarOpen ? 208 : 0),
+          marginLeft: isMobile ? 0 : (collapsed ? 64 : 240) + subSidebarWidth,
           marginTop: 'calc(3.5rem + env(safe-area-inset-top))',
           marginBottom: 'calc(3.5rem + env(safe-area-inset-bottom))',
         }}

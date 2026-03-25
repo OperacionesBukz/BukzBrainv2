@@ -10,6 +10,7 @@ from routers import ingreso
 from routers import scrap
 from routers import agent
 from routers import cortes
+from routers import envio_cortes
 
 app = FastAPI(
     title="BUKZ Operaciones API",
@@ -31,6 +32,7 @@ app.include_router(ingreso.router)
 app.include_router(scrap.router)
 app.include_router(agent.router)
 app.include_router(cortes.router)
+app.include_router(envio_cortes.router)
 
 
 @app.get("/health")

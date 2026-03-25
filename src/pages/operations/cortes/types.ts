@@ -1,5 +1,4 @@
-export const API_BASE =
-  "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
+export { API_BASE } from "../../ingreso/types";
 
 export interface CortesRow {
   orderName: string;

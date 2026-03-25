@@ -1,3 +1,4 @@
+import { resilientFetch } from "@/lib/resilient-fetch";
 import { API_BASE, type EnrichResponse, type JobStatus, type CacheStats } from "./types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -19,7 +20,7 @@ async function handleBlobResponse(response: Response): Promise<Blob> {
 
 // Health
 export async function healthCheck(): Promise<{ status: string }> {
-  return handleResponse(await fetch(`${API_BASE}/api/scrap/health`));
+  return handleResponse(await resilientFetch(`${API_BASE}/api/scrap/health`));
 }
 
 // Enrich
@@ -28,7 +29,7 @@ export async function enrich(file: File, delay: number = 0.3): Promise<EnrichRes
   form.append("file", file);
   const params = new URLSearchParams({ delay: String(delay) });
   return handleResponse(
-    await fetch(`${API_BASE}/api/scrap/enrich?${params}`, {
+    await resilientFetch(`${API_BASE}/api/scrap/enrich?${params}`, {
       method: "POST",
       body: form,
     }),
@@ -37,22 +38,22 @@ export async function enrich(file: File, delay: number = 0.3): Promise<EnrichRes
 
 // Status polling
 export async function getJobStatus(jobId: string): Promise<JobStatus> {
-  return handleResponse(await fetch(`${API_BASE}/api/scrap/status/${jobId}`));
+  return handleResponse(await resilientFetch(`${API_BASE}/api/scrap/status/${jobId}`));
 }
 
 // Download result
 export async function downloadResult(jobId: string): Promise<Blob> {
-  return handleBlobResponse(await fetch(`${API_BASE}/api/scrap/download/${jobId}`));
+  return handleBlobResponse(await resilientFetch(`${API_BASE}/api/scrap/download/${jobId}`));
 }
 
 // Cache
 export async function getCacheStats(): Promise<CacheStats> {
-  return handleResponse(await fetch(`${API_BASE}/api/scrap/cache/stats`));
+  return handleResponse(await resilientFetch(`${API_BASE}/api/scrap/cache/stats`));
 }
 
 export async function clearCache(): Promise<{ success: boolean }> {
   return handleResponse(
-    await fetch(`${API_BASE}/api/scrap/cache/clear`, { method: "DELETE" }),
+    await resilientFetch(`${API_BASE}/api/scrap/cache/clear`, { method: "DELETE" }),
   );
 }
 

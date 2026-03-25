@@ -155,6 +155,7 @@ export default function DirectoryTable({
   ) => {
     const isEditing =
       editingCell?.entryId === entry.id && editingCell?.field === field;
+    const formatted = field === "cedula" && displayValue ? `C.C. ${displayValue}` : displayValue;
 
     if (isEditing) {
       return (
@@ -174,7 +175,7 @@ export default function DirectoryTable({
     }
 
     if (!isAdmin) {
-      return <span className="block truncate">{displayValue || "—"}</span>;
+      return <span className="block truncate">{formatted || "—"}</span>;
     }
 
     return (
@@ -184,12 +185,12 @@ export default function DirectoryTable({
             onClick={() => startEdit(entry.id, field, displayValue)}
             className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 block truncate"
           >
-            {displayValue || "—"}
+            {formatted || "—"}
           </span>
         </TooltipTrigger>
-        {displayValue && (
+        {formatted && (
           <TooltipContent side="bottom" className="max-w-xs">
-            {displayValue}
+            {formatted}
           </TooltipContent>
         )}
       </Tooltip>

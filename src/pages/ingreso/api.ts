@@ -1,3 +1,4 @@
+import { resilientFetch } from "@/lib/resilient-fetch";
 import {
   API_BASE,
   type ProductSearchResult,
@@ -29,7 +30,7 @@ async function handleBlobResponse(response: Response): Promise<Blob> {
 // ---------------------------------------------------------------------------
 
 export async function healthCheck(): Promise<{ connected: boolean }> {
-  return handleResponse(await fetch(`${API_BASE}/api/ingreso/health`));
+  return handleResponse(await resilientFetch(`${API_BASE}/api/ingreso/health`));
 }
 
 // ---------------------------------------------------------------------------
@@ -40,7 +41,7 @@ export async function searchByIsbn(
   isbn: string,
 ): Promise<{ product: ProductSearchResult }> {
   return handleResponse(
-    await fetch(`${API_BASE}/api/ingreso/search/${encodeURIComponent(isbn)}`),
+    await resilientFetch(`${API_BASE}/api/ingreso/search/${encodeURIComponent(isbn)}`),
   );
 }
 
@@ -48,7 +49,7 @@ export async function searchByExcel(file: File): Promise<Blob> {
   const form = new FormData();
   form.append("file", file);
   return handleBlobResponse(
-    await fetch(`${API_BASE}/api/ingreso/search/excel`, {
+    await resilientFetch(`${API_BASE}/api/ingreso/search/excel`, {
       method: "POST",
       body: form,
     }),
@@ -62,7 +63,7 @@ export async function searchByExcel(file: File): Promise<Blob> {
 export async function getLocations(): Promise<{
   locations: LocationItem[];
 }> {
-  return handleResponse(await fetch(`${API_BASE}/api/ingreso/locations`));
+  return handleResponse(await resilientFetch(`${API_BASE}/api/ingreso/locations`));
 }
 
 // ---------------------------------------------------------------------------
@@ -71,12 +72,12 @@ export async function getLocations(): Promise<{
 
 export async function loadSales(): Promise<SalesLoadResponse> {
   return handleResponse(
-    await fetch(`${API_BASE}/api/ingreso/sales/load`, { method: "POST" }),
+    await resilientFetch(`${API_BASE}/api/ingreso/sales/load`, { method: "POST" }),
   );
 }
 
 export async function getSalesStatus(): Promise<SalesStatusResponse> {
-  return handleResponse(await fetch(`${API_BASE}/api/ingreso/sales/status`));
+  return handleResponse(await resilientFetch(`${API_BASE}/api/ingreso/sales/status`));
 }
 
 // ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ export async function inventoryExcel(
     include_sales: String(includeSales),
   });
   return handleBlobResponse(
-    await fetch(`${API_BASE}/api/ingreso/inventory/excel?${params}`, {
+    await resilientFetch(`${API_BASE}/api/ingreso/inventory/excel?${params}`, {
       method: "POST",
       body: form,
     }),
@@ -110,7 +111,7 @@ export async function downloadTemplate(
   type: "creacion" | "actualizacion",
 ): Promise<Blob> {
   return handleBlobResponse(
-    await fetch(`${API_BASE}/api/ingreso/templates/${type}`),
+    await resilientFetch(`${API_BASE}/api/ingreso/templates/${type}`),
   );
 }
 
