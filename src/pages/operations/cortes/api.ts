@@ -1,3 +1,4 @@
+import { resilientFetch } from "@/lib/resilient-fetch";
 import { API_BASE } from "./types";
 
 async function handleBlobResponse(response: Response): Promise<Blob> {
@@ -12,7 +13,7 @@ export async function processCortes(file: File): Promise<Blob> {
   const form = new FormData();
   form.append("file", file);
   return handleBlobResponse(
-    await fetch(`${API_BASE}/api/cortes/process`, {
+    await resilientFetch(`${API_BASE}/api/cortes/process`, {
       method: "POST",
       body: form,
     }),
@@ -24,7 +25,7 @@ export async function processDescuento(file: File, porcentaje: number): Promise<
   form.append("file", file);
   form.append("porcentaje", String(porcentaje));
   return handleBlobResponse(
-    await fetch(`${API_BASE}/api/cortes/descuento`, {
+    await resilientFetch(`${API_BASE}/api/cortes/descuento`, {
       method: "POST",
       body: form,
     }),

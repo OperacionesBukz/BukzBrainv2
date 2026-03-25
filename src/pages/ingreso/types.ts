@@ -1,4 +1,5 @@
 export const API_BASE =
+  import.meta.env.VITE_API_URL ??
   "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
 
 export const MAIN_WAREHOUSES = [

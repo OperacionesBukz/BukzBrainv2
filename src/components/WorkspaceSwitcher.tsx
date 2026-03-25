@@ -25,6 +25,7 @@ export function WorkspaceSwitcher({ current, onSwitch, collapsed, allowedWorkspa
         className={cn(
           "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ease-out w-full",
           "text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "bg-muted/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_1px_3px_rgba(0,0,0,0.2)]",
           collapsed && "justify-center px-0"
         )}
       >
