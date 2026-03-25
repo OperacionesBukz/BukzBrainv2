@@ -143,17 +143,21 @@ def get_orders_details(order_names: list[str]) -> dict[str, list[dict]]:
 def identify_gift_sku(line_items: list[dict]) -> str | None:
     """
     Identifica el SKU del producto regalado en una orden 3X2.
-    Prioridad 1: Item con 100% de descuento (is_free).
+    Prioridad 1: Item con 100% de descuento (is_free) o cuyo descuento total cubre al menos 1 unidad.
     Prioridad 2: Item con menor precio unitario.
     Retorna el SKU del regalo o None.
     """
     if not line_items:
         return None
 
-    # Prioridad 1: item gratis (100% descuento)
-    free_items = [li for li in line_items if li.get("is_free")]
-    if free_items:
-        return free_items[0]["sku"]
+    # Prioridad 1: item gratis o con descuento que cubre al menos 1 unidad completa
+    for li in line_items:
+        if li.get("is_free"):
+            return li["sku"]
+        unit_price = li.get("unit_price", 0)
+        total_discount = li.get("total_discount", 0)
+        if unit_price > 0 and total_discount >= unit_price - 0.01:
+            return li["sku"]
 
     # Prioridad 2: item con menor precio unitario
     sorted_items = sorted(line_items, key=lambda x: x.get("unit_price", float("inf")))

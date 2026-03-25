@@ -70,7 +70,9 @@ async def process_cortes(file: UploadFile = File(...)):
         line_items = orders_data.get(order_name, [])
         gift_by_order[order_name] = orders_service.identify_gift_sku(line_items)
 
-    # Asignar Detalle
+    # Asignar Detalle (solo 1 regalo por orden)
+    gift_assigned: set[str] = set()
+
     for idx in df.index:
         discount = str(df.at[idx, "Discount name"] or "").upper()
         if "3X2" not in discount:
@@ -80,8 +82,9 @@ async def process_cortes(file: UploadFile = File(...)):
         sku = str(df.at[idx, "Product variant SKU"] or "").strip()
         gift_sku = gift_by_order.get(order_name)
 
-        if gift_sku and sku == gift_sku:
+        if gift_sku and sku == gift_sku and order_name not in gift_assigned:
             df.at[idx, "Detalle"] = "Regalo"
+            gift_assigned.add(order_name)
         else:
             df.at[idx, "Detalle"] = "NO APLICA"
 
