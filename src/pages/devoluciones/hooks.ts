@@ -1,5 +1,15 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import {
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { getConfig, enviarSedes, enviarProveedores } from "./api";
+import type { DevolucionLog } from "./types";
 
 export function useDevolucionesConfig() {
   return useQuery({
@@ -48,4 +58,30 @@ export function useEnviarProveedores() {
         params.remitente,
       ),
   });
+}
+
+export function useDevolucionesLog(maxDocs = 50) {
+  const [logs, setLogs] = useState<(DevolucionLog & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "devoluciones_log"),
+      orderBy("creadoEn", "desc"),
+      limit(maxDocs),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as DevolucionLog),
+      }));
+      setLogs(data);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [maxDocs]);
+
+  return { logs, loading };
 }

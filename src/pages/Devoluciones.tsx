@@ -1,5 +1,6 @@
 import SedesTab from "./devoluciones/SedesTab";
 import ProveedoresTab from "./devoluciones/ProveedoresTab";
+import HistorialTab from "./devoluciones/HistorialTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const Devoluciones = () => (
@@ -16,12 +17,16 @@ const Devoluciones = () => (
       <TabsList>
         <TabsTrigger value="sedes">Sedes</TabsTrigger>
         <TabsTrigger value="proveedores">Proveedores</TabsTrigger>
+        <TabsTrigger value="historial">Historial</TabsTrigger>
       </TabsList>
       <TabsContent value="sedes">
         <SedesTab />
       </TabsContent>
       <TabsContent value="proveedores">
         <ProveedoresTab />
+      </TabsContent>
+      <TabsContent value="historial">
+        <HistorialTab />
       </TabsContent>
     </Tabs>
   </div>

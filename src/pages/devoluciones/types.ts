@@ -14,3 +14,22 @@ export interface EnvioResponse {
   correos: string[];
   asunto: string;
 }
+
+import type { Timestamp } from "firebase/firestore";
+
+export interface DevolucionLog {
+  tipo: "sede" | "proveedor";
+  destinatario: string;
+  correos: string[];
+  motivo: string;
+  ciudad?: string;
+  numCajas?: number;
+  proveedorNombre?: string;
+  nombreArchivo: string;
+  asunto: string;
+  enviadoPor: string;
+  enviadoPorNombre: string;
+  estado: "enviado" | "error";
+  detalle?: string;
+  creadoEn: Timestamp;
+}

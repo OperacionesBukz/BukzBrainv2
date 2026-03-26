@@ -28,6 +28,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import FileUploadField from "./FileUploadField";
 import { useDevolucionesConfig, useEnviarProveedores } from "./hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { logDevolucion } from "./api";
 import type { EnvioResponse } from "./types";
 
 type Step = "config" | "processing" | "results";
@@ -43,6 +45,7 @@ export default function ProveedoresTab() {
   const [remitente, setRemitente] = useState("Sebastian Barrios - Bukz");
   const [response, setResponse] = useState<EnvioResponse | null>(null);
 
+  const { user } = useAuth();
   const { data: config, isLoading: configLoading } = useDevolucionesConfig();
   const mutation = useEnviarProveedores();
 
@@ -60,16 +63,43 @@ export default function ProveedoresTab() {
           setResponse(data);
           toast.success(`Email enviado a ${data.destinatario}`);
           setStep("results");
+          logDevolucion({
+            tipo: "proveedor",
+            destinatario: data.destinatario,
+            correos: data.correos,
+            motivo,
+            ciudad,
+            numCajas,
+            nombreArchivo: archivo.name,
+            asunto: data.asunto,
+            enviadoPor: user?.email ?? "",
+            enviadoPorNombre: user?.displayName ?? user?.email ?? "",
+            estado: "enviado",
+          });
         },
         onError: (err) => {
           toast.error(
             err instanceof Error ? err.message : "Error al enviar email",
           );
           setStep("config");
+          logDevolucion({
+            tipo: "proveedor",
+            destinatario: proveedor,
+            correos: [],
+            motivo,
+            ciudad,
+            numCajas,
+            nombreArchivo: archivo.name,
+            asunto: "",
+            enviadoPor: user?.email ?? "",
+            enviadoPorNombre: user?.displayName ?? user?.email ?? "",
+            estado: "error",
+            detalle: err instanceof Error ? err.message : "Error desconocido",
+          });
         },
       },
     );
-  }, [proveedor, motivo, ciudad, numCajas, archivo, remitente, mutation]);
+  }, [proveedor, motivo, ciudad, numCajas, archivo, remitente, mutation, user]);
 
   const handleReset = useCallback(() => {
     setStep("config");

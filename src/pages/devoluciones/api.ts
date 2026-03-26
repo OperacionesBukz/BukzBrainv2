@@ -1,4 +1,6 @@
 import { resilientFetch } from "@/lib/resilient-fetch";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { API_BASE } from "./types";
 import type { DevolucionesConfig, EnvioResponse } from "./types";
 
@@ -64,4 +66,13 @@ export async function enviarProveedores(
       timeout: 60_000,
     }),
   );
+}
+
+export async function logDevolucion(
+  data: Omit<import("./types").DevolucionLog, "creadoEn">,
+): Promise<void> {
+  await addDoc(collection(db, "devoluciones_log"), {
+    ...data,
+    creadoEn: serverTimestamp(),
+  });
 }
