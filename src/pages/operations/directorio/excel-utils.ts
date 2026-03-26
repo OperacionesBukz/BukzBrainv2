@@ -39,6 +39,7 @@ export function exportDirectory(
       "Razón Social": e.razonSocial,
       NIT: e.nit,
       "Margen %": e.margen,
+      Correo: e.correo || "",
       Estado: e.estado,
     }));
   }
@@ -64,6 +65,7 @@ export interface ParsedSupplierRow {
   razonSocial: string;
   nit: string;
   margen: number;
+  correo: string;
 }
 
 export interface ParseError {
@@ -91,6 +93,8 @@ const SUPPLIER_COLUMN_MAP: Record<string, keyof ParsedSupplierRow> = {
   nit: "nit",
   margen: "margen",
   "margen %": "margen",
+  correo: "correo",
+  email: "correo",
 };
 
 function normalizeHeader(header: string): string {
@@ -243,6 +247,7 @@ export async function parseSupplierExcel(
       razonSocial: mapped.razonSocial || "",
       nit: mapped.nit || "",
       margen,
+      correo: mapped.correo || "",
     });
   });
 

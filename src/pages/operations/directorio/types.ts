@@ -51,6 +51,7 @@ export interface SupplierEntry extends DirectoryBase {
   razonSocial: string;
   nit: string;
   margen: number;
+  correo: string;
 }
 
 export type DirectoryEntry = PersonEntry | SupplierEntry;

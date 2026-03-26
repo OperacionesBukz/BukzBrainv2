@@ -51,7 +51,7 @@ interface DirectoryTableProps {
 }
 
 type PersonField = "nombre" | "apellido" | "cedula" | "celular" | "correo";
-type SupplierField = "empresa" | "razonSocial" | "nit" | "margen";
+type SupplierField = "empresa" | "razonSocial" | "nit" | "margen" | "correo";
 type EditableField = PersonField | SupplierField;
 
 interface EditingCell {
@@ -73,6 +73,7 @@ const emptySupplier = {
   razonSocial: "",
   nit: "",
   margen: "",
+  correo: "",
   estado: "Activo" as DirectoryStatus,
 };
 
@@ -116,6 +117,7 @@ export default function DirectoryTable({
         razonSocial: s.razonSocial.trim(),
         nit: s.nit.trim(),
         margen: parseFloat(s.margen) || 0,
+        correo: s.correo.trim(),
         estado: s.estado,
       } as Omit<SupplierEntry, "id" | "createdBy" | "createdAt" | "updatedAt">);
       setNewRow({ ...emptySupplier });
@@ -235,7 +237,7 @@ export default function DirectoryTable({
     );
   };
 
-  const colCount = isPersonType ? 7 : 6;
+  const colCount = isPersonType ? 7 : 7;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -257,6 +259,7 @@ export default function DirectoryTable({
                   <TableHead>Razón Social</TableHead>
                   <TableHead className="w-[150px]">NIT</TableHead>
                   <TableHead className="w-[100px]">Margen %</TableHead>
+                  <TableHead>Correo</TableHead>
                 </>
               )}
               <TableHead className="w-[100px]">Estado</TableHead>
@@ -370,6 +373,17 @@ export default function DirectoryTable({
                         className="h-7 text-xs"
                       />
                     </TableHead>
+                    <TableHead className="p-1">
+                      <Input
+                        placeholder="Correo"
+                        value={(newRow as typeof emptySupplier).correo}
+                        onChange={(e) =>
+                          setNewRow((r) => ({ ...r, correo: e.target.value }))
+                        }
+                        onKeyDown={(e) => e.key === "Enter" && handleAddRow()}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
                   </>
                 )}
                 <TableHead className="p-1">
@@ -443,6 +457,9 @@ export default function DirectoryTable({
                         "margen",
                         String(entry.margen)
                       )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {renderEditableCell(entry, "correo", entry.correo || "")}
                     </TableCell>
                   </>
                 )}

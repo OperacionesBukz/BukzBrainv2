@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, DatabaseBackup } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDirectory } from "./useDirectory";
 import { exportDirectory } from "./excel-utils";
@@ -28,12 +29,13 @@ export default function DirectoryTab({
   updateEntry,
   deleteEntry,
 }: DirectoryTabProps) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<DirectoryStatus | "Todos">(
     "Todos"
   );
   const [importOpen, setImportOpen] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const filtered = useMemo(() => {
     let result = entries.filter((e) => e.type === type);
@@ -58,7 +60,8 @@ export default function DirectoryTab({
             e.empresa.toLowerCase().includes(q) ||
             e.razonSocial.toLowerCase().includes(q) ||
             e.nit.toLowerCase().includes(q) ||
-            String(e.margen).includes(q)
+            String(e.margen).includes(q) ||
+            (e.correo || "").toLowerCase().includes(q)
           );
         }
       });
@@ -86,6 +89,22 @@ export default function DirectoryTab({
     );
   };
 
+  const handleSeedProveedores = async () => {
+    setSeeding(true);
+    try {
+      const { seedProveedores } = await import("./seed-proveedores");
+      const count = await seedProveedores(user?.email || "operaciones@bukz.co");
+      toast.success(`${count} proveedores importados desde devoluciones`);
+    } catch (error) {
+      toast.error(
+        "Error al importar: " +
+          (error instanceof Error ? error.message : "Error desconocido")
+      );
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handleBulkImportSuppliers = async (rows: ParsedSupplierRow[]) => {
     let count = 0;
     for (const row of rows) {
@@ -95,6 +114,7 @@ export default function DirectoryTab({
         razonSocial: row.razonSocial,
         nit: row.nit,
         margen: row.margen,
+        correo: row.correo,
         estado: "Activo",
       });
       count++;
@@ -117,6 +137,24 @@ export default function DirectoryTab({
         isAdmin={isAdmin}
         entityLabel={TAB_LABELS[type]}
       />
+      {isAdmin && type === "proveedor" && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={seeding}
+          onClick={handleSeedProveedores}
+        >
+          {seeding ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <DatabaseBackup className="h-4 w-4" />
+          )}
+          {seeding
+            ? "Importando proveedores..."
+            : "Importar proveedores de Devoluciones"}
+        </Button>
+      )}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

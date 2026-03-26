@@ -44,6 +44,7 @@ const initialSupplier = {
   razonSocial: "",
   nit: "",
   margen: "",
+  correo: "",
   estado: "Activo" as DirectoryStatus,
 };
 
@@ -80,6 +81,7 @@ export default function DirectoryFormDialog({
           razonSocial: s.razonSocial,
           nit: s.nit,
           margen: String(s.margen),
+          correo: s.correo || "",
           estado: s.estado,
         });
       }
@@ -115,6 +117,7 @@ export default function DirectoryFormDialog({
         razonSocial: supplierForm.razonSocial.trim(),
         nit: supplierForm.nit.trim(),
         margen: parseFloat(supplierForm.margen) || 0,
+        correo: supplierForm.correo.trim(),
         estado: supplierForm.estado,
       } as Omit<SupplierEntry, "id" | "createdBy" | "createdAt" | "updatedAt">;
 
@@ -252,6 +255,17 @@ export default function DirectoryFormDialog({
                     setSupplierForm((f) => ({ ...f, margen: e.target.value }))
                   }
                   placeholder="30"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Correo</label>
+                <Input
+                  type="email"
+                  value={supplierForm.correo}
+                  onChange={(e) =>
+                    setSupplierForm((f) => ({ ...f, correo: e.target.value }))
+                  }
+                  placeholder="correo@ejemplo.com"
                 />
               </div>
             </>
