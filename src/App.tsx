@@ -26,6 +26,7 @@ const IngresoMercancia = lazyWithReload(() => import("./pages/IngresoMercancia")
 const ScrapBukz = lazyWithReload(() => import("./pages/ScrapBukz"));
 const Cortes = lazyWithReload(() => import("./pages/Cortes"));
 const EnvioCortes = lazyWithReload(() => import("./pages/EnvioCortes"));
+const Devoluciones = lazyWithReload(() => import("./pages/Devoluciones"));
 const Directorio = lazyWithReload(() => import("./pages/Directorio"));
 const RequestsHub = lazyWithReload(() => import("./pages/RequestsHub"));
 const CalculatorPage = lazyWithReload(() => import("./pages/Calculator"));
@@ -72,6 +73,7 @@ const App = () => (
                               <Route path="/scrap" element={<ScrapBukz />} />
                               <Route path="/cortes" element={<Cortes />} />
                               <Route path="/envio-cortes" element={<EnvioCortes />} />
+                              <Route path="/devoluciones" element={<Devoluciones />} />
                               <Route path="/directorio" element={<Directorio />} />
                               <Route path="/assistant" element={<Assistant />} />
                               <Route path="/calculator" element={<CalculatorPage />} />

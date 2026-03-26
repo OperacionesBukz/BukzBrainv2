@@ -12,7 +12,7 @@ type WorkspaceMap = Record<string, boolean>;
 type NavOrderMap = Record<string, string[]>;
 
 // Sub-rutas agrupadas bajo /workflow que aún existen como permisos individuales en Firestore
-const WORKFLOW_SUB_PATHS = ["/ingreso", "/scrap", "/cortes", "/envio-cortes"];
+const WORKFLOW_SUB_PATHS = ["/ingreso", "/scrap", "/cortes", "/envio-cortes", "/devoluciones"];
 
 export function useNavigationPermissions() {
   const { user } = useAuth();

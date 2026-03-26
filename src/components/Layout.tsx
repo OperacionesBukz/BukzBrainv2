@@ -15,6 +15,7 @@ import {
   Scissors,
   GitBranchPlus,
   Mail,
+  Undo2,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -58,6 +59,7 @@ const workflowSubItems = [
   { title: "Scrap Bukz", path: "/scrap", icon: SearchCode },
   { title: "Descuentos Cortes", path: "/cortes", icon: Scissors },
   { title: "Envío Cortes", path: "/envio-cortes", icon: Mail },
+  { title: "Devoluciones", path: "/devoluciones", icon: Undo2 },
 ];
 
 const WORKFLOW_PATHS = workflowSubItems.map((s) => s.path);

@@ -1,0 +1,67 @@
+import { resilientFetch } from "@/lib/resilient-fetch";
+import { API_BASE } from "./types";
+import type { DevolucionesConfig, EnvioResponse } from "./types";
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      body?.detail ?? `Error del servidor (${response.status})`;
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+export async function getConfig(): Promise<DevolucionesConfig> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/devoluciones/config`),
+  );
+}
+
+export async function enviarSedes(
+  sede: string,
+  motivo: string,
+  proveedorNombre: string,
+  archivo: File,
+  remitente: string,
+): Promise<EnvioResponse> {
+  const form = new FormData();
+  form.append("sede", sede);
+  form.append("motivo", motivo);
+  form.append("proveedor_nombre", proveedorNombre);
+  form.append("archivo", archivo);
+  form.append("remitente", remitente);
+
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/devoluciones/sedes`, {
+      method: "POST",
+      body: form,
+      timeout: 60_000,
+    }),
+  );
+}
+
+export async function enviarProveedores(
+  proveedor: string,
+  motivo: string,
+  ciudad: string,
+  numCajas: number,
+  archivo: File,
+  remitente: string,
+): Promise<EnvioResponse> {
+  const form = new FormData();
+  form.append("proveedor", proveedor);
+  form.append("motivo", motivo);
+  form.append("ciudad", ciudad);
+  form.append("num_cajas", String(numCajas));
+  form.append("archivo", archivo);
+  form.append("remitente", remitente);
+
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/devoluciones/proveedores`, {
+      method: "POST",
+      body: form,
+      timeout: 60_000,
+    }),
+  );
+}
