@@ -275,12 +275,6 @@
   border-color: hsl(0 0% 14%);
 }
 
-/* ── Bordes verticales en tablas de datos (no calendarios) ── */
-.relative.w-full.overflow-auto > table th:not(:last-child),
-.relative.w-full.overflow-auto > table td:not(:last-child) {
-  border-right: 1px solid hsl(var(--border));
-}
-
 /* ── Capitalizar meses en calendarios ── */
 .rdp-caption_label {
   text-transform: capitalize;
