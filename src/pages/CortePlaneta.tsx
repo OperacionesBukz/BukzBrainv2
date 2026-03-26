@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import PlanetaStepIndicator from "./corte-planeta/PlanetaStepIndicator";
 import PlanetaPhase1Bodegas from "./corte-planeta/PlanetaPhase1Bodegas";
 import PlanetaPhase2Descuentos from "./corte-planeta/PlanetaPhase2Descuentos";
@@ -16,15 +18,28 @@ export default function CortePlaneta() {
     }
   }, []);
 
+  const skipToEmail = useCallback(() => {
+    setCompletedPhases(new Set([1, 2]));
+    setCurrentPhase(3);
+  }, []);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          Corte Planeta
-        </h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          Procesamiento del corte mensual de Grupo Editorial Planeta
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+            Corte Planeta
+          </h1>
+          <p className="mt-1 text-base text-muted-foreground">
+            Procesamiento del corte mensual de Grupo Editorial Planeta
+          </p>
+        </div>
+        {currentPhase === 1 && (
+          <Button variant="outline" size="sm" onClick={skipToEmail}>
+            <Send className="h-4 w-4 mr-2" />
+            Ir directo a enviar correo
+          </Button>
+        )}
       </div>
 
       <PlanetaStepIndicator
