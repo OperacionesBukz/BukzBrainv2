@@ -2,15 +2,21 @@
 Router para Corte Planeta — envío de correo con archivo adjunto.
 """
 import json
+import re
+from html import escape
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
 from services.email_service import send_email
 
 router = APIRouter(prefix="/api/corte-planeta", tags=["corte-planeta"])
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 def build_planeta_html(fecha_inicio: str, fecha_fin: str) -> str:
     """Template HTML para correo de corte Planeta."""
+    fecha_inicio = escape(fecha_inicio)
+    fecha_fin = escape(fecha_fin)
     return f"""<p>Buenas tardes, espero que se encuentren muy bien.</p>
 
 <p>Adjunto env&iacute;o el corte correspondiente al per&iacute;odo comprendido entre el {fecha_inicio} y el {fecha_fin}.</p>
@@ -42,6 +48,10 @@ async def enviar_correo(
 
     if not recipients:
         raise HTTPException(status_code=400, detail="Se requiere al menos un destinatario")
+
+    for r in recipients:
+        if not isinstance(r, str) or not _EMAIL_RE.match(r):
+            raise HTTPException(status_code=400, detail=f"Correo inválido: {r}")
 
     file_content = await file.read()
     if not file_content:
