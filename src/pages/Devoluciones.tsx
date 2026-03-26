@@ -1,7 +1,7 @@
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SedesTab from "./devoluciones/SedesTab";
 import ProveedoresTab from "./devoluciones/ProveedoresTab";
 import HistorialTab from "./devoluciones/HistorialTab";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const Devoluciones = () => (
   <div className="space-y-6">

@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export { API_BASE } from "../ingreso/types";
 
 export interface DevolucionesConfig {
@@ -14,8 +16,6 @@ export interface EnvioResponse {
   correos: string[];
   asunto: string;
 }
-
-import type { Timestamp } from "firebase/firestore";
 
 export interface DevolucionLog {
   tipo: "sede" | "proveedor";
