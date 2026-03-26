@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { lazyWithReload } from "@/lib/lazy-with-reload";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -40,7 +40,21 @@ const Assistant = lazyWithReload(() => import("./pages/Assistant"));
 
 const queryClient = new QueryClient();
 
-const App = () => (
+function useEscapeBlur() {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+}
+
+const App = () => {
+  useEscapeBlur();
+  return (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
@@ -102,6 +116,7 @@ const App = () => (
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
