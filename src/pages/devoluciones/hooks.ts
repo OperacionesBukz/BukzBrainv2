@@ -71,14 +71,21 @@ export function useDevolucionesLog(maxDocs = 50) {
       limit(maxDocs),
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as DevolucionLog),
-      }));
-      setLogs(data);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as DevolucionLog),
+        }));
+        setLogs(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error en listener devoluciones_log:", error);
+        setLoading(false);
+      },
+    );
 
     return unsubscribe;
   }, [maxDocs]);

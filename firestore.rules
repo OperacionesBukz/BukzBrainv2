@@ -98,6 +98,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // ─── Devoluciones Log ─────────────────────────────────────
+    // Historial de envíos de devoluciones. Lectura abierta, escritura solo admin/backend.
+    match /devoluciones_log/{logId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // ─── Directory (Empleados, Temporales, Proveedores) ──────
     // Cualquier usuario autenticado puede leer.
     // Solo admin puede crear, editar y eliminar.
