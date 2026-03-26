@@ -93,14 +93,6 @@ export default function SedesTab() {
     setResponse(null);
   }, []);
 
-  if (configLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       {step === "config" && (
@@ -108,9 +100,15 @@ export default function SedesTab() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Sede destino</Label>
-              <Select value={sede} onValueChange={setSede}>
+              <Select value={sede} onValueChange={setSede} disabled={configLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar sede" />
+                  {configLoading ? (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Seleccionar sede" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {config?.sedes.map((s) => (
@@ -124,9 +122,15 @@ export default function SedesTab() {
 
             <div className="space-y-1.5">
               <Label>Motivo</Label>
-              <Select value={motivo} onValueChange={setMotivo}>
+              <Select value={motivo} onValueChange={setMotivo} disabled={configLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar motivo" />
+                  {configLoading ? (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Seleccionar motivo" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {config?.motivos_sedes.map((m) => (
@@ -169,7 +173,7 @@ export default function SedesTab() {
             onClear={() => setArchivo(null)}
           />
 
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit || configLoading}>
             Enviar correo a sede
           </Button>
         </div>

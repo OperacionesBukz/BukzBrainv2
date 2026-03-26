@@ -111,14 +111,6 @@ export default function ProveedoresTab() {
     setResponse(null);
   }, []);
 
-  if (configLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       {step === "config" && (
@@ -132,9 +124,16 @@ export default function ProveedoresTab() {
                     variant="outline"
                     role="combobox"
                     aria-expanded={proveedorOpen}
+                    disabled={configLoading}
                     className="w-full justify-between font-normal"
                   >
-                    {proveedor || "Buscar proveedor..."}
+                    {configLoading ? (
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                      </span>
+                    ) : (
+                      proveedor || "Buscar proveedor..."
+                    )}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -171,9 +170,15 @@ export default function ProveedoresTab() {
 
             <div className="space-y-1.5">
               <Label>Motivo</Label>
-              <Select value={motivo} onValueChange={setMotivo}>
+              <Select value={motivo} onValueChange={setMotivo} disabled={configLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar motivo" />
+                  {configLoading ? (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Seleccionar motivo" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {config?.motivos_proveedores.map((m) => (
@@ -189,9 +194,15 @@ export default function ProveedoresTab() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label>Ciudad</Label>
-              <Select value={ciudad} onValueChange={setCiudad}>
+              <Select value={ciudad} onValueChange={setCiudad} disabled={configLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar ciudad" />
+                  {configLoading ? (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="Seleccionar ciudad" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {config?.ciudades.map((c) => (
@@ -233,7 +244,7 @@ export default function ProveedoresTab() {
             onClear={() => setArchivo(null)}
           />
 
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit || configLoading}>
             Enviar correo a proveedor
           </Button>
         </div>
