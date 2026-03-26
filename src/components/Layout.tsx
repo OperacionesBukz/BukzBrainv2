@@ -16,6 +16,7 @@ import {
   GitBranchPlus,
   Mail,
   Undo2,
+  FileText,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -60,6 +61,9 @@ const workflowSubCategories = [
     items: [
       { title: "Envío Cortes", path: "/envio-cortes", icon: Mail },
       { title: "Descuentos Cortes", path: "/cortes", icon: Scissors },
+      { title: "Corte Penguin", path: "/corte-penguin", icon: FileText },
+      { title: "Corte Planeta", path: "/corte-planeta", icon: FileText },
+      { title: "Corte Museo", path: "/corte-museo", icon: FileText },
     ],
   },
   {
