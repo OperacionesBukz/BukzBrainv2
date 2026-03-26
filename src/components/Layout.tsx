@@ -54,14 +54,30 @@ const adminSubItems = [
   { title: "Gestionar Usuarios", path: "/user-admin", icon: Users },
 ];
 
-const workflowSubItems = [
-  { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch },
-  { title: "Scrap Bukz", path: "/scrap", icon: SearchCode },
-  { title: "Descuentos Cortes", path: "/cortes", icon: Scissors },
-  { title: "Envío Cortes", path: "/envio-cortes", icon: Mail },
-  { title: "Devoluciones", path: "/devoluciones", icon: Undo2 },
+const workflowSubCategories = [
+  {
+    category: "Cortes",
+    items: [
+      { title: "Envío Cortes", path: "/envio-cortes", icon: Mail },
+      { title: "Descuentos Cortes", path: "/cortes", icon: Scissors },
+    ],
+  },
+  {
+    category: "Ingresos",
+    items: [
+      { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch },
+      { title: "Scrap Bukz", path: "/scrap", icon: SearchCode },
+    ],
+  },
+  {
+    category: "Devoluciones",
+    items: [
+      { title: "Devoluciones", path: "/devoluciones", icon: Undo2 },
+    ],
+  },
 ];
 
+const workflowSubItems = workflowSubCategories.flatMap((c) => c.items);
 const WORKFLOW_PATHS = workflowSubItems.map((s) => s.path);
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -125,10 +141,17 @@ export function Layout({ children }: { children: ReactNode }) {
   const visibleWorkflowItems = workflowSubItems.filter(
     (sub) => allowedPages.has(sub.path)
   );
+  const visibleWorkflowCategories = workflowSubCategories
+    .map((cat) => ({
+      ...cat,
+      items: cat.items.filter((sub) => allowedPages.has(sub.path)),
+    }))
+    .filter((cat) => cat.items.length > 0);
+
   const subMenuData = activeSubMenu === "admin"
-    ? { title: "Administración", items: adminSubItems }
+    ? { title: "Administración", items: adminSubItems, categories: null as typeof visibleWorkflowCategories | null }
     : activeSubMenu === "workflow"
-    ? { title: "Workflow", items: visibleWorkflowItems }
+    ? { title: "Workflow", items: visibleWorkflowItems, categories: visibleWorkflowCategories }
     : null;
 
   // Measure sub-sidebar width for main content margin
@@ -423,22 +446,47 @@ export function Layout({ children }: { children: ReactNode }) {
               <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4 px-3">
                 {subMenuData.title}
               </h3>
-              <nav className="space-y-1">
-                {subMenuData.items.map((sub) => (
-                  <NavLink
-                    key={sub.path}
-                    to={sub.path}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                      location.pathname === sub.path
-                        ? "bg-primary/15 text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
-                    )}
-                  >
-                    <sub.icon className="h-4 w-4 shrink-0" />
-                    <span>{sub.title}</span>
-                  </NavLink>
-                ))}
+              <nav className="space-y-4">
+                {subMenuData.categories
+                  ? subMenuData.categories.map((cat) => (
+                      <div key={cat.category}>
+                        <h4 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 mb-1.5 px-3">
+                          {cat.category}
+                        </h4>
+                        <div className="space-y-1">
+                          {cat.items.map((sub) => (
+                            <NavLink
+                              key={sub.path}
+                              to={sub.path}
+                              className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                location.pathname === sub.path
+                                  ? "bg-primary/15 text-foreground"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                              )}
+                            >
+                              <sub.icon className="h-4 w-4 shrink-0" />
+                              <span>{sub.title}</span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  : subMenuData.items.map((sub) => (
+                      <NavLink
+                        key={sub.path}
+                        to={sub.path}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                          location.pathname === sub.path
+                            ? "bg-primary/15 text-foreground"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                        )}
+                      >
+                        <sub.icon className="h-4 w-4 shrink-0" />
+                        <span>{sub.title}</span>
+                      </NavLink>
+                    ))}
               </nav>
             </div>
           )}
@@ -534,22 +582,31 @@ export function Layout({ children }: { children: ReactNode }) {
                                         )} />
                                       </button>
                                       {isMobileWorkflowExpanded && (
-                                        <div className="ml-9 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                                          {visibleWorkflowItems.map((sub) => (
-                                            <NavLink
-                                              key={sub.path}
-                                              to={sub.path}
-                                              onClick={() => setMobileMenuOpen(false)}
-                                              className={cn(
-                                                "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
-                                                location.pathname === sub.path
-                                                  ? "text-foreground"
-                                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
-                                              )}
-                                            >
-                                              <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
-                                              <span>{sub.title}</span>
-                                            </NavLink>
+                                        <div className="ml-9 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                          {visibleWorkflowCategories.map((cat) => (
+                                            <div key={cat.category}>
+                                              <h4 className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/70 mb-1 px-3">
+                                                {cat.category}
+                                              </h4>
+                                              <div className="space-y-0.5">
+                                                {cat.items.map((sub) => (
+                                                  <NavLink
+                                                    key={sub.path}
+                                                    to={sub.path}
+                                                    onClick={() => setMobileMenuOpen(false)}
+                                                    className={cn(
+                                                      "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                                                      location.pathname === sub.path
+                                                        ? "text-foreground"
+                                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                                                    )}
+                                                  >
+                                                    <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                                                    <span>{sub.title}</span>
+                                                  </NavLink>
+                                                ))}
+                                              </div>
+                                            </div>
                                           ))}
                                         </div>
                                       )}
