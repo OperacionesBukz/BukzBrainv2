@@ -104,14 +104,6 @@ export default function DirectoryTab({
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       <DirectoryToolbar
@@ -125,6 +117,11 @@ export default function DirectoryTab({
         isAdmin={isAdmin}
         entityLabel={TAB_LABELS[type]}
       />
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <DirectoryTable
         entries={filtered}
         type={type}
@@ -133,6 +130,7 @@ export default function DirectoryTab({
         onDelete={deleteEntry}
         isAdmin={isAdmin}
       />
+      )}
       {isAdmin && (
         <DirectoryImportDialog
           open={importOpen}

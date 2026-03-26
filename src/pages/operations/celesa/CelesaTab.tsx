@@ -70,14 +70,6 @@ export default function CelesaTab() {
     return result;
   }, [orders, search, filterStatus, sortBy]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       <CelesaKpiCards orders={orders} />
@@ -93,6 +85,11 @@ export default function CelesaTab() {
         onExport={() => exportCelesaCSV(filtered)}
         onImport={() => setImportOpen(true)}
       />
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
       <CelesaTable
         orders={filtered}
         onAdd={addOrder}
@@ -109,6 +106,7 @@ export default function CelesaTab() {
           });
         }}
       />
+      )}
       <CelesaImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
