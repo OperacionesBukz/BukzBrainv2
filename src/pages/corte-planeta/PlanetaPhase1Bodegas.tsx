@@ -109,12 +109,6 @@ export default function PlanetaPhase1Bodegas({ onComplete }: Props) {
   }, [customMappings]);
 
   const handleResolve = useCallback(() => {
-    const unresolved = unknownLocations.filter((loc) => !manualAssignments[loc]);
-    if (unresolved.length > 0) {
-      toast.error("Asigna todas las ubicaciones antes de continuar");
-      return;
-    }
-
     const updated = rows.map((row) => {
       if (manualAssignments[row.posLocation]) {
         return { ...row, posLocation: manualAssignments[row.posLocation] };
@@ -125,7 +119,7 @@ export default function PlanetaPhase1Bodegas({ onComplete }: Props) {
     setRows(updated);
     setStep("done");
     toast.success(`${updated.length} filas procesadas correctamente`);
-  }, [rows, unknownLocations, manualAssignments]);
+  }, [rows, manualAssignments]);
 
   const handleDownload = useCallback(() => {
     const data = rows.map((r) => ({
