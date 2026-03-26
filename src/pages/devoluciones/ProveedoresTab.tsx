@@ -118,8 +118,8 @@ export default function ProveedoresTab() {
                           <CommandItem
                             key={p}
                             value={p}
-                            onSelect={(val) => {
-                              setProveedor(val === proveedor ? "" : val);
+                            onSelect={() => {
+                              setProveedor(p === proveedor ? "" : p);
                               setProveedorOpen(false);
                             }}
                           >
