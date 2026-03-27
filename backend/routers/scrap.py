@@ -32,6 +32,7 @@ class ScrapJob:
     logs: list[str] = field(default_factory=list)
     error: Optional[str] = None
     result_path: Optional[str] = None
+    result_bytes: Optional[bytes] = None
     created_at: datetime = field(default_factory=datetime.now)
 
 
@@ -119,12 +120,24 @@ def _run_enrichment(
 
         df_result = pd.DataFrame(rows)
 
-        os.makedirs(TEMP_DIR, exist_ok=True)
-        result_path = os.path.join(TEMP_DIR, f"{job.job_id}.xlsx")
-        with pd.ExcelWriter(result_path, engine="openpyxl") as writer:
+        # Generate Excel in memory
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             df_result.to_excel(writer, index=False)
+        excel_bytes = buffer.getvalue()
+
+        # Also save to disk as fallback
+        result_path = None
+        try:
+            os.makedirs(TEMP_DIR, exist_ok=True)
+            result_path = os.path.join(TEMP_DIR, f"{job.job_id}.xlsx")
+            with open(result_path, "wb") as f:
+                f.write(excel_bytes)
+        except OSError:
+            pass
 
         with _jobs_lock:
+            job.result_bytes = excel_bytes
             job.result_path = result_path
             job.status = "completed"
 
@@ -217,18 +230,26 @@ def download_result(job_id: str):
     job = _get_job(job_id)
     if job.status != "completed":
         raise HTTPException(status_code=400, detail="El job aún no ha terminado")
-    if not job.result_path or not os.path.exists(job.result_path):
-        raise HTTPException(status_code=404, detail="Archivo de resultado no encontrado")
 
-    def iterfile():
-        with open(job.result_path, "rb") as f:
-            yield from f
+    # Try in-memory bytes first, then disk file
+    if job.result_bytes:
+        return StreamingResponse(
+            io.BytesIO(job.result_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=libros_enriquecidos.xlsx"},
+        )
 
-    return StreamingResponse(
-        iterfile(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=libros_enriquecidos.xlsx"},
-    )
+    if job.result_path and os.path.exists(job.result_path):
+        def iterfile():
+            with open(job.result_path, "rb") as f:
+                yield from f
+        return StreamingResponse(
+            iterfile(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=libros_enriquecidos.xlsx"},
+        )
+
+    raise HTTPException(status_code=404, detail="Archivo de resultado no encontrado")
 
 
 @router.get("/cache/stats")
