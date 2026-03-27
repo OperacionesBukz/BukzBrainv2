@@ -114,23 +114,19 @@ def _cross_validate(results: list[BookResult]) -> list[str]:
     autores = [(r.source, r.autor) for r in found if r.autor]
     if len(autores) >= 2:
         base_source, base_autor = autores[0]
-        for source, autor in autores[1:]:
-            if not _authors_match(base_autor, autor):
-                alertas.append(
-                    f"Autor difiere: {base_source}=\"{base_autor}\" vs {source}=\"{autor}\""
-                )
-                break
+        mismatches = [(s, a) for s, a in autores[1:] if not _authors_match(base_autor, a)]
+        if mismatches:
+            pairs = ", ".join(f'{s}="{a}"' for s, a in mismatches)
+            alertas.append(f'Autor difiere: {base_source}="{base_autor}" vs {pairs}')
 
     # Validar editoriales
     editoriales = [(r.source, r.editorial) for r in found if r.editorial]
     if len(editoriales) >= 2:
         base_source, base_ed = editoriales[0]
-        for source, ed in editoriales[1:]:
-            if not _publishers_match(base_ed, ed):
-                alertas.append(
-                    f"Editorial difiere: {base_source}=\"{base_ed}\" vs {source}=\"{ed}\""
-                )
-                break
+        mismatches = [(s, e) for s, e in editoriales[1:] if not _publishers_match(base_ed, e)]
+        if mismatches:
+            pairs = ", ".join(f'{s}="{e}"' for s, e in mismatches)
+            alertas.append(f'Editorial difiere: {base_source}="{base_ed}" vs {pairs}')
 
     # Validar páginas (tolerancia ±20%)
     paginas = [(r.source, r.paginas) for r in found

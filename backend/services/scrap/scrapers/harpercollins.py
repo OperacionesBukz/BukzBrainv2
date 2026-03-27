@@ -74,8 +74,12 @@ class HarperCollinsScraper(BookScraper):
         else:
             tag_list_check = tag_list_raw
         if not has_isbn:
-            has_isbn = any(isbn_match(isbn, t.split("-", 1)[1]) for t in tag_list_check
-                          if t.startswith("isbn") and "-" in t)
+            for t in tag_list_check:
+                if t.startswith("isbn") and "-" in t:
+                    tag_isbn = t.split("-", 1)[1].strip()
+                    if len(tag_isbn) in (10, 13) and isbn_match(isbn, tag_isbn):
+                        has_isbn = True
+                        break
         if not has_isbn:
             return result
 

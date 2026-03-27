@@ -42,10 +42,13 @@ class ExlibrisScraper(BookScraper):
             if sinop_el:
                 result.descripcion = sinop_el.get_text(strip=True) or None
 
-            # Cover image
+            # Cover image + ISBN validation from image URL
             img = item.select_one("img.foto")
             if img and img.get("src"):
                 result.portada_url = img["src"]
+                match = re.search(r"/imagenes/\d+/(\d{12,13})", img["src"])
+                if match and not isbn_match(isbn, match.group(1)):
+                    return result
 
             # Detail page URL
             detail_path = title_el.get("href") if title_el else None

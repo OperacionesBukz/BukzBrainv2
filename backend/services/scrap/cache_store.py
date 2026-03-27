@@ -1,4 +1,5 @@
 from __future__ import annotations
+import dataclasses
 import json
 import os
 from datetime import datetime
@@ -9,6 +10,10 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache_data")
 CACHE_PATH = os.path.join(CACHE_DIR, "isbn_cache.json")
 
 _EXPECTED_KEYS = {f.name for f in MergedBook.__dataclass_fields__.values()}
+_FIELD_DEFAULTS = {
+    f.name: f.default for f in MergedBook.__dataclass_fields__.values()
+    if f.default is not dataclasses.MISSING
+}
 
 
 def _ensure_dir():
@@ -29,7 +34,7 @@ def load() -> dict[str, MergedBook]:
     raw = _load_raw()
     result = {}
     for isbn, data in raw.items():
-        safe = {k: data.get(k) for k in _EXPECTED_KEYS}
+        safe = {k: data.get(k, _FIELD_DEFAULTS.get(k)) for k in _EXPECTED_KEYS}
         try:
             result[isbn] = MergedBook(**safe)
         except TypeError:

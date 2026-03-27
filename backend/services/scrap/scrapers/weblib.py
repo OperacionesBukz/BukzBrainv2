@@ -35,7 +35,6 @@ class WeblibScraper(BookScraper):
                     if not isbn_match(isbn, img_isbn):
                         return result
                     isbn_confirmed = True
-            result.found = True
             product_path = a.get("href") if a else None
             if product_path:
                 detail_url = self.BASE_URL + product_path
@@ -44,6 +43,7 @@ class WeblibScraper(BookScraper):
                 rd.raise_for_status()
                 ds = BeautifulSoup(rd.text, "html.parser")
                 result = self._parse_detail(ds, result)
+            result.found = isbn_confirmed or result.found
         except Exception as e:
             result.error = str(e)
         return result
