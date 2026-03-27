@@ -13,6 +13,7 @@ from services.scrap.scrapers.casadellibro import CasaDelLibroScraper
 from services.scrap.scrapers.googlebooks import GoogleBooksScraper
 from services.scrap.scrapers.harpercollins import HarperCollinsScraper
 from services.scrap.scrapers.penguinrandomhouse import PenguinRandomHouseScraper
+from services.scrap.scrapers.openlibrary import OpenLibraryScraper
 from services.scrap.merger import merge
 from services.scrap import cache_store as store
 
@@ -25,6 +26,7 @@ ALL_SCRAPERS = [
     GoogleBooksScraper(),
     HarperCollinsScraper(),
     PenguinRandomHouseScraper(),
+    OpenLibraryScraper(),
 ]
 
 

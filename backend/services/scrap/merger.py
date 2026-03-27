@@ -4,7 +4,7 @@ import statistics
 from typing import Optional
 from services.scrap.base import BookResult, MergedBook
 
-SOURCE_PRIORITY = ["casadellibro", "googlebooks", "penguinrandomhouse", "panamericana", "lerner", "tornamesa", "exlibris", "harpercollins"]
+SOURCE_PRIORITY = ["casadellibro", "googlebooks", "penguinrandomhouse", "openlibrary", "panamericana", "lerner", "tornamesa", "exlibris", "harpercollins"]
 
 FIELDS = ["titulo", "autor", "editorial", "anio", "descripcion",
           "categoria", "portada_url", "paginas", "idioma", "encuadernacion"]
