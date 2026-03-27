@@ -11,6 +11,7 @@ import io
 from typing import Optional
 
 from openpyxl import Workbook
+from openpyxl.styles import Font
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from services.scrap.base import MergedBook
@@ -144,8 +145,10 @@ def format_creacion(books: list[MergedBook]) -> bytes:
         ws.cell(row=1, column=col_idx, value=header)
 
     # Data rows
+    bold_font = Font(bold=True)
     for row_idx, book in enumerate(books, 2):
-        ws.cell(row=row_idx, column=1, value=book.titulo)
+        cell = ws.cell(row=row_idx, column=1, value=book.titulo)
+        cell.font = bold_font
         ws.cell(row=row_idx, column=2, value=book.descripcion)
         # col 3: Vendor — vacío (se llena manualmente)
         ws.cell(row=row_idx, column=4, value=book.isbn)            # SKU
