@@ -597,7 +597,7 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
         alt = str(row.get("Image Alt Text", "")) or ""
         media.append({
             "originalSource": str(img_src),
-            "altText": alt,
+            "alt": alt,
             "mediaContentType": "IMAGE",
         })
 
