@@ -546,6 +546,27 @@ mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsB
 """
 
 
+_MIN_IMAGE_SIZE = 1024  # 1 KB — placeholder images are typically < 100 bytes
+
+
+def _is_valid_image_url(url: str) -> bool:
+    """Verifica que la URL apunte a una imagen real (no un placeholder transparente)."""
+    try:
+        resp = requests.head(url, timeout=5, allow_redirects=True)
+        if resp.status_code != 200:
+            return False
+        content_length = resp.headers.get("Content-Length")
+        if content_length and int(content_length) >= _MIN_IMAGE_SIZE:
+            return True
+        # Algunos servidores no envían Content-Length en HEAD; hacer GET parcial
+        resp = requests.get(url, timeout=5, stream=True, headers={"Range": "bytes=0-1023"})
+        chunk = resp.raw.read(1024)
+        resp.close()
+        return len(chunk) >= _MIN_IMAGE_SIZE
+    except Exception:
+        return False
+
+
 def _build_product_input(row: dict) -> tuple[dict, list]:
     """Construye el input de productCreate a partir de una fila del DataFrame procesado."""
     metafields = []
@@ -590,16 +611,17 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
     if metafields:
         product_input["metafields"] = metafields
 
-    # Media (imagen)
+    # Media (imagen) — solo si la URL apunta a una imagen real (>1KB)
     media = []
     img_src = row.get("Image Src")
     if img_src and str(img_src).strip() and str(img_src).lower() != "nan":
-        alt = str(row.get("Image Alt Text", "")) or ""
-        media.append({
-            "originalSource": str(img_src),
-            "alt": alt,
-            "mediaContentType": "IMAGE",
-        })
+        if _is_valid_image_url(str(img_src)):
+            alt = str(row.get("Image Alt Text", "")) or ""
+            media.append({
+                "originalSource": str(img_src),
+                "alt": alt,
+                "mediaContentType": "IMAGE",
+            })
 
     return product_input, media
 
