@@ -524,8 +524,8 @@ def download_and_process_bulk_results(url: str) -> dict:
 # ---------------------------------------------------------------------------
 
 _PRODUCT_CREATE_MUTATION = """
-mutation productCreate($input: ProductInput!, $media: [CreateMediaInput!]) {
-  productCreate(input: $input, media: $media) {
+mutation productCreate($input: ProductInput!) {
+  productCreate(input: $input) {
     product { id title }
     userErrors { field message }
   }
@@ -533,7 +533,7 @@ mutation productCreate($input: ProductInput!, $media: [CreateMediaInput!]) {
 """
 
 
-def _build_product_input(row: dict) -> tuple[dict, list]:
+def _build_product_input(row: dict) -> dict:
     """Construye el input de productCreate a partir de una fila del DataFrame procesado."""
     metafields = []
 
@@ -561,13 +561,11 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
                 "type": mtype,
             })
 
-    # Variant
+    # Variant (dentro de ProductInput como lista)
     variant = {
         "sku": str(row.get("Variant SKU", "")),
         "barcode": str(row.get("Variant Barcode", "")),
         "taxable": False,
-        "inventoryManagement": "SHOPIFY",
-        "inventoryPolicy": "DENY",
         "requiresShipping": True,
     }
 
@@ -587,7 +585,7 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
     product_input = {
         "title": str(row.get("Title", "")),
         "handle": str(row.get("Handle", "")),
-        "bodyHtml": str(row.get("Body HTML", "") or ""),
+        "descriptionHtml": str(row.get("Body HTML", "") or ""),
         "vendor": str(row.get("Vendor", "")),
         "productType": str(row.get("Type", "Libro")),
         "status": "ACTIVE",
@@ -597,18 +595,16 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
     if metafields:
         product_input["metafields"] = metafields
 
-    # Media (imagen)
-    media = []
+    # Media (imagen) — va dentro del input, con altText
     img_src = row.get("Image Src")
     if img_src and str(img_src).strip() and str(img_src).lower() != "nan":
         alt = str(row.get("Image Alt Text", "")) or ""
-        media.append({
+        product_input["media"] = [{
             "originalSource": str(img_src),
-            "alt": alt,
-            "mediaContentType": "IMAGE",
-        })
+            "altText": alt,
+        }]
 
-    return product_input, media
+    return product_input
 
 
 def _create_single_product(session: requests.Session, row: dict) -> dict:
@@ -618,10 +614,8 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
     title = str(row.get("Title", "???"))
 
     try:
-        product_input, media = _build_product_input(row)
+        product_input = _build_product_input(row)
         variables = {"input": product_input}
-        if media:
-            variables["media"] = media
 
         response = session.post(
             graphql_url,
