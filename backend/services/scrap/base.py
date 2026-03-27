@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 
@@ -39,6 +39,13 @@ class MergedBook:
     campos_encontrados: int = 0
     found: bool = False
     alertas: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> MergedBook:
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
 class BookScraper(ABC):

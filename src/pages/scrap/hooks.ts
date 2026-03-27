@@ -4,6 +4,7 @@ import {
   enrich,
   getJobStatus,
   downloadResult,
+  downloadCreacion,
   getCacheStats,
   clearCache,
   downloadBlob,
@@ -43,6 +44,15 @@ export function useDownloadResult() {
     mutationFn: (jobId: string) => downloadResult(jobId),
     onSuccess: (blob) => {
       downloadBlob(blob, "libros_enriquecidos.xlsx");
+    },
+  });
+}
+
+export function useDownloadCreacion() {
+  return useMutation({
+    mutationFn: (jobId: string) => downloadCreacion(jobId),
+    onSuccess: (blob) => {
+      downloadBlob(blob, "Creacion_productos.xlsx");
     },
   });
 }

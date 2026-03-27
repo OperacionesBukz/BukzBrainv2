@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,16 @@ interface ResultsTableProps {
   jobStatus: JobStatus;
   onDownloadExcel: () => void;
   isDownloading: boolean;
+  onDownloadCreacion: () => void;
+  isDownloadingCreacion: boolean;
 }
 
 export default function ResultsTable({
   jobStatus,
   onDownloadExcel,
   isDownloading,
+  onDownloadCreacion,
+  isDownloadingCreacion,
 }: ResultsTableProps) {
   const [showIncomplete, setShowIncomplete] = useState(false);
 
@@ -87,6 +91,14 @@ export default function ResultsTable({
           <Button onClick={onDownloadExcel} disabled={isDownloading}>
             <Download className="mr-2 h-4 w-4" />
             {isDownloading ? "Descargando..." : "Descargar Excel enriquecido"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={onDownloadCreacion}
+            disabled={isDownloadingCreacion}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            {isDownloadingCreacion ? "Descargando..." : "Descargar para Creacion"}
           </Button>
         </div>
       </CardContent>

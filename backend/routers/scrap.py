@@ -18,6 +18,7 @@ from services.scrap.isbn import validate_isbn, normalize_isbn
 from services.scrap.runner import run as run_scraper
 from services.scrap.base import MergedBook
 from services.scrap import cache_store
+from services.scrap.formatter_creacion import format_creacion
 
 router = APIRouter(prefix="/api/scrap", tags=["Scrap Bukz"])
 
@@ -33,6 +34,7 @@ class ScrapJob:
     error: Optional[str] = None
     result_path: Optional[str] = None
     result_bytes: Optional[bytes] = None
+    books: Optional[list[MergedBook]] = None
     created_at: datetime = field(default_factory=datetime.now)
 
 
@@ -136,9 +138,15 @@ def _run_enrichment(
         except OSError:
             pass
 
+        # Keep ordered list of MergedBook for format_creacion
+        ordered_books = [books_dict.get(normalize_isbn(str(row[isbn_col]).strip()))
+                         for _, row in df_original.iterrows()]
+        found_books = [b for b in ordered_books if b is not None and b.found]
+
         with _jobs_lock:
             job.result_bytes = excel_bytes
             job.result_path = result_path
+            job.books = found_books
             job.status = "completed"
 
     except Exception as e:
@@ -226,12 +234,23 @@ def job_status(job_id: str):
 
 
 @router.get("/download/{job_id}")
-def download_result(job_id: str):
+def download_result(job_id: str, format: str = Query("raw")):
     job = _get_job(job_id)
     if job.status != "completed":
         raise HTTPException(status_code=400, detail="El job aún no ha terminado")
 
-    # Try in-memory bytes first, then disk file
+    # Formato Creacion_productos
+    if format == "creacion":
+        if not job.books:
+            raise HTTPException(status_code=400, detail="No hay datos de libros disponibles")
+        excel_bytes = format_creacion(job.books)
+        return StreamingResponse(
+            io.BytesIO(excel_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=Creacion_productos.xlsx"},
+        )
+
+    # Formato raw (default)
     if job.result_bytes:
         return StreamingResponse(
             io.BytesIO(job.result_bytes),

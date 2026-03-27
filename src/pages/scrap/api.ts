@@ -46,6 +46,13 @@ export async function downloadResult(jobId: string): Promise<Blob> {
   return handleBlobResponse(await resilientFetch(`${API_BASE}/api/scrap/download/${jobId}`));
 }
 
+// Download result in Creacion_productos format
+export async function downloadCreacion(jobId: string): Promise<Blob> {
+  return handleBlobResponse(
+    await resilientFetch(`${API_BASE}/api/scrap/download/${jobId}?format=creacion`),
+  );
+}
+
 // Cache
 export async function getCacheStats(): Promise<CacheStats> {
   return handleResponse(await resilientFetch(`${API_BASE}/api/scrap/cache/stats`));

@@ -15,6 +15,7 @@ import {
   useEnrich,
   useJobStatus,
   useDownloadResult,
+  useDownloadCreacion,
   useCacheStats,
   useClearCache,
 } from "./scrap/hooks";
@@ -24,6 +25,7 @@ export default function ScrapBukz() {
   const health = useScrapHealth();
   const enrichMutation = useEnrich();
   const downloadMutation = useDownloadResult();
+  const creacionMutation = useDownloadCreacion();
   const cacheStats = useCacheStats();
   const clearCacheMutation = useClearCache();
 
@@ -179,6 +181,8 @@ export default function ScrapBukz() {
                 jobStatus={jobStatus.data}
                 onDownloadExcel={() => downloadMutation.mutate(jobId!)}
                 isDownloading={downloadMutation.isPending}
+                onDownloadCreacion={() => creacionMutation.mutate(jobId!)}
+                isDownloadingCreacion={creacionMutation.isPending}
               />
               <Button variant="outline" onClick={handleReset}>
                 Procesar otro archivo
