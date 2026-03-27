@@ -282,11 +282,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                     role="button"
                                     tabIndex={0}
                                     onClick={() => {
-                                      if (collapsed) {
-                                        navigate(visibleWorkflowItems[0]?.path ?? "/ingreso");
-                                      } else {
-                                        setActiveSubMenu((prev) => (prev === "workflow" ? null : "workflow"));
-                                      }
+                                      setActiveSubMenu((prev) => (prev === "workflow" ? null : "workflow"));
                                     }}
                                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
                                     className={cn(
