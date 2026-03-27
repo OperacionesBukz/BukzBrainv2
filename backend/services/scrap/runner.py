@@ -4,11 +4,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 from services.scrap.base import BookResult, MergedBook
+from services.scrap.isbn import isbn_match
 from services.scrap.scrapers.tornamesa import TornameScraper
 from services.scrap.scrapers.exlibris import ExlibrisScraper
 from services.scrap.scrapers.panamericana import PanamericanaScraper
 from services.scrap.scrapers.lerner import LernerScraper
 from services.scrap.scrapers.casadellibro import CasaDelLibroScraper
+from services.scrap.scrapers.googlebooks import GoogleBooksScraper
+from services.scrap.scrapers.harpercollins import HarperCollinsScraper
+from services.scrap.scrapers.penguinrandomhouse import PenguinRandomHouseScraper
 from services.scrap.merger import merge
 from services.scrap import cache_store as store
 
@@ -18,6 +22,9 @@ ALL_SCRAPERS = [
     LernerScraper(),
     TornameScraper(),
     ExlibrisScraper(),
+    GoogleBooksScraper(),
+    HarperCollinsScraper(),
+    PenguinRandomHouseScraper(),
 ]
 
 
@@ -51,7 +58,11 @@ def run(
         for future in as_completed(future_to_key):
             isbn, source = future_to_key[future]
             try:
-                results_by_isbn[isbn].append(future.result())
+                book_result = future.result()
+                if book_result.found and not isbn_match(isbn, book_result.isbn):
+                    book_result.found = False
+                    book_result.error = f"ISBN mismatch: searched {isbn}, got {book_result.isbn}"
+                results_by_isbn[isbn].append(book_result)
             except Exception as e:
                 results_by_isbn[isbn].append(
                     BookResult(source=source, isbn=isbn, error=str(e))

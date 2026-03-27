@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 import requests
 from services.scrap.base import BookResult, BookScraper
+from services.scrap.isbn import isbn_match
 
 
 class VtexScraper(BookScraper):
@@ -20,14 +21,22 @@ class VtexScraper(BookScraper):
             if not products:
                 return result
             p = products[0]
-            result.found = True
-            result.titulo = p.get("productName")
-            result.descripcion = p.get("description") or p.get("metaTagDescription")
             props = {
                 prop["name"].lower(): prop["values"][0]
                 for prop in p.get("properties", [])
                 if prop.get("values")
             }
+            found_isbn = (props.get("isbn") or props.get("ean")
+                          or props.get("isbn13") or "")
+            if not found_isbn:
+                items_check = p.get("items", [])
+                if items_check:
+                    found_isbn = str(items_check[0].get("ean", ""))
+            if found_isbn and not isbn_match(isbn, str(found_isbn)):
+                return result
+            result.found = True
+            result.titulo = p.get("productName")
+            result.descripcion = p.get("description") or p.get("metaTagDescription")
             editorial_prop = props.get("editorial")
             brand = (p.get("brand") or "").strip()
             result.editorial = editorial_prop or brand or None

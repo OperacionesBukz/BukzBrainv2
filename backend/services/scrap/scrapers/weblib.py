@@ -3,6 +3,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from services.scrap.base import BookResult, BookScraper
+from services.scrap.isbn import isbn_match
 
 
 class WeblibScraper(BookScraper):
@@ -21,16 +22,20 @@ class WeblibScraper(BookScraper):
             if not items:
                 return result
             item = items[0]
-            result.found = True
             a = item.select_one("a.productClick")
             if a:
                 result.titulo = a.get("data-name", "").strip() or None
             img = item.select_one("img")
+            isbn_confirmed = False
             if img and img.get("src"):
                 result.portada_url = img["src"]
-                match = re.search(r"/imagenes/\d+/(\d{12})", img["src"])
+                match = re.search(r"/imagenes/\d+/(\d{12,13})", img["src"])
                 if match:
-                    result.isbn = match.group(1)
+                    img_isbn = match.group(1)
+                    if not isbn_match(isbn, img_isbn):
+                        return result
+                    isbn_confirmed = True
+            result.found = True
             product_path = a.get("href") if a else None
             if product_path:
                 detail_url = self.BASE_URL + product_path
@@ -50,6 +55,11 @@ class WeblibScraper(BookScraper):
                 dd = dt.find_next_sibling("dd")
                 return dd.get_text(strip=True) if dd else None
             return None
+
+        found_isbn = get_dd("isbn") or get_dd("ean")
+        if found_isbn and not isbn_match(result.isbn, found_isbn):
+            result.found = False
+            return result
 
         result.autor = get_dd("autor") or result.autor
         result.editorial = get_dd("editorial") or result.editorial

@@ -3,6 +3,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from services.scrap.base import BookResult, BookScraper
+from services.scrap.isbn import isbn_match
 
 
 class ExlibrisScraper(BookScraper):
@@ -25,7 +26,6 @@ class ExlibrisScraper(BookScraper):
                 return result
 
             item = items[0]
-            result.found = True
 
             # Title from dd.title a
             title_el = item.select_one("dd.title a")
@@ -50,6 +50,8 @@ class ExlibrisScraper(BookScraper):
             # Detail page URL
             detail_path = title_el.get("href") if title_el else None
 
+            result.found = True
+
             # 2. Fetch detail page for richer fields
             if detail_path:
                 detail_url = self.BASE_URL + detail_path
@@ -72,6 +74,11 @@ class ExlibrisScraper(BookScraper):
                 dd = dt.find_next_sibling("dd")
                 return dd.get_text(strip=True) if dd else None
             return None
+
+        found_isbn = get_dd("isbn") or get_dd("ean")
+        if found_isbn and not isbn_match(result.isbn, found_isbn):
+            result.found = False
+            return result
 
         result.editorial = get_dd("editorial") or result.editorial
         result.categoria = get_dd("materia") or get_dd("tema") or result.categoria

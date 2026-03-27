@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 import requests
 from services.scrap.base import BookResult, BookScraper
+from services.scrap.isbn import isbn_match
 
 
 class CasaDelLibroScraper(BookScraper):
@@ -24,6 +25,9 @@ class CasaDelLibroScraper(BookScraper):
             if not items:
                 return result
             p = items[0]
+            found_isbn = str(p.get("isbn") or p.get("ean") or p.get("isbn13") or "")
+            if found_isbn and not isbn_match(isbn, found_isbn):
+                return result
             result.found = True
             result.titulo = p.get("name") or p.get("__name")
             result.autor = (p.get("author") or p.get("autor")
