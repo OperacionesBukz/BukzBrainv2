@@ -147,7 +147,7 @@ def format_creacion(books: list[MergedBook]) -> bytes:
     for row_idx, book in enumerate(books, 2):
         ws.cell(row=row_idx, column=1, value=book.titulo)
         ws.cell(row=row_idx, column=2, value=book.descripcion)
-        ws.cell(row=row_idx, column=3, value=book.editorial)       # Vendor
+        # col 3: Vendor — vacío (se llena manualmente)
         ws.cell(row=row_idx, column=4, value=book.isbn)            # SKU
         # col 5: peso (kg) — vacío
         # col 6: Precio — vacío
