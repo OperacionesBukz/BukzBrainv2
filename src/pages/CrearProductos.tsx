@@ -5,6 +5,9 @@ import {
   Download,
   Loader2,
   Rocket,
+  ShoppingCart,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -18,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -31,8 +35,10 @@ import FileUploadZone from "./ingreso/FileUploadZone";
 import {
   useHealthCheck,
   useProcessCreateProducts,
+  useCreateProductsInShopify,
 } from "./ingreso/hooks";
 import { downloadTemplate, downloadBlob } from "./ingreso/api";
+import type { ShopifyCreateResponse } from "./ingreso/types";
 import * as XLSX from "xlsx";
 
 interface PreviewRow {
@@ -42,16 +48,21 @@ interface PreviewRow {
 export default function CrearProductos() {
   const health = useHealthCheck();
   const processMutation = useProcessCreateProducts();
+  const shopifyMutation = useCreateProductsInShopify();
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [shopifyResult, setShopifyResult] =
+    useState<ShopifyCreateResponse | null>(null);
 
   const handleFileSelected = (f: File) => {
     setFile(f);
     processMutation.reset();
+    shopifyMutation.reset();
+    setShopifyResult(null);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -97,6 +108,30 @@ export default function CrearProductos() {
       onError: (err) => {
         toast.error(
           err instanceof Error ? err.message : "Error al procesar productos",
+        );
+      },
+    });
+  };
+
+  const handleCreateInShopify = () => {
+    if (!file) return;
+    setShopifyResult(null);
+    shopifyMutation.mutate(file, {
+      onSuccess: (data) => {
+        setShopifyResult(data);
+        if (data.failed === 0) {
+          toast.success(`${data.created} producto${data.created !== 1 ? "s" : ""} creado${data.created !== 1 ? "s" : ""} en Shopify`);
+        } else {
+          toast.warning(
+            `${data.created} creados, ${data.failed} con errores`,
+          );
+        }
+      },
+      onError: (err) => {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Error al crear productos en Shopify",
         );
       },
     });
@@ -184,9 +219,7 @@ export default function CrearProductos() {
       {/* Paso 2: Subir Archivo */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
-            Paso 2 — Subir Archivo
-          </CardTitle>
+          <CardTitle className="text-lg">Paso 2 — Subir Archivo</CardTitle>
           <CardDescription>
             Sube el archivo Excel con los datos de productos. Columnas
             obligatorias: <strong>Titulo</strong>, <strong>SKU</strong>,{" "}
@@ -250,7 +283,7 @@ export default function CrearProductos() {
         </CardContent>
       </Card>
 
-      {/* Paso 3: Procesar */}
+      {/* Paso 3: Procesar y Descargar */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -292,6 +325,115 @@ export default function CrearProductos() {
                 El archivo fue procesado y descargado exitosamente.
               </AlertDescription>
             </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Paso 4: Crear en Shopify */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">
+            Paso 4 — Crear en Shopify
+          </CardTitle>
+          <CardDescription>
+            Crea los productos directamente en Shopify a partir del archivo
+            subido. El sistema transforma y envía cada producto
+            automáticamente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button
+            onClick={handleCreateInShopify}
+            disabled={!file || shopifyMutation.isPending}
+            variant="default"
+          >
+            {shopifyMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ShoppingCart className="mr-2 h-4 w-4" />
+            )}
+            {shopifyMutation.isPending
+              ? "Creando productos..."
+              : "Crear en Shopify"}
+          </Button>
+
+          {shopifyMutation.isPending && (
+            <div className="space-y-2">
+              <Progress value={undefined} className="h-2" />
+              <p className="text-sm text-muted-foreground">
+                Creando {totalRows} producto{totalRows !== 1 && "s"} en
+                Shopify...
+              </p>
+            </div>
+          )}
+
+          {shopifyMutation.isError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {shopifyMutation.error instanceof Error
+                  ? shopifyMutation.error.message
+                  : "Error al crear productos en Shopify"}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {shopifyResult && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant={shopifyResult.failed === 0 ? "default" : "secondary"}
+                >
+                  {shopifyResult.created} creado
+                  {shopifyResult.created !== 1 && "s"}
+                </Badge>
+                {shopifyResult.failed > 0 && (
+                  <Badge variant="destructive">
+                    {shopifyResult.failed} con errores
+                  </Badge>
+                )}
+                <Badge variant="outline">{shopifyResult.total} total</Badge>
+              </div>
+
+              <ScrollArea className="w-full max-h-[400px] rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]">Estado</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Detalle</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {shopifyResult.results.map((r, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          {r.success ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {r.sku}
+                        </TableCell>
+                        <TableCell className="max-w-[250px] truncate">
+                          {r.title}
+                        </TableCell>
+                        <TableCell className="max-w-[300px] text-sm text-muted-foreground truncate">
+                          {r.success
+                            ? r.shopify_id?.split("/").pop() ?? "OK"
+                            : r.error}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -519,6 +519,167 @@ def download_and_process_bulk_results(url: str) -> dict:
     return sales_by_sku
 
 
+# ---------------------------------------------------------------------------
+# Creación de productos
+# ---------------------------------------------------------------------------
+
+_PRODUCT_CREATE_MUTATION = """
+mutation productCreate($input: ProductInput!, $media: [CreateMediaInput!]) {
+  productCreate(input: $input, media: $media) {
+    product { id title }
+    userErrors { field message }
+  }
+}
+"""
+
+
+def _build_product_input(row: dict) -> tuple[dict, list]:
+    """Construye el input de productCreate a partir de una fila del DataFrame procesado."""
+    metafields = []
+
+    # Mapeo de columnas de metafield a namespace/key/type
+    _METAFIELD_COLS = {
+        "Metafield: custom.autor [single_line_text_field]": ("custom", "autor", "single_line_text_field"),
+        "Metafield: custom.idioma [list.single_line_text_field]": ("custom", "idioma", "list.single_line_text_field"),
+        "Metafield: custom.formato [list.single_line_text_field]": ("custom", "formato", "list.single_line_text_field"),
+        "Metafield: custom.alto [dimension]": ("custom", "alto", "dimension"),
+        "Metafield: custom.ancho [dimension]": ("custom", "ancho", "dimension"),
+        "Metafield: custom.editorial [single_line_text_field]": ("custom", "editorial", "single_line_text_field"),
+        "Metafield: custom.numero_de_paginas [number_integer]": ("custom", "numero_de_paginas", "number_integer"),
+        "Metafield: custom.ilustrador [single_line_text_field]": ("custom", "ilustrador", "single_line_text_field"),
+        "Metafield: custom.categoria [single_line_text_field]": ("custom", "categoria", "single_line_text_field"),
+        "Metafield: custom.subcategoria [single_line_text_field]": ("custom", "subcategoria", "single_line_text_field"),
+    }
+
+    for col, (ns, key, mtype) in _METAFIELD_COLS.items():
+        val = row.get(col)
+        if val is not None and str(val).strip() and str(val).lower() != "nan":
+            metafields.append({
+                "namespace": ns,
+                "key": key,
+                "value": str(val),
+                "type": mtype,
+            })
+
+    # Variant
+    variant = {
+        "sku": str(row.get("Variant SKU", "")),
+        "barcode": str(row.get("Variant Barcode", "")),
+        "taxable": False,
+        "inventoryManagement": "SHOPIFY",
+        "inventoryPolicy": "DENY",
+        "requiresShipping": True,
+    }
+
+    price = row.get("Variant Price")
+    if price is not None and str(price).lower() != "nan":
+        variant["price"] = str(price)
+
+    compare_price = row.get("Variant Compare At Price")
+    if compare_price is not None and str(compare_price).lower() != "nan":
+        variant["compareAtPrice"] = str(compare_price)
+
+    weight = row.get("Variant Weight")
+    if weight is not None and str(weight).lower() != "nan":
+        variant["weight"] = float(weight)
+        variant["weightUnit"] = "KILOGRAMS"
+
+    product_input = {
+        "title": str(row.get("Title", "")),
+        "handle": str(row.get("Handle", "")),
+        "bodyHtml": str(row.get("Body HTML", "") or ""),
+        "vendor": str(row.get("Vendor", "")),
+        "productType": str(row.get("Type", "Libro")),
+        "status": "ACTIVE",
+        "variants": [variant],
+    }
+
+    if metafields:
+        product_input["metafields"] = metafields
+
+    # Media (imagen)
+    media = []
+    img_src = row.get("Image Src")
+    if img_src and str(img_src).strip() and str(img_src).lower() != "nan":
+        alt = str(row.get("Image Alt Text", "")) or ""
+        media.append({
+            "originalSource": str(img_src),
+            "alt": alt,
+            "mediaContentType": "IMAGE",
+        })
+
+    return product_input, media
+
+
+def _create_single_product(session: requests.Session, row: dict) -> dict:
+    """Crea un único producto en Shopify. Retorna resultado con estado."""
+    graphql_url = settings.get_graphql_url()
+    sku = str(row.get("Variant SKU", "???"))
+    title = str(row.get("Title", "???"))
+
+    try:
+        product_input, media = _build_product_input(row)
+        variables = {"input": product_input}
+        if media:
+            variables["media"] = media
+
+        response = session.post(
+            graphql_url,
+            json={"query": _PRODUCT_CREATE_MUTATION, "variables": variables},
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+            return {"sku": sku, "title": title, "success": False, "error": f"HTTP {response.status_code}"}
+
+        data = response.json()
+
+        if "errors" in data:
+            error_msg = "; ".join(e.get("message", "") for e in data["errors"])
+            return {"sku": sku, "title": title, "success": False, "error": error_msg}
+
+        result = data.get("data", {}).get("productCreate", {})
+        user_errors = result.get("userErrors", [])
+        if user_errors:
+            error_msg = "; ".join(e.get("message", "") for e in user_errors)
+            return {"sku": sku, "title": title, "success": False, "error": error_msg}
+
+        product = result.get("product", {})
+        return {
+            "sku": sku,
+            "title": title,
+            "success": True,
+            "shopify_id": product.get("id", ""),
+        }
+
+    except Exception as e:
+        return {"sku": sku, "title": title, "success": False, "error": str(e)}
+
+
+def create_products_batch(rows: list[dict]) -> list[dict]:
+    """
+    Crea productos en Shopify con concurrencia.
+    rows: lista de dicts (filas del DataFrame procesado).
+    Retorna lista de resultados por producto.
+    """
+    headers = settings.get_shopify_headers()
+    session = requests.Session()
+    session.headers.update(headers)
+
+    results = []
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(_create_single_product, session, row): i
+            for i, row in enumerate(rows)
+        }
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    # Ordenar por SKU para consistencia
+    results.sort(key=lambda r: r.get("sku", ""))
+    return results
+
+
 def load_sales_sync() -> tuple[dict | None, str | None]:
     """
     Carga ventas usando Bulk Operations de forma síncrona.

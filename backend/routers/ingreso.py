@@ -468,3 +468,51 @@ async def crear_productos(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error al procesar: {e}")
 
     return _dataframe_to_excel_response(result, "resultado_crear_productos.xlsx")
+
+
+@router.post("/productos/shopify")
+async def crear_productos_shopify(file: UploadFile = File(...)):
+    """
+    Sube un Excel con la plantilla de creación de productos (18 columnas).
+    Transforma y crea los productos directamente en Shopify.
+    Retorna JSON con resultados por producto.
+    """
+    content = await file.read()
+    try:
+        df = pd.read_excel(BytesIO(content), sheet_name="Products")
+    except Exception:
+        df = pd.read_excel(BytesIO(content))
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    required = ["Titulo", "SKU", "Vendor"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Columnas requeridas faltantes: {', '.join(missing)}",
+        )
+
+    try:
+        processed = _procesar_creacion_productos(df)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar: {e}")
+
+    # Convertir DataFrame a lista de dicts para el servicio
+    rows = processed.to_dict(orient="records")
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    results = await loop.run_in_executor(
+        None, shopify_service.create_products_batch, rows
+    )
+
+    created = sum(1 for r in results if r["success"])
+    failed = sum(1 for r in results if not r["success"])
+
+    return {
+        "total": len(results),
+        "created": created,
+        "failed": failed,
+        "results": results,
+    }

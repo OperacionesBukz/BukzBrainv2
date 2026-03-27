@@ -36,6 +36,21 @@ export interface SalesLoadResponse {
   loaded_at: string;
 }
 
+export interface ShopifyCreateResult {
+  sku: string;
+  title: string;
+  success: boolean;
+  error?: string;
+  shopify_id?: string;
+}
+
+export interface ShopifyCreateResponse {
+  total: number;
+  created: number;
+  failed: number;
+  results: ShopifyCreateResult[];
+}
+
 export interface SalesStatusResponse {
   cache: {
     loaded: boolean;

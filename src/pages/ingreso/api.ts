@@ -5,6 +5,7 @@ import {
   type LocationItem,
   type SalesLoadResponse,
   type SalesStatusResponse,
+  type ShopifyCreateResponse,
 } from "./types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -124,6 +125,19 @@ export async function processCreateProducts(file: File): Promise<Blob> {
   form.append("file", file);
   return handleBlobResponse(
     await resilientFetch(`${API_BASE}/api/ingreso/productos/crear`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+export async function createProductsInShopify(
+  file: File,
+): Promise<ShopifyCreateResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/productos/shopify`, {
       method: "POST",
       body: form,
     }),

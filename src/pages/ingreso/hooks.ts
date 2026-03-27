@@ -8,6 +8,7 @@ import {
   getSalesStatus,
   inventoryExcel,
   processCreateProducts,
+  createProductsInShopify,
   downloadBlob,
 } from "./api";
 
@@ -70,6 +71,12 @@ export function useSalesStatus(enabled: boolean) {
 export function useProcessCreateProducts() {
   return useMutation({
     mutationFn: (file: File) => processCreateProducts(file),
+  });
+}
+
+export function useCreateProductsInShopify() {
+  return useMutation({
+    mutationFn: (file: File) => createProductsInShopify(file),
   });
 }
 
