@@ -24,6 +24,7 @@ const Reposicion = lazyWithReload(() => import("./pages/Reposicion"));
 const Celesa = lazyWithReload(() => import("./pages/Celesa"));
 const IngresoMercancia = lazyWithReload(() => import("./pages/IngresoMercancia"));
 const ScrapBukz = lazyWithReload(() => import("./pages/ScrapBukz"));
+const CrearProductos = lazyWithReload(() => import("./pages/CrearProductos"));
 const Cortes = lazyWithReload(() => import("./pages/Cortes"));
 const EnvioCortes = lazyWithReload(() => import("./pages/EnvioCortes"));
 const CortePenguin = lazyWithReload(() => import("./pages/CortePenguin"));
@@ -88,6 +89,7 @@ const App = () => {
                               <Route path="/celesa" element={<Celesa />} />
                               <Route path="/ingreso" element={<IngresoMercancia />} />
                               <Route path="/scrap" element={<ScrapBukz />} />
+                              <Route path="/crear-productos" element={<CrearProductos />} />
                               <Route path="/cortes" element={<Cortes />} />
                               <Route path="/envio-cortes" element={<EnvioCortes />} />
                               <Route path="/corte-penguin" element={<CortePenguin />} />

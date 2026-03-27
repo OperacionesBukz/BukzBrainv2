@@ -1,9 +1,12 @@
 """
 Router de IngresoMercancia — endpoints para consulta de productos, inventario y ventas.
 """
+import json
 import os
+import unicodedata
 from io import BytesIO
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -323,3 +326,145 @@ def _dataframe_to_excel_response(df: pd.DataFrame, filename: str) -> StreamingRe
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Crear Productos — transformación a formato Shopify
+# ---------------------------------------------------------------------------
+
+def _unidecode(text: str) -> str:
+    """Elimina acentos y caracteres especiales, convierte a ASCII."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
+_IDIOMA_MAP = {
+    "Español": '["Español"]', "Ingles": '["Ingles"]', "Frances": '["Frances"]',
+    "Italiano": '["Italiano"]', "Portugues": '["Portugues"]', "Aleman": '["Aleman"]',
+    "Bilingue (Español-Ingles)": '["Bilingue (Español-Ingles)"]',
+    "Bilingue (Español-Portugues)": '["Bilingue (Español-Portugues)"]',
+    "Vasco": '["Vasco"]', "Gallego": '["Gallego"]', "Latin": '["Latin"]',
+    "Ruso": '["Ruso"]', "Arabe": '["Arabe"]', "Chino": '["Chino"]',
+    "Japones": '["Japones"]', "Catalan": '["Catalan"]', "Rumano": '["Rumano"]',
+    "Holandes": '["Holandes"]', "Bulgaro": '["Bulgaro"]', "Griego": '["Griego"]',
+    "Polaco": '["Polaco"]', "Checo": '["Checo"]', "Sueco": '["Sueco"]',
+}
+
+_FORMATO_MAP = {
+    "Tapa Dura": '["Tapa Dura"]', "Tapa Blanda": '["Tapa Blanda"]',
+    "Bolsillo": '["Bolsillo"]', "Libro de lujo": '["Libro de lujo"]',
+    "Espiral": '["Espiral"]', "Tela": '["Tela"]', "Grapado": '["Grapado"]',
+    "Fasciculo Encuadernable": '["Fasciculo Encuadernable"]',
+    "Troquelado": '["Troquelado"]', "Anillas": '["Anillas"]', "Otros": '["Otros"]',
+}
+
+
+def _procesar_creacion_productos(src: pd.DataFrame) -> pd.DataFrame:
+    """Transforma un DataFrame con la plantilla de 18 columnas al formato Shopify."""
+    df = pd.DataFrame()
+
+    df["Title"] = src["Titulo"].str.title()
+    df["Command"] = "NEW"
+    df["Body HTML"] = src.get("Sipnosis", pd.Series(dtype=str))
+
+    variant_sku = src["SKU"].apply(lambda x: str(x).replace(".0", ""))
+
+    df["Handle"] = (
+        df["Title"]
+        .str.lower()
+        .apply(lambda x: _unidecode(x) if isinstance(x, str) else x)
+        .str.replace(r"[^\w\s]+", "", regex=True)
+        .str.replace(" ", "-")
+        + "-"
+        + variant_sku
+    )
+
+    df["Vendor"] = src["Vendor"]
+    df["Type"] = "Libro"
+    df["Tags"] = pd.Series(dtype=str, index=src.index)
+    df["Status"] = "Active"
+    df["Published"] = "TRUE"
+    df["Published Scope"] = "global"
+    df["Gift Card"] = "FALSE"
+    df["Row #"] = 1
+    df["Top Row"] = "TRUE"
+    df["Option1 Name"] = "Title"
+    df["Option1 Value"] = "Default Title"
+    df["Option2 Name"] = pd.Series(dtype=str, index=src.index)
+    df["Option2 Value"] = pd.Series(dtype=str, index=src.index)
+    df["Option3 Name"] = pd.Series(dtype=str, index=src.index)
+    df["Option3 Value"] = pd.Series(dtype=str, index=src.index)
+    df["Variant Position"] = pd.Series(dtype=str, index=src.index)
+    df["Variant SKU"] = variant_sku
+    df["Variant Barcode"] = variant_sku
+    df["Image Src"] = src.get("Portada (URL)", pd.Series(dtype=str))
+    df["Variant Price"] = src.get("Precio")
+    df["Variant Compare At Price"] = src.get("Precio de comparacion")
+    df["Variant Taxable"] = "FALSE"
+    df["Variant Tax Code"] = pd.Series(dtype=str, index=src.index)
+    df["Variant Inventory Tracker"] = "shopify"
+    df["Variant Inventory Policy"] = "deny"
+    df["Variant Fulfillment Service"] = "manual"
+    df["Variant Requires Shipping"] = "TRUE"
+    df["Variant Weight"] = src.get("peso (kg)")
+    df["Variant Weight Unit"] = df["Variant Weight"].apply(
+        lambda x: "kg" if pd.notnull(x) else np.nan
+    )
+
+    # Metafields
+    df["Metafield: custom.autor [single_line_text_field]"] = (
+        src.get("Autor", pd.Series(dtype=str)).fillna("").str.title()
+    )
+    df["Metafield: custom.idioma [list.single_line_text_field]"] = (
+        src.get("Idioma", pd.Series(dtype=str)).apply(lambda x: _IDIOMA_MAP.get(x, x))
+    )
+    df["Metafield: custom.formato [list.single_line_text_field]"] = (
+        src.get("Formato", pd.Series(dtype=str)).apply(lambda x: _FORMATO_MAP.get(x, x))
+    )
+    df["Metafield: custom.alto [dimension]"] = src.get("Alto", pd.Series(dtype=float)).apply(
+        lambda x: np.nan if pd.isna(x) else json.dumps({"value": x, "unit": "cm"})
+    )
+    df["Metafield: custom.ancho [dimension]"] = src.get("Ancho", pd.Series(dtype=float)).apply(
+        lambda x: np.nan if pd.isna(x) else json.dumps({"value": x, "unit": "cm"})
+    )
+    df["Metafield: custom.editorial [single_line_text_field]"] = (
+        src.get("Editorial", pd.Series(dtype=str)).fillna("").str.title()
+    )
+    df["Metafield: custom.numero_de_paginas [number_integer]"] = src.get("Numero de paginas")
+    df["Metafield: custom.ilustrador [single_line_text_field]"] = src.get("Ilustrador")
+    df["Metafield: custom.categoria [single_line_text_field]"] = src.get("Categoria")
+    df["Metafield: custom.subcategoria [single_line_text_field]"] = src.get("Subcategoria")
+
+    df["Image Alt Text"] = "Libro " + df["Title"] + " " + df["Variant SKU"]
+
+    return df
+
+
+@router.post("/productos/crear")
+async def crear_productos(file: UploadFile = File(...)):
+    """
+    Sube un Excel con la plantilla de creación de productos (18 columnas).
+    Retorna Excel transformado al formato de importación Shopify.
+    """
+    content = await file.read()
+    try:
+        df = pd.read_excel(BytesIO(content), sheet_name="Products")
+    except Exception:
+        df = pd.read_excel(BytesIO(content))
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    required = ["Titulo", "SKU", "Vendor"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Columnas requeridas faltantes: {', '.join(missing)}",
+        )
+
+    try:
+        result = _procesar_creacion_productos(df)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar: {e}")
+
+    return _dataframe_to_excel_response(result, "resultado_crear_productos.xlsx")

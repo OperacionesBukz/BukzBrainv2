@@ -116,6 +116,21 @@ export async function downloadTemplate(
 }
 
 // ---------------------------------------------------------------------------
+// Crear Productos
+// ---------------------------------------------------------------------------
+
+export async function processCreateProducts(file: File): Promise<Blob> {
+  const form = new FormData();
+  form.append("file", file);
+  return handleBlobResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/productos/crear`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

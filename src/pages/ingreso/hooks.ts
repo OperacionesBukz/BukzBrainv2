@@ -7,6 +7,7 @@ import {
   loadSales,
   getSalesStatus,
   inventoryExcel,
+  processCreateProducts,
   downloadBlob,
 } from "./api";
 
@@ -63,6 +64,12 @@ export function useSalesStatus(enabled: boolean) {
       if (data?.cache.loaded) return false;
       return 5000;
     },
+  });
+}
+
+export function useProcessCreateProducts() {
+  return useMutation({
+    mutationFn: (file: File) => processCreateProducts(file),
   });
 }
 

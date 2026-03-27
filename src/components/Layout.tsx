@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   HelpCircle,
   PackageSearch,
+  PackagePlus,
   SearchCode,
   Scissors,
   GitBranchPlus,
@@ -75,6 +76,7 @@ const workflowSubCategories = [
     category: "Ingresos",
     items: [
       { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch },
+      { title: "Crear Productos", path: "/crear-productos", icon: PackagePlus },
       { title: "Scrap Bukz", path: "/scrap", icon: SearchCode },
     ],
   },
