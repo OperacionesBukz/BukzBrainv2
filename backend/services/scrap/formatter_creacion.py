@@ -141,14 +141,14 @@ def format_creacion(books: list[MergedBook]) -> bytes:
     ws.title = "Products"
 
     # Headers
+    header_font = Font(bold=True)
     for col_idx, header in enumerate(PRODUCTS_COLUMNS, 1):
-        ws.cell(row=1, column=col_idx, value=header)
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
 
     # Data rows
-    bold_font = Font(bold=True)
     for row_idx, book in enumerate(books, 2):
-        cell = ws.cell(row=row_idx, column=1, value=book.titulo)
-        cell.font = bold_font
+        ws.cell(row=row_idx, column=1, value=book.titulo)
         ws.cell(row=row_idx, column=2, value=book.descripcion)
         # col 3: Vendor — vacío (se llena manualmente)
         ws.cell(row=row_idx, column=4, value=book.isbn)            # SKU
