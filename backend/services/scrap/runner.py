@@ -72,7 +72,8 @@ def run(
 
     for isbn in uncached:
         merged = merge(results_by_isbn[isbn])
-        store.write(isbn, merged)
+        if merged.found:
+            store.write(isbn, merged)
         if progress_cb:
             progress_cb(isbn, merged)
         results.append(merged)
