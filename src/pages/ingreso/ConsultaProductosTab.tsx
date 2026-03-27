@@ -10,6 +10,7 @@ import { useSearchByIsbn, useSearchByExcel } from "./hooks";
 import { downloadBlob } from "./api";
 import SearchResultsTable from "./SearchResultsTable";
 import FileUploadZone from "./FileUploadZone";
+import InventoryPreview from "./InventoryPreview";
 import type { ProductSearchResult } from "./types";
 
 function esc(s: string): string {
@@ -169,25 +170,21 @@ export default function ConsultaProductosTab() {
 
           {bulkMutation.isPending && <Progress className="animate-pulse" />}
 
-          <div className="flex gap-2">
-            <Button
-              onClick={handleBulkSearch}
-              disabled={!bulkFile || bulkMutation.isPending}
-            >
-              {bulkMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-2 h-4 w-4" />
-              )}
-              Consultar Información
-            </Button>
-
-            {bulkBlob && (
-              <Button variant="outline" onClick={handleDownloadBulk}>
-                Descargar Excel
-              </Button>
+          <Button
+            onClick={handleBulkSearch}
+            disabled={!bulkFile || bulkMutation.isPending}
+          >
+            {bulkMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="mr-2 h-4 w-4" />
             )}
-          </div>
+            Consultar Información
+          </Button>
+
+          {bulkBlob && (
+            <InventoryPreview blob={bulkBlob} onDownload={handleDownloadBulk} />
+          )}
 
           {bulkMutation.isError && (
             <p className="text-sm text-destructive">
