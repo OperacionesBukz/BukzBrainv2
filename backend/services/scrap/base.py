@@ -38,6 +38,7 @@ class MergedBook:
     fuente_primaria: str = ""
     campos_encontrados: int = 0
     found: bool = False
+    alertas: str = ""
 
 
 class BookScraper(ABC):

@@ -83,6 +83,7 @@ META_COLS = [
     "titulo", "autor", "editorial", "anio", "descripcion",
     "categoria", "portada_url", "paginas", "idioma",
     "encuadernacion", "fuente_primaria", "campos_encontrados",
+    "alertas",
 ]
 
 

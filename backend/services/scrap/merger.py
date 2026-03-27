@@ -1,6 +1,8 @@
 from __future__ import annotations
 import datetime
+import re
 import statistics
+import unicodedata
 from typing import Optional
 from services.scrap.base import BookResult, MergedBook
 
@@ -60,6 +62,98 @@ def _merge_paginas(values: list[tuple[str, int]]) -> Optional[int]:
     return int(round(statistics.median(nums)))
 
 
+def _normalize_text(text: str) -> str:
+    """Normaliza texto para comparación: minúsculas, sin acentos, sin puntuación."""
+    text = text.lower().strip()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = re.sub(r"[^a-z0-9\s]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _extract_keywords(text: str) -> set[str]:
+    """Extrae palabras clave ignorando artículos y conectores."""
+    stop = {"the", "el", "la", "los", "las", "de", "del", "y", "and", "or", "a", "an",
+            "editorial", "ediciones", "grupo", "publishing", "group", "books", "press",
+            "inc", "llc", "ltd", "s a", "sa", "co"}
+    words = _normalize_text(text).split()
+    return {w for w in words if w not in stop and len(w) > 1}
+
+
+def _authors_match(a: str, b: str) -> bool:
+    """Compara autores considerando orden invertido y variantes."""
+    if _normalize_text(a) == _normalize_text(b):
+        return True
+    kw_a = _extract_keywords(a)
+    kw_b = _extract_keywords(b)
+    if not kw_a or not kw_b:
+        return True
+    overlap = len(kw_a & kw_b)
+    min_len = min(len(kw_a), len(kw_b))
+    return overlap >= min_len * 0.5
+
+
+def _publishers_match(a: str, b: str) -> bool:
+    """Compara editoriales ignorando 'Editorial', 'Group', etc."""
+    kw_a = _extract_keywords(a)
+    kw_b = _extract_keywords(b)
+    if not kw_a or not kw_b:
+        return True
+    return len(kw_a & kw_b) > 0
+
+
+def _cross_validate(results: list[BookResult]) -> list[str]:
+    """Validación cruzada entre fuentes. Devuelve lista de alertas."""
+    found = [r for r in results if r.found]
+    if len(found) < 2:
+        return []
+
+    alertas = []
+
+    # Validar autores
+    autores = [(r.source, r.autor) for r in found if r.autor]
+    if len(autores) >= 2:
+        base_source, base_autor = autores[0]
+        for source, autor in autores[1:]:
+            if not _authors_match(base_autor, autor):
+                alertas.append(
+                    f"Autor difiere: {base_source}=\"{base_autor}\" vs {source}=\"{autor}\""
+                )
+                break
+
+    # Validar editoriales
+    editoriales = [(r.source, r.editorial) for r in found if r.editorial]
+    if len(editoriales) >= 2:
+        base_source, base_ed = editoriales[0]
+        for source, ed in editoriales[1:]:
+            if not _publishers_match(base_ed, ed):
+                alertas.append(
+                    f"Editorial difiere: {base_source}=\"{base_ed}\" vs {source}=\"{ed}\""
+                )
+                break
+
+    # Validar páginas (tolerancia ±20%)
+    paginas = [(r.source, r.paginas) for r in found
+               if r.paginas and isinstance(r.paginas, int) and r.paginas > 0]
+    if len(paginas) >= 2:
+        values = [p for _, p in paginas]
+        min_p, max_p = min(values), max(values)
+        if min_p > 0 and (max_p - min_p) / min_p > 0.2:
+            pairs = ", ".join(f"{s}={p}" for s, p in paginas)
+            alertas.append(f"Paginas difieren >20%: {pairs}")
+
+    # Validar año
+    anios = [(r.source, r.anio) for r in found
+             if r.anio and isinstance(r.anio, int)]
+    if len(anios) >= 2:
+        values = [a for _, a in anios]
+        if max(values) - min(values) > 2:
+            pairs = ", ".join(f"{s}={a}" for s, a in anios)
+            alertas.append(f"Anio difiere >2: {pairs}")
+
+    return alertas
+
+
 def merge(results: list[BookResult]) -> MergedBook:
     if not results:
         return MergedBook(isbn="", found=False)
@@ -95,6 +189,9 @@ def merge(results: list[BookResult]) -> MergedBook:
     found = any(r.found for r in results)
     fuente = sorted_results[0].source if sorted_results else ""
 
+    alertas_list = _cross_validate(sorted_results)
+    alertas_str = " | ".join(alertas_list) if alertas_list else ""
+
     return MergedBook(
         isbn=isbn,
         titulo=titulo, autor=autor, editorial=editorial, anio=anio,
@@ -103,4 +200,5 @@ def merge(results: list[BookResult]) -> MergedBook:
         fuente_primaria=fuente,
         campos_encontrados=campos,
         found=found,
+        alertas=alertas_str,
     )
