@@ -31,6 +31,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -231,6 +237,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full">
       {/* Sidebar - solo desktop */}
+      <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
           "fixed top-0 bottom-0 left-0 z-30 flex flex-col bg-sidebar transition-all duration-300",
@@ -268,87 +275,114 @@ export function Layout({ children }: { children: ReactNode }) {
                             className={cn("space-y-1", snapshot.isDragging && "opacity-80 rounded-lg bg-sidebar shadow-lg")}
                           >
                             {isSubMenuTrigger ? (
-                              <div
-                                id={item.tourId}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  if (collapsed) {
-                                    navigate(visibleWorkflowItems[0]?.path ?? "/ingreso");
-                                  } else {
-                                    setActiveSubMenu((prev) => (prev === "workflow" ? null : "workflow"));
-                                  }
-                                }}
-                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
-                                className={cn(
-                                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out cursor-pointer select-none",
-                                  isActive
-                                    ? "bg-primary/15 text-foreground"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    id={item.tourId}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                      if (collapsed) {
+                                        navigate(visibleWorkflowItems[0]?.path ?? "/ingreso");
+                                      } else {
+                                        setActiveSubMenu((prev) => (prev === "workflow" ? null : "workflow"));
+                                      }
+                                    }}
+                                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
+                                    className={cn(
+                                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out cursor-pointer select-none",
+                                      isActive
+                                        ? "bg-primary/15 text-foreground"
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    )}
+                                  >
+                                    <item.icon
+                                      className={cn(
+                                        "h-4 w-4 shrink-0 transition-transform duration-200",
+                                        isActive && "text-foreground"
+                                      )}
+                                    />
+                                    {!collapsed && <span className="flex-1 text-left">{item.title}</span>}
+                                  </div>
+                                </TooltipTrigger>
+                                {collapsed && (
+                                  <TooltipContent side="right">
+                                    {item.title}
+                                  </TooltipContent>
                                 )}
-                              >
-                                <item.icon
-                                  className={cn(
-                                    "h-4 w-4 shrink-0 transition-transform duration-200",
-                                    isActive && "text-foreground"
-                                  )}
-                                />
-                                {!collapsed && <span className="flex-1 text-left">{item.title}</span>}
-                              </div>
+                              </Tooltip>
                             ) : hasSubItems ? (
-                              <button
-                                id={item.tourId}
-                                onClick={() => {
-                                  setExpandedPaths((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(item.path)) { next.delete(item.path); } else { next.add(item.path); }
-                                    return next;
-                                  });
-                                  navigate(item.path);
-                                }}
-                                className={cn(
-                                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                                  isActive
-                                    ? "bg-primary/15 text-foreground"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    id={item.tourId}
+                                    onClick={() => {
+                                      setExpandedPaths((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(item.path)) { next.delete(item.path); } else { next.add(item.path); }
+                                        return next;
+                                      });
+                                      navigate(item.path);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                      isActive
+                                        ? "bg-primary/15 text-foreground"
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    )}
+                                  >
+                                    <item.icon
+                                      className={cn(
+                                        "h-4 w-4 shrink-0 transition-transform duration-200",
+                                        isActive && "text-foreground"
+                                      )}
+                                    />
+                                    {!collapsed && (
+                                      <>
+                                        <span className="flex-1 text-left">{item.title}</span>
+                                        <ChevronDown className={cn(
+                                          "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                                          isExpanded && "rotate-180"
+                                        )} />
+                                      </>
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                {collapsed && (
+                                  <TooltipContent side="right">
+                                    {item.title}
+                                  </TooltipContent>
                                 )}
-                              >
-                                <item.icon
-                                  className={cn(
-                                    "h-4 w-4 shrink-0 transition-transform duration-200",
-                                    isActive && "text-foreground"
-                                  )}
-                                />
-                                {!collapsed && (
-                                  <>
-                                    <span className="flex-1 text-left">{item.title}</span>
-                                    <ChevronDown className={cn(
-                                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                                      isExpanded && "rotate-180"
-                                    )} />
-                                  </>
-                                )}
-                              </button>
+                              </Tooltip>
                             ) : (
-                              <NavLink
-                                to={item.path}
-                                id={item.tourId}
-                                onClick={() => setActiveSubMenu(null)}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                                  isActive
-                                    ? "bg-primary/15 text-foreground"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <NavLink
+                                    to={item.path}
+                                    id={item.tourId}
+                                    onClick={() => setActiveSubMenu(null)}
+                                    className={cn(
+                                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                      isActive
+                                        ? "bg-primary/15 text-foreground"
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-0.5"
+                                    )}
+                                  >
+                                    <item.icon
+                                      className={cn(
+                                        "h-4 w-4 shrink-0 transition-transform duration-200",
+                                        isActive && "text-foreground"
+                                      )}
+                                    />
+                                    {!collapsed && <span>{item.title}</span>}
+                                  </NavLink>
+                                </TooltipTrigger>
+                                {collapsed && (
+                                  <TooltipContent side="right">
+                                    {item.title}
+                                  </TooltipContent>
                                 )}
-                              >
-                                <item.icon
-                                  className={cn(
-                                    "h-4 w-4 shrink-0 transition-transform duration-200",
-                                    isActive && "text-foreground"
-                                  )}
-                                />
-                                {!collapsed && <span>{item.title}</span>}
-                              </NavLink>
+                              </Tooltip>
                             )}
 
                             {hasSubItems && isExpanded && item.subItems && (
@@ -395,24 +429,33 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* Admin — solo administradores */}
           {isAdmin && workspace.showAdmin && (
             <div className="mt-2 pt-3">
-              <button
-                onClick={() => {
-                  if (collapsed) {
-                    navigate(adminSubItems[0].path);
-                  } else {
-                    setActiveSubMenu((prev) => (prev === "admin" ? null : "admin"));
-                  }
-                }}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
-                  adminSubItems.some(s => location.pathname === s.path) || activeSubMenu === "admin"
-                    ? "bg-primary/15 text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      if (collapsed) {
+                        navigate(adminSubItems[0].path);
+                      } else {
+                        setActiveSubMenu((prev) => (prev === "admin" ? null : "admin"));
+                      }
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                      adminSubItems.some(s => location.pathname === s.path) || activeSubMenu === "admin"
+                        ? "bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <Settings className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                    {!collapsed && <span className="flex-1 text-left">Admin</span>}
+                  </button>
+                </TooltipTrigger>
+                {collapsed && (
+                  <TooltipContent side="right">
+                    Admin
+                  </TooltipContent>
                 )}
-              >
-                <Settings className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                {!collapsed && <span className="flex-1 text-left">Admin</span>}
-              </button>
+              </Tooltip>
             </div>
           )}
         </nav>
@@ -432,6 +475,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
+      </TooltipProvider>
 
       {/* Sub-sidebar panel — desktop only */}
       {!isMobile && (
