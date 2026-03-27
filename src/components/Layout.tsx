@@ -146,7 +146,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const canDragNav = isAdmin && !collapsed;
 
   // Sub-sidebar state
-  const subSidebarOpen = activeSubMenu !== null && !isMobile && !collapsed;
+  const subSidebarOpen = activeSubMenu !== null && !isMobile;
   const visibleWorkflowItems = workflowSubItems.filter(
     (sub) => allowedPages.has(sub.path)
   );
