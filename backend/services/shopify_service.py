@@ -654,8 +654,8 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
                 "inventoryPolicy": "DENY",
             }
 
-            # SKU y peso van dentro de inventoryItem
-            inv_item: dict = {"sku": sku, "requiresShipping": True}
+            # SKU, peso y tracking van dentro de inventoryItem
+            inv_item: dict = {"sku": sku, "requiresShipping": True, "tracked": True}
             weight = row.get("Variant Weight")
             if weight is not None and str(weight).lower() != "nan":
                 inv_item["measurement"] = {
