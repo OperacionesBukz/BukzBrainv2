@@ -560,17 +560,21 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
         "Metafield: custom.editorial [single_line_text_field]": ("custom", "editorial", "single_line_text_field"),
         "Metafield: custom.numero_de_paginas [number_integer]": ("custom", "numero_de_paginas", "number_integer"),
         "Metafield: custom.ilustrador [single_line_text_field]": ("custom", "ilustrador", "single_line_text_field"),
-        "Metafield: custom.categoria [single_line_text_field]": ("custom", "categoria", "single_line_text_field"),
-        "Metafield: custom.subcategoria [single_line_text_field]": ("custom", "subcategoria", "single_line_text_field"),
+        "Metafield: custom.categoria [single_line_text_field]": ("custom", "categoria", "list.single_line_text_field"),
+        "Metafield: custom.subcategoria [single_line_text_field]": ("custom", "subcategoria", "list.single_line_text_field"),
     }
 
     for col, (ns, key, mtype) in _METAFIELD_COLS.items():
         val = row.get(col)
         if val is not None and str(val).strip() and str(val).lower() != "nan":
+            str_val = str(val)
+            # list.* types need JSON array format; wrap if not already
+            if mtype.startswith("list.") and not str_val.startswith("["):
+                str_val = json.dumps([str_val])
             metafields.append({
                 "namespace": ns,
                 "key": key,
-                "value": str(val),
+                "value": str_val,
                 "type": mtype,
             })
 
