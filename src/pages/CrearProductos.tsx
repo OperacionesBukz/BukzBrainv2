@@ -55,6 +55,7 @@ export default function CrearProductos() {
   const [columns, setColumns] = useState<string[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
   const [shopifyResult, setShopifyResult] =
     useState<ShopifyCreateResponse | null>(null);
 
@@ -62,6 +63,7 @@ export default function CrearProductos() {
     setFile(f);
     processMutation.reset();
     shopifyMutation.reset();
+    setProcessedBlob(null);
     setShopifyResult(null);
 
     const reader = new FileReader();
@@ -102,8 +104,8 @@ export default function CrearProductos() {
     if (!file) return;
     processMutation.mutate(file, {
       onSuccess: (blob) => {
-        downloadBlob(blob, "resultado_crear_productos.xlsx");
-        toast.success("Productos procesados y descargados");
+        setProcessedBlob(blob);
+        toast.success("Productos procesados correctamente");
       },
       onError: (err) => {
         toast.error(
@@ -283,17 +285,19 @@ export default function CrearProductos() {
         </CardContent>
       </Card>
 
-      {/* Paso 3: Procesar y Descargar */}
+      {/* Paso 3: Procesar */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            Paso 3 — Procesar y Descargar
+            Paso 3 — Procesar Datos
           </CardTitle>
           <CardDescription>
-            Transforma los datos al formato Shopify y descarga el resultado.
+            Valida y transforma los datos al formato Shopify. Una vez procesado
+            puedes descargar el archivo o continuar al paso 4 para crear los
+            productos directamente.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Button
             onClick={handleProcess}
             disabled={!file || processMutation.isPending}
@@ -319,32 +323,48 @@ export default function CrearProductos() {
           )}
 
           {processMutation.isSuccess && (
-            <Alert className="mt-4">
-              <AlertTitle>Listo</AlertTitle>
-              <AlertDescription>
-                El archivo fue procesado y descargado exitosamente.
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-3 mt-4">
+              <Alert className="flex-1">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>Datos procesados correctamente</AlertTitle>
+                <AlertDescription>
+                  Puedes descargar el archivo transformado o continuar al paso 4
+                  para crear los productos en Shopify.
+                </AlertDescription>
+              </Alert>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-shrink-0"
+                onClick={() => {
+                  if (processedBlob)
+                    downloadBlob(processedBlob, "resultado_crear_productos.xlsx");
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Descargar
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Paso 4: Crear en Shopify */}
-      <Card>
+      <Card className={!processMutation.isSuccess ? "opacity-50 pointer-events-none" : ""}>
         <CardHeader>
           <CardTitle className="text-lg">
             Paso 4 — Crear en Shopify
           </CardTitle>
           <CardDescription>
-            Crea los productos directamente en Shopify a partir del archivo
-            subido. El sistema transforma y envía cada producto
-            automáticamente.
+            {processMutation.isSuccess
+              ? "Los datos fueron validados. Crea los productos directamente en Shopify."
+              : "Primero procesa los datos en el paso 3 para habilitar este paso."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button
             onClick={handleCreateInShopify}
-            disabled={!file || shopifyMutation.isPending}
+            disabled={!file || !processMutation.isSuccess || shopifyMutation.isPending}
             variant="default"
           >
             {shopifyMutation.isPending ? (
