@@ -138,15 +138,21 @@ def _run_enrichment(
         except OSError:
             pass
 
-        # Keep ordered list of MergedBook for format_creacion
-        ordered_books = [books_dict.get(normalize_isbn(str(row[isbn_col]).strip()))
-                         for _, row in df_original.iterrows()]
-        found_books = [b for b in ordered_books if b is not None and b.found]
+        # Keep ordered list of MergedBook for format_creacion (all, including not found)
+        all_books: list[MergedBook] = []
+        for _, row in df_original.iterrows():
+            isbn_raw = str(row[isbn_col]).strip()
+            norm = normalize_isbn(isbn_raw) if validate_isbn(isbn_raw) else None
+            book = books_dict.get(norm) if norm else None
+            if book:
+                all_books.append(book)
+            elif norm:
+                all_books.append(MergedBook(isbn=norm, found=False))
 
         with _jobs_lock:
             job.result_bytes = excel_bytes
             job.result_path = result_path
-            job.books = found_books
+            job.books = all_books
             job.status = "completed"
 
     except Exception as e:

@@ -216,6 +216,7 @@ def format_creacion(books: list[MergedBook]) -> bytes:
         cell.font = header_font
 
     # Data rows
+    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     for row_idx, book in enumerate(books, 2):
         ws.cell(row=row_idx, column=1, value=book.titulo)
         ws.cell(row=row_idx, column=2, value=book.descripcion)
@@ -239,6 +240,11 @@ def format_creacion(books: list[MergedBook]) -> bytes:
         ws.cell(row=row_idx, column=19, value=book.fuente_primaria)
         ws.cell(row=row_idx, column=20, value=book.campos_encontrados)
         ws.cell(row=row_idx, column=21, value=book.alertas)
+
+        # Resaltar filas no encontradas en amarillo
+        if not book.found:
+            for col in range(1, 22):
+                ws.cell(row=row_idx, column=col).fill = yellow_fill
 
     last_row = len(books) + 1
 
