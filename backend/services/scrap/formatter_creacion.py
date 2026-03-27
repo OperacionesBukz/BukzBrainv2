@@ -119,6 +119,75 @@ IDIOMAS = [
     "Rumano", "Holandes", "Bulgaro", "Griego", "Polaco", "Checo", "Sueco",
 ]
 
+VENDORS = [
+    "20x2", "25 Alas", "603 La Gran Via", "7Colores", "ACLI", "Acuarell",
+    "Agenda del Mar", "Alejandra Márquez Villegas", "Alejandra Mesa",
+    "Alejandra Mesa González", "Alejandro Salazar Yusti", "Alexander Cossio",
+    "Alexandra Castrillon", "Alianza Editorial", "Alicia Mejia",
+    "Álvaro Castaño Díaz", "Álvaro González Alorda", "Amalia Londoño",
+    "Amelia Amórtegui", "Andina", "Andres Felipe Arias", "Andres Romero",
+    "Angosta Editores", "Aniko Villalba", "Arbitraria", "Arpegio", "Arquine",
+    "Artemis Libros", "Artimaña Editorial", "As Ediciones",
+    "Asociación de Editoriales Independientes de Chile", "Atarraya Editores",
+    "Aulas Amigas", "Axioma Editores", "Babel", "Beatriz Ospina G", "Biblok",
+    "Books for U", "Booktique", "Bukz", "Bukz Academy", "Bukz B2B",
+    "Bukz Corporativo", "Bukz España", "Bukz Stationery", "Bukz USA", "Bukz.co",
+    "Caballito de Acero", "Cain Press", "Calixta Editores", "Cangrejo Editores",
+    "Carolina Gaviria", "Carolina Giraldo García", "Carolina Gonzáles Jiménez",
+    "Carolina Jimenez", "Carolina Montoya CocoBarroco", "Carolina Pérez Botero",
+    "Cartograma + NoName", "Catherine Villota", "CHACHA", "Círculo Abierto",
+    "Circulo de Lectores", "Club Editores S.A.", "Códice Producciones",
+    "Codiscos", "Colectivo Remitentes", "Comfama", "Cuvico", "Cypres",
+    "Daniela Umaña", "Daniela Zuluaga Velez",
+    "Diana López - Proyecto Medelliniando", "Diana Martínez Mona",
+    "Difusora Larousse de Colombia", "Diseños Lalys", "Dos Gatos Editores",
+    "DosYDos", "Duende", "Edgar David González", "Ediciones de la U",
+    "Ediciones el Silencio", "Ediciones Gamma", "Ediciones Gaviota",
+    "Ediciones Urano", "Ediciones Vestigio", "Editorial Anafora",
+    "Editorial Eafit", "Editorial Quimbombó", "Editorial Solar",
+    "Elev8 Media S.A.S", "Empoderados SAS", "Ensifera Editores",
+    "Estrategia en Ventas", "Fabio Vargas Tamayo", "FCE", "FCM", "Fera",
+    "Fernando Ayerbe", "Finanzas Emocionales", "Fondo Cultural Iberoamericano",
+    "Frailejón Editores", "Franko Group SAS", "Fundación Casa Arcoíris",
+    "Fundación Cucú", "Fundación Cultural Viento teatro", "Gavilán Sin Cola",
+    "Germán Puerta", "Gloria Jaramillo, Yamid López, Julián Vásquez",
+    "Grammata - Vazquez", "Grupo Editorial Planeta", "Grupo Monserrate",
+    "Grupo Penta", "Happy Kiddo", "Harol Ortiz", "Harry Marin", "Health Books",
+    "HiperTexto", "Holz Haus", "Hugo Jaimezurek", "Huracán Distribución",
+    "Ibsen Ochoa", "Icaro Libros", "Ícono Editorial", "Idealo Pez",
+    "Ignacio Arismendi Posada", "ImasD", "Independiente", "Ingenio",
+    "Jaime Botero", "JARDIN PUBLICACIONES", "Juan Gonzalo Benitez Montoya",
+    "Juliana Rego Editores", "Karin Muñoz Pinto", "Kate Villota", "Kocodio",
+    "Kupa", "La Diligencia", "La Editora - Ana Meza",
+    "La magia de empezar de 0", "La Valija de Fuego Editorial", "Laura Blair",
+    "Laura F. M.", "Laura Roca", "Lavanda Editoras", "Libro Arte S.A.S",
+    "Libros de Ruta", "Libros del Fuego", "Libros del Motín",
+    "Lindy María Márquez Holguín", "Lobolunar", "Luisa Gómez",
+    "Luisa Robledo", "Luminosa", "Luz Karime Saleme Correa", "Maeva Ediciones",
+    "Mandalas para el alma", "Marcela Bouhot", "Marco Polo",
+    "María Andrea Estrada", "María Antonia Sierra",
+    "Maria Emma Prieto Manjarres", "Maria Pulido Alvarez", "Mattelsa",
+    "McMullan Birding", "Melon", "Mesaestandar", "Milserifas", "Mo Ediciones",
+    "Museo del río magdalena", "Nelly Giraldo Gil", "No vendor", "Novili",
+    "Oceano", "O-Lab", "Palabra Libre", "Panamericana",
+    "Paola Rueda López S.A.S.", "Penguin RandomHouse", "Pergamino Café",
+    "Perla Negra", "Pilicefalo Ediciones", "Platzi S.A.S", "Plaza & Janes",
+    "Poiema Publicaciones", "Postobon", "Proyectos Sin Limites",
+    "Rafael Iván Botero", "Raya Editores", "Reservoir Books", "Rey Naranjo",
+    "Saga Libros", "Sara Betancur", "Sebastián Betancur",
+    "Secretos para contar", "Sergio Restrepo", "Siglo del Hombre",
+    "Silaba Editores", "Sin Fronteras", "Sin Ocasión", "SITRA Mundo Creativo",
+    "Sol Beatriz Botero", "Taller de artes de Medellín",
+    "Taller de edición Rocca", "Taller Talante", "Teresita Varon",
+    "Testigo Directo", "The Black Bean", "Torrealta", "Toy",
+    "Tragaluz Editores", "Trigeon SAS", "UNILAT", "Union Editorial Colombia",
+    "Universidad CES", "Universidad de Antioquia", "Urban",
+    "Valeria Marín Pineda", "Vasquez Editores", "Verónica Abad Londoño",
+    "Verso Libre", "Viiel", "Villegas Editores", "Viviana Escobar",
+    "Wellness Bites", "Wilfrido Gonzalez", "word clound classies",
+    "Yoni Rendón",
+]
+
 
 def _map_idioma(raw: Optional[str]) -> Optional[str]:
     if not raw:
@@ -185,10 +254,13 @@ def format_creacion(books: list[MergedBook]) -> bytes:
     ws_opt = wb.create_sheet("opciones")
     ws_opt.cell(row=1, column=1, value="Formato")
     ws_opt.cell(row=1, column=3, value="Idioma")
+    ws_opt.cell(row=1, column=5, value="Vendor")
     for i, fmt in enumerate(FORMATOS, 2):
         ws_opt.cell(row=i, column=1, value=fmt)
     for i, idioma in enumerate(IDIOMAS, 2):
         ws_opt.cell(row=i, column=3, value=idioma)
+    for i, vendor in enumerate(VENDORS, 2):
+        ws_opt.cell(row=i, column=5, value=vendor)
 
     # ── Data validations (dropdowns) en Products ─────────────────────────
     if last_row >= 2:
@@ -205,6 +277,17 @@ def format_creacion(books: list[MergedBook]) -> bytes:
         dv_idioma.errorTitle = "Idioma inválido"
         ws.add_data_validation(dv_idioma)
         dv_idioma.add(f"J2:J{last_row}")
+
+        vendor_last = len(VENDORS) + 1
+        dv_vendor = DataValidation(
+            type="list",
+            formula1=f"opciones!$E$2:$E${vendor_last}",
+            allow_blank=True,
+        )
+        dv_vendor.error = "Seleccione un vendor válido"
+        dv_vendor.errorTitle = "Vendor inválido"
+        ws.add_data_validation(dv_vendor)
+        dv_vendor.add(f"C2:C{last_row}")
 
     # ── Generar bytes ────────────────────────────────────────────────────
     buffer = io.BytesIO()
