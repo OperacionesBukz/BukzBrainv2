@@ -1,0 +1,1 @@
+import{j as e}from"./index-CLYODOFj.js";const s=()=>e.jsx("div",{className:"space-y-6",children:e.jsxs("div",{children:[e.jsx("h1",{className:"text-2xl md:text-3xl font-semibold text-foreground",children:"Corte Museo"}),e.jsx("p",{className:"mt-1 text-base text-muted-foreground",children:"Próximamente"})]})});export{s as default};
