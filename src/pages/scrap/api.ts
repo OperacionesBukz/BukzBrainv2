@@ -47,10 +47,17 @@ export async function downloadResult(jobId: string): Promise<Blob> {
 }
 
 // Download result in Creacion_productos format
-export async function downloadCreacion(jobId: string): Promise<Blob> {
+export async function downloadCreacion(jobId: string, vendor?: string): Promise<Blob> {
+  const params = new URLSearchParams({ format: "creacion" });
+  if (vendor) params.set("vendor", vendor);
   return handleBlobResponse(
-    await resilientFetch(`${API_BASE}/api/scrap/download/${jobId}?format=creacion`),
+    await resilientFetch(`${API_BASE}/api/scrap/download/${jobId}?${params}`),
   );
+}
+
+// Vendors list
+export async function getVendors(): Promise<string[]> {
+  return handleResponse(await resilientFetch(`${API_BASE}/api/scrap/vendors`));
 }
 
 // Cache

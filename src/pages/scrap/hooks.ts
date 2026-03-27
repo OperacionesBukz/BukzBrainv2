@@ -5,6 +5,7 @@ import {
   getJobStatus,
   downloadResult,
   downloadCreacion,
+  getVendors,
   getCacheStats,
   clearCache,
   downloadBlob,
@@ -50,10 +51,19 @@ export function useDownloadResult() {
 
 export function useDownloadCreacion() {
   return useMutation({
-    mutationFn: (jobId: string) => downloadCreacion(jobId),
+    mutationFn: ({ jobId, vendor }: { jobId: string; vendor?: string }) =>
+      downloadCreacion(jobId, vendor),
     onSuccess: (blob) => {
       downloadBlob(blob, "Creacion_productos.xlsx");
     },
+  });
+}
+
+export function useVendors() {
+  return useQuery({
+    queryKey: ["scrap", "vendors"],
+    queryFn: getVendors,
+    staleTime: Infinity,
   });
 }
 

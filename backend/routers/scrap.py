@@ -240,7 +240,11 @@ def job_status(job_id: str):
 
 
 @router.get("/download/{job_id}")
-def download_result(job_id: str, format: str = Query("raw")):
+def download_result(
+    job_id: str,
+    format: str = Query("raw"),
+    vendor: Optional[str] = Query(None),
+):
     job = _get_job(job_id)
     if job.status != "completed":
         raise HTTPException(status_code=400, detail="El job aún no ha terminado")
@@ -249,7 +253,7 @@ def download_result(job_id: str, format: str = Query("raw")):
     if format == "creacion":
         if not job.books:
             raise HTTPException(status_code=400, detail="No hay datos de libros disponibles")
-        excel_bytes = format_creacion(job.books)
+        excel_bytes = format_creacion(job.books, vendor=vendor)
         return StreamingResponse(
             io.BytesIO(excel_bytes),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -275,6 +279,12 @@ def download_result(job_id: str, format: str = Query("raw")):
         )
 
     raise HTTPException(status_code=404, detail="Archivo de resultado no encontrado")
+
+
+@router.get("/vendors")
+def get_vendors():
+    from services.scrap.formatter_creacion import VENDORS
+    return VENDORS
 
 
 @router.get("/cache/stats")
