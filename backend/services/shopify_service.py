@@ -641,15 +641,23 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
         variant_nodes = product.get("variants", {}).get("nodes", [])
         variant_id = variant_nodes[0]["id"] if variant_nodes else None
 
-        # Paso 2: Actualizar variante con SKU, precio, peso, barcode
+        # Paso 2: Actualizar variante con SKU, precio, barcode, peso
         if variant_id:
             variant_input: dict = {
                 "id": variant_id,
-                "sku": sku,
                 "barcode": str(row.get("Variant Barcode", "")),
                 "taxable": False,
-                "requiresShipping": True,
+                "inventoryPolicy": "DENY",
             }
+
+            # SKU y peso van dentro de inventoryItem
+            inv_item: dict = {"sku": sku, "requiresShipping": True}
+            weight = row.get("Variant Weight")
+            if weight is not None and str(weight).lower() != "nan":
+                inv_item["measurement"] = {
+                    "weight": {"value": float(weight), "unit": "KILOGRAMS"}
+                }
+            variant_input["inventoryItem"] = inv_item
 
             price = row.get("Variant Price")
             if price is not None and str(price).lower() != "nan":
@@ -658,11 +666,6 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
             compare_price = row.get("Variant Compare At Price")
             if compare_price is not None and str(compare_price).lower() != "nan":
                 variant_input["compareAtPrice"] = str(compare_price)
-
-            weight = row.get("Variant Weight")
-            if weight is not None and str(weight).lower() != "nan":
-                variant_input["weight"] = float(weight)
-                variant_input["weightUnit"] = "KILOGRAMS"
 
             session.post(
                 graphql_url,
