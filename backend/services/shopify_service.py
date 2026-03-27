@@ -524,16 +524,29 @@ def download_and_process_bulk_results(url: str) -> dict:
 # ---------------------------------------------------------------------------
 
 _PRODUCT_CREATE_MUTATION = """
-mutation productCreate($input: ProductInput!) {
-  productCreate(input: $input) {
-    product { id title }
+mutation productCreate($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
+  productCreate(product: $product, media: $media) {
+    product {
+      id
+      title
+      variants(first: 1) { nodes { id } }
+    }
+    userErrors { field message }
+  }
+}
+"""
+
+_VARIANT_UPDATE_MUTATION = """
+mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+  productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+    productVariants { id sku }
     userErrors { field message }
   }
 }
 """
 
 
-def _build_product_input(row: dict) -> dict:
+def _build_product_input(row: dict) -> tuple[dict, list]:
     """Construye el input de productCreate a partir de una fila del DataFrame procesado."""
     metafields = []
 
@@ -561,27 +574,6 @@ def _build_product_input(row: dict) -> dict:
                 "type": mtype,
             })
 
-    # Variant (dentro de ProductInput como lista)
-    variant = {
-        "sku": str(row.get("Variant SKU", "")),
-        "barcode": str(row.get("Variant Barcode", "")),
-        "taxable": False,
-        "requiresShipping": True,
-    }
-
-    price = row.get("Variant Price")
-    if price is not None and str(price).lower() != "nan":
-        variant["price"] = str(price)
-
-    compare_price = row.get("Variant Compare At Price")
-    if compare_price is not None and str(compare_price).lower() != "nan":
-        variant["compareAtPrice"] = str(compare_price)
-
-    weight = row.get("Variant Weight")
-    if weight is not None and str(weight).lower() != "nan":
-        variant["weight"] = float(weight)
-        variant["weightUnit"] = "KILOGRAMS"
-
     product_input = {
         "title": str(row.get("Title", "")),
         "handle": str(row.get("Handle", "")),
@@ -589,33 +581,37 @@ def _build_product_input(row: dict) -> dict:
         "vendor": str(row.get("Vendor", "")),
         "productType": str(row.get("Type", "Libro")),
         "status": "ACTIVE",
-        "variants": [variant],
     }
 
     if metafields:
         product_input["metafields"] = metafields
 
-    # Media (imagen) — va dentro del input, con altText
+    # Media (imagen)
+    media = []
     img_src = row.get("Image Src")
     if img_src and str(img_src).strip() and str(img_src).lower() != "nan":
         alt = str(row.get("Image Alt Text", "")) or ""
-        product_input["media"] = [{
+        media.append({
             "originalSource": str(img_src),
             "altText": alt,
-        }]
+            "mediaContentType": "IMAGE",
+        })
 
-    return product_input
+    return product_input, media
 
 
 def _create_single_product(session: requests.Session, row: dict) -> dict:
-    """Crea un único producto en Shopify. Retorna resultado con estado."""
+    """Crea un único producto en Shopify (2 pasos: producto + variante). Retorna resultado."""
     graphql_url = settings.get_graphql_url()
     sku = str(row.get("Variant SKU", "???"))
     title = str(row.get("Title", "???"))
 
     try:
-        product_input = _build_product_input(row)
-        variables = {"input": product_input}
+        # Paso 1: Crear producto (sin variantes)
+        product_input, media = _build_product_input(row)
+        variables: dict = {"product": product_input}
+        if media:
+            variables["media"] = media
 
         response = session.post(
             graphql_url,
@@ -639,11 +635,52 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
             return {"sku": sku, "title": title, "success": False, "error": error_msg}
 
         product = result.get("product", {})
+        product_id = product.get("id", "")
+
+        # Obtener ID de la variante default creada automáticamente
+        variant_nodes = product.get("variants", {}).get("nodes", [])
+        variant_id = variant_nodes[0]["id"] if variant_nodes else None
+
+        # Paso 2: Actualizar variante con SKU, precio, peso, barcode
+        if variant_id:
+            variant_input: dict = {
+                "id": variant_id,
+                "sku": sku,
+                "barcode": str(row.get("Variant Barcode", "")),
+                "taxable": False,
+                "requiresShipping": True,
+            }
+
+            price = row.get("Variant Price")
+            if price is not None and str(price).lower() != "nan":
+                variant_input["price"] = str(price)
+
+            compare_price = row.get("Variant Compare At Price")
+            if compare_price is not None and str(compare_price).lower() != "nan":
+                variant_input["compareAtPrice"] = str(compare_price)
+
+            weight = row.get("Variant Weight")
+            if weight is not None and str(weight).lower() != "nan":
+                variant_input["weight"] = float(weight)
+                variant_input["weightUnit"] = "KILOGRAMS"
+
+            session.post(
+                graphql_url,
+                json={
+                    "query": _VARIANT_UPDATE_MUTATION,
+                    "variables": {
+                        "productId": product_id,
+                        "variants": [variant_input],
+                    },
+                },
+                timeout=30,
+            )
+
         return {
             "sku": sku,
             "title": title,
             "success": True,
-            "shopify_id": product.get("id", ""),
+            "shopify_id": product_id,
         }
 
     except Exception as e:
