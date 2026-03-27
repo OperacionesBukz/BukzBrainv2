@@ -11,7 +11,7 @@ import io
 from typing import Optional
 
 from openpyxl import Workbook
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from services.scrap.base import MergedBook
@@ -166,8 +166,20 @@ def format_creacion(books: list[MergedBook]) -> bytes:
         # col 16: Ilustrador — vacío
         ws.cell(row=row_idx, column=17, value=book.categoria)
         # col 18: Subcategoria — vacío
+        # Columnas de revisión (19-21)
+        ws.cell(row=row_idx, column=19, value=book.fuente_primaria)
+        ws.cell(row=row_idx, column=20, value=book.campos_encontrados)
+        ws.cell(row=row_idx, column=21, value=book.alertas)
 
     last_row = len(books) + 1
+
+    # Headers de revisión en rojo
+    red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+    white_bold = Font(bold=True, color="FFFFFF")
+    for col_idx, header in enumerate(["Fuente primaria", "Campos encontrados", "Alertas"], 19):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = red_fill
+        cell.font = white_bold
 
     # ── Sheet "opciones" ─────────────────────────────────────────────────
     ws_opt = wb.create_sheet("opciones")
