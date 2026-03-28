@@ -12,6 +12,7 @@ import {
   HelpCircle,
   PackageSearch,
   PackagePlus,
+  RefreshCw,
   SearchCode,
   Scissors,
   GitBranchPlus,
@@ -74,6 +75,7 @@ const workflowSubCategories = [
     items: [
       { title: "Ingreso Mercancía", path: "/ingreso", icon: PackageSearch },
       { title: "Crear Productos", path: "/crear-productos", icon: PackagePlus },
+      { title: "Actualizar Productos", path: "/actualizar-productos", icon: RefreshCw },
       { title: "Scrap Bukz", path: "/scrap", icon: SearchCode },
     ],
   },

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Download } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,6 +25,7 @@ export default function SearchResultsTable({
   data,
   onDownload,
 }: SearchResultsTableProps) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(true);
 
   if (data.length === 0) return null;
@@ -63,6 +65,7 @@ export default function SearchResultsTable({
                 <TableHead className="min-w-[90px] text-right">Precio</TableHead>
                 <TableHead className="min-w-[140px]">Categoría</TableHead>
                 <TableHead className="min-w-[90px] text-right">Cantidad</TableHead>
+                <TableHead className="min-w-[100px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -87,6 +90,29 @@ export default function SearchResultsTable({
                     <TableCell>{found ? row.Categoria : "—"}</TableCell>
                     <TableCell className="text-right">
                       {row.Cantidad != null ? row.Cantidad : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {found ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => navigate("/actualizar-productos")}
+                        >
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                          Actualizar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => navigate("/crear-productos")}
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          Crear
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
