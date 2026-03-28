@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, X } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, X, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -108,9 +108,43 @@ export default function CelesaImportDialog({
                 o haz clic para seleccionar (.xlsx, .xls)
               </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Columnas esperadas: Pedido, Cliente, Producto, ISBN, Fecha
-            </p>
+            <div className="w-full mt-4 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 p-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 mb-2">
+                <Info className="h-3.5 w-3.5" />
+                Columnas requeridas en el archivo
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                  <span className="font-medium">Pedido</span>
+                  <span className="text-muted-foreground">— N.° de pedido</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                  <span className="font-medium">Cliente</span>
+                  <span className="text-muted-foreground">— Nombre</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                  <span className="font-medium">Producto</span>
+                  <span className="text-muted-foreground">— Título del libro</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                  <span className="font-medium">ISBN</span>
+                  <span className="text-muted-foreground">— Opcional</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                  <span className="font-medium">Fecha</span>
+                  <span className="text-muted-foreground">— DD/MM/AAAA</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 align-middle mr-1" />Obligatorio
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 align-middle ml-2 mr-1" />Opcional
+              </p>
+            </div>
             <input
               ref={inputRef}
               type="file"
