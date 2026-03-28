@@ -145,6 +145,11 @@ export default function CelesaTable({
           <StringDatePicker
             value={editValue}
             onChange={(val) => {
+              // Ignorar si se intenta limpiar la fecha (click en "X")
+              if (!val) {
+                setEditingCell(null);
+                return;
+              }
               const updates: Record<string, string> = { fechaPedido: val };
               if (order.estado !== "Agotado" && order.estado !== "Entregado") {
                 const days = businessDaysSince(val);
