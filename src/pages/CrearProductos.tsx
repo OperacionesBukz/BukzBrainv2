@@ -238,7 +238,7 @@ export default function CrearProductos() {
           />
 
           {file && totalRows > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-hidden">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">
                   {totalRows} producto{totalRows !== 1 && "s"} encontrado
@@ -400,7 +400,7 @@ export default function CrearProductos() {
           )}
 
           {shopifyResult && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-hidden">
               <div className="flex items-center gap-3">
                 <Badge
                   variant={shopifyResult.failed === 0 ? "default" : "secondary"}

@@ -53,6 +53,7 @@ const BookstoreOrderHistory = ({
         </CardHeader>
         <CardContent>
             {!isMobile ? (
+              <div className="overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -104,6 +105,7 @@ const BookstoreOrderHistory = ({
                         })}
                     </TableBody>
                 </Table>
+              </div>
             ) : (
                 <div className="space-y-3">
                     {orders.map((order) => {
