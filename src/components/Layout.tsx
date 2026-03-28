@@ -67,9 +67,6 @@ const workflowSubCategories = [
     items: [
       { title: "Envío Cortes", path: "/envio-cortes", icon: Mail },
       { title: "Descuentos Cortes", path: "/cortes", icon: Scissors },
-      { title: "Corte Penguin", path: "/corte-penguin", icon: Mail },
-      { title: "Corte Planeta", path: "/corte-planeta", icon: Mail },
-      { title: "Corte Museo", path: "/corte-museo", icon: Mail },
     ],
   },
   {

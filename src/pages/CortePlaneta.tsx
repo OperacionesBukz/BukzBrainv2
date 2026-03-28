@@ -25,22 +25,14 @@ export default function CortePlaneta() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-            Corte Planeta
-          </h1>
-          <p className="mt-1 text-base text-muted-foreground">
-            Procesamiento del corte mensual de Grupo Editorial Planeta
-          </p>
-        </div>
-        {currentPhase === 1 && (
+      {currentPhase === 1 && (
+        <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={skipToEmail}>
             <Send className="h-4 w-4 mr-2" />
             Ir directo a enviar correo
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <PlanetaStepIndicator
         currentPhase={currentPhase}
