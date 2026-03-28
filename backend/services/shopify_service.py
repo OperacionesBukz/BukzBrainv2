@@ -8,7 +8,69 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
+import threading
+
 from config import settings
+
+
+# ---------------------------------------------------------------------------
+# Rate limiter reactivo
+# ---------------------------------------------------------------------------
+
+class ShopifyThrottler:
+    """Rate limiter reactivo para la API de Shopify."""
+
+    def __init__(self, low_threshold: float = 0.2, critical_threshold: float = 0.1):
+        self._lock = threading.Lock()
+        self._available_ratio = 1.0
+        self._low_threshold = low_threshold
+        self._critical_threshold = critical_threshold
+
+    def update_from_response(self, response: requests.Response):
+        """Lee headers de rate limit y actualiza estado interno."""
+        limit_header = response.headers.get("X-Shopify-Shop-Api-Call-Limit")
+        if limit_header and "/" in limit_header:
+            try:
+                used, total = limit_header.split("/")
+                with self._lock:
+                    self._available_ratio = 1.0 - (int(used) / int(total))
+            except (ValueError, ZeroDivisionError):
+                pass
+            return
+
+        try:
+            body = response.json()
+            cost = body.get("extensions", {}).get("cost", {})
+            available = cost.get("throttleStatus", {}).get("currentlyAvailable", 0)
+            maximum = cost.get("throttleStatus", {}).get("maximumAvailable", 1000)
+            if maximum > 0:
+                with self._lock:
+                    self._available_ratio = available / maximum
+        except Exception:
+            pass
+
+    def wait_if_needed(self):
+        """Bloquea si la cuota esta baja."""
+        with self._lock:
+            ratio = self._available_ratio
+
+        if ratio < self._critical_threshold:
+            time.sleep(1.0)
+        elif ratio < self._low_threshold:
+            time.sleep(0.5)
+
+    def handle_429(self, response: requests.Response) -> float:
+        """Retorna segundos a esperar ante un 429."""
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return float(retry_after)
+            except ValueError:
+                pass
+        return 2.0
+
+
+_throttler = ShopifyThrottler()
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +222,9 @@ def process_batch_info(
 
     try:
         query = _build_batch_query(isbn_batch)
+        _throttler.wait_if_needed()
         response = session.post(graphql_url, json={"query": query}, timeout=30)
+        _throttler.update_from_response(response)
 
         if response.status_code == 200:
             data = response.json()
@@ -263,7 +327,9 @@ def process_batch_inventory(
 
     try:
         query = _build_batch_query(isbn_batch)
+        _throttler.wait_if_needed()
         response = session.post(graphql_url, json={"query": query}, timeout=30)
+        _throttler.update_from_response(response)
 
         if response.status_code == 200:
             data = response.json()
@@ -315,6 +381,7 @@ def process_batch_inventory(
 
                 for b_name, b_id in selected_locations:
                     try:
+                        _throttler.wait_if_needed()
                         inv_response = session.get(
                             inv_url,
                             params={
@@ -323,6 +390,7 @@ def process_batch_inventory(
                             },
                             timeout=15,
                         )
+                        _throttler.update_from_response(inv_response)
                         if inv_response.status_code == 200:
                             levels = inv_response.json().get("inventory_levels", [])
                             for level in levels:
@@ -626,6 +694,9 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
     return product_input, media
 
 
+_MAX_RETRIES = 3
+
+
 def _create_single_product(session: requests.Session, row: dict) -> dict:
     """Crea un único producto en Shopify (2 pasos: producto + variante). Retorna resultado."""
     graphql_url = settings.get_graphql_url()
@@ -639,14 +710,25 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
         if media:
             variables["media"] = media
 
-        response = session.post(
-            graphql_url,
-            json={"query": _PRODUCT_CREATE_MUTATION, "variables": variables},
-            timeout=30,
-        )
+        response = None
+        for attempt in range(_MAX_RETRIES):
+            _throttler.wait_if_needed()
+            response = session.post(
+                graphql_url,
+                json={"query": _PRODUCT_CREATE_MUTATION, "variables": variables},
+                timeout=30,
+            )
+            _throttler.update_from_response(response)
 
-        if response.status_code != 200:
-            return {"sku": sku, "title": title, "success": False, "error": f"HTTP {response.status_code}"}
+            if response.status_code == 429:
+                wait_secs = _throttler.handle_429(response)
+                time.sleep(wait_secs)
+                continue
+            break
+
+        if response is None or response.status_code != 200:
+            status = response.status_code if response is not None else "N/A"
+            return {"sku": sku, "title": title, "success": False, "error": f"HTTP {status}"}
 
         data = response.json()
 
@@ -693,17 +775,26 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
             if compare_price is not None and str(compare_price).lower() != "nan":
                 variant_input["compareAtPrice"] = str(compare_price)
 
-            session.post(
-                graphql_url,
-                json={
-                    "query": _VARIANT_UPDATE_MUTATION,
-                    "variables": {
-                        "productId": product_id,
-                        "variants": [variant_input],
+            for attempt in range(_MAX_RETRIES):
+                _throttler.wait_if_needed()
+                variant_response = session.post(
+                    graphql_url,
+                    json={
+                        "query": _VARIANT_UPDATE_MUTATION,
+                        "variables": {
+                            "productId": product_id,
+                            "variants": [variant_input],
+                        },
                     },
-                },
-                timeout=30,
-            )
+                    timeout=30,
+                )
+                _throttler.update_from_response(variant_response)
+
+                if variant_response.status_code == 429:
+                    wait_secs = _throttler.handle_429(variant_response)
+                    time.sleep(wait_secs)
+                    continue
+                break
 
         return {
             "sku": sku,
@@ -716,9 +807,58 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
         return {"sku": sku, "title": title, "success": False, "error": str(e)}
 
 
+def check_existing_skus(skus: list[str]) -> set[str]:
+    """Busca SKUs en Shopify y retorna el set de los que ya existen."""
+    if not skus:
+        return set()
+
+    headers = settings.get_shopify_headers()
+    graphql_url = settings.get_graphql_url()
+    session = requests.Session()
+    session.headers.update(headers)
+    existing = set()
+
+    batches = list(chunk_list(skus, settings.BATCH_SIZE))
+
+    def _check_batch(batch: list[str]) -> set[str]:
+        found = set()
+        conditions = " OR ".join([f"sku:{sku}" for sku in batch])
+        query = """
+        {
+          productVariants(first: 250, query: "%s") {
+            edges {
+              node { sku }
+            }
+          }
+        }
+        """ % conditions
+        try:
+            _throttler.wait_if_needed()
+            response = session.post(graphql_url, json={"query": query}, timeout=30)
+            _throttler.update_from_response(response)
+            if response.status_code == 200:
+                data = response.json()
+                edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+                for edge in edges:
+                    sku = str(edge["node"].get("sku", "")).strip()
+                    if sku in batch:
+                        found.add(sku)
+        except Exception:
+            pass
+        return found
+
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = [executor.submit(_check_batch, batch) for batch in batches]
+        for future in as_completed(futures):
+            existing.update(future.result())
+
+    return existing
+
+
 def create_products_batch(rows: list[dict]) -> list[dict]:
     """
     Crea productos en Shopify con concurrencia.
+    Detecta duplicados automáticamente y los omite.
     rows: lista de dicts (filas del DataFrame procesado).
     Retorna lista de resultados por producto.
     """
@@ -726,15 +866,37 @@ def create_products_batch(rows: list[dict]) -> list[dict]:
     session = requests.Session()
     session.headers.update(headers)
 
-    results = []
-    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
-        futures = {
-            executor.submit(_create_single_product, session, row): i
-            for i, row in enumerate(rows)
-        }
-        for future in as_completed(futures):
-            results.append(future.result())
+    # Extraer todos los SKUs y detectar duplicados en Shopify
+    all_skus = [str(row.get("Variant SKU", "")) for row in rows]
+    existing_skus = check_existing_skus(all_skus)
 
+    new_rows = []
+    skipped_results = []
+    for row in rows:
+        sku = str(row.get("Variant SKU", ""))
+        title = str(row.get("Title", "???"))
+        if sku in existing_skus:
+            skipped_results.append({
+                "sku": sku,
+                "title": title,
+                "success": False,
+                "skipped": True,
+                "error": "SKU ya existe en Shopify",
+            })
+        else:
+            new_rows.append(row)
+
+    created_results = []
+    if new_rows:
+        with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+            futures = {
+                executor.submit(_create_single_product, session, row): i
+                for i, row in enumerate(new_rows)
+            }
+            for future in as_completed(futures):
+                created_results.append(future.result())
+
+    results = skipped_results + created_results
     # Ordenar por SKU para consistencia
     results.sort(key=lambda r: r.get("sku", ""))
     return results
