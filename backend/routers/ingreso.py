@@ -259,7 +259,7 @@ def download_template(template_name: str):
 
     allowed = {
         "creacion": "Creacion_productos.xlsx",
-        "actualizacion": "Plantilla_Actualizacion_Productos.xlsx",
+        "actualizacion": "Actualizacion_productos.xlsx",
     }
 
     filename = allowed.get(template_name.lower())
