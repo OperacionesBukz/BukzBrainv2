@@ -339,6 +339,202 @@ def fetch_products_for_update(isbn_list: list[str]) -> dict:
     return all_results
 
 
+_METAFIELD_KEY_MAP = {
+    "Autor": ("custom", "autor", "single_line_text_field"),
+    "Editorial": ("custom", "editorial", "single_line_text_field"),
+    "Idioma": ("custom", "idioma", "list.single_line_text_field"),
+    "Formato": ("custom", "formato", "list.single_line_text_field"),
+    "Categoria": ("custom", "categoria", "list.single_line_text_field"),
+    "Subcategoria": ("custom", "subcategoria", "list.single_line_text_field"),
+}
+
+_PRODUCT_FIELDS = {"Titulo", "Sipnosis", "Vendor"}
+_VARIANT_FIELDS = {"Precio", "Precio de comparacion", "Peso (kg)"}
+_MEDIA_FIELDS = {"Portada (URL)"}
+_METAFIELD_FIELDS = set(_METAFIELD_KEY_MAP.keys())
+
+
+def _update_single_product(
+    session: requests.Session,
+    product_data: dict,
+    changes: dict,
+) -> dict:
+    """Actualiza un producto en Shopify. changes = {field_name: new_value}."""
+    graphql_url = settings.get_graphql_url()
+    sku = product_data["sku"]
+    title = product_data["title"]
+    product_id = product_data["product_id"]
+    variant_id = product_data["variant_id"]
+    fields_updated = []
+
+    try:
+        # --- Product-level update (title, vendor, description, metafields) ---
+        product_input: dict = {"id": product_id}
+        has_product_update = False
+
+        if "Titulo" in changes:
+            product_input["title"] = changes["Titulo"]
+            has_product_update = True
+
+        if "Sipnosis" in changes:
+            product_input["descriptionHtml"] = changes["Sipnosis"]
+            has_product_update = True
+
+        if "Vendor" in changes:
+            product_input["vendor"] = changes["Vendor"]
+            has_product_update = True
+
+        # Metafields
+        metafields = []
+        for field_name, (ns, key, mtype) in _METAFIELD_KEY_MAP.items():
+            if field_name in changes:
+                val = changes[field_name]
+                if mtype.startswith("list.") and not val.startswith("["):
+                    val = json.dumps([val])
+                metafields.append({
+                    "namespace": ns, "key": key, "value": val, "type": mtype,
+                })
+
+        if metafields:
+            product_input["metafields"] = metafields
+            has_product_update = True
+
+        if has_product_update:
+            resp = None
+            for attempt in range(_MAX_RETRIES):
+                _throttler.wait_if_needed()
+                resp = session.post(
+                    graphql_url,
+                    json={"query": _PRODUCT_UPDATE_MUTATION, "variables": {"input": product_input}},
+                    timeout=30,
+                )
+                _throttler.update_from_response(resp)
+                if resp.status_code == 429:
+                    time.sleep(_throttler.handle_429(resp))
+                    continue
+                break
+
+            if resp and resp.status_code == 200:
+                data = resp.json()
+                user_errors = data.get("data", {}).get("productUpdate", {}).get("userErrors", [])
+                if user_errors:
+                    error_msg = "; ".join(e.get("message", "") for e in user_errors)
+                    return {"sku": sku, "title": title, "success": False, "error": error_msg}
+                fields_updated.extend(
+                    [f for f in changes if f in _PRODUCT_FIELDS or f in _METAFIELD_FIELDS]
+                )
+            elif resp:
+                return {"sku": sku, "title": title, "success": False, "error": f"HTTP {resp.status_code}"}
+
+        # --- Variant-level update (price, compareAtPrice, weight) ---
+        variant_changes = {f: changes[f] for f in _VARIANT_FIELDS if f in changes}
+        if variant_changes:
+            variant_input: dict = {"id": variant_id}
+
+            if "Precio" in variant_changes:
+                variant_input["price"] = str(variant_changes["Precio"])
+            if "Precio de comparacion" in variant_changes:
+                variant_input["compareAtPrice"] = str(variant_changes["Precio de comparacion"])
+            if "Peso (kg)" in variant_changes:
+                inv_item: dict = {}
+                inv_item["measurement"] = {
+                    "weight": {"value": float(variant_changes["Peso (kg)"]), "unit": "KILOGRAMS"}
+                }
+                variant_input["inventoryItem"] = inv_item
+
+            resp = None
+            for attempt in range(_MAX_RETRIES):
+                _throttler.wait_if_needed()
+                resp = session.post(
+                    graphql_url,
+                    json={
+                        "query": _VARIANT_UPDATE_MUTATION,
+                        "variables": {"productId": product_id, "variants": [variant_input]},
+                    },
+                    timeout=30,
+                )
+                _throttler.update_from_response(resp)
+                if resp.status_code == 429:
+                    time.sleep(_throttler.handle_429(resp))
+                    continue
+                break
+
+            if resp and resp.status_code == 200:
+                data = resp.json()
+                user_errors = (
+                    data.get("data", {})
+                    .get("productVariantsBulkUpdate", {})
+                    .get("userErrors", [])
+                )
+                if user_errors:
+                    error_msg = "; ".join(e.get("message", "") for e in user_errors)
+                    return {"sku": sku, "title": title, "success": False, "error": error_msg}
+                fields_updated.extend([f for f in variant_changes])
+            elif resp:
+                return {"sku": sku, "title": title, "success": False, "error": f"HTTP {resp.status_code}"}
+
+        # --- Media update (image) ---
+        if "Portada (URL)" in changes:
+            img_url = changes["Portada (URL)"]
+            if _is_valid_image_url(img_url):
+                resp = None
+                for attempt in range(_MAX_RETRIES):
+                    _throttler.wait_if_needed()
+                    resp = session.post(
+                        graphql_url,
+                        json={
+                            "query": _PRODUCT_CREATE_MEDIA_MUTATION,
+                            "variables": {
+                                "productId": product_id,
+                                "media": [{"originalSource": img_url, "alt": f"Libro {title} {sku}", "mediaContentType": "IMAGE"}],
+                            },
+                        },
+                        timeout=30,
+                    )
+                    _throttler.update_from_response(resp)
+                    if resp.status_code == 429:
+                        time.sleep(_throttler.handle_429(resp))
+                        continue
+                    break
+                fields_updated.append("Portada (URL)")
+
+        return {
+            "sku": sku,
+            "title": title,
+            "success": True,
+            "fields_updated": fields_updated,
+        }
+
+    except Exception as e:
+        return {"sku": sku, "title": title, "success": False, "error": str(e)}
+
+
+def update_products_batch(
+    products_data: list,
+    changes_per_product: list,
+) -> list:
+    """
+    Actualiza productos en Shopify con concurrencia.
+    products_data: lista de dicts con {sku, product_id, variant_id, title}
+    changes_per_product: lista de dicts con {field: new_value} (mismos indices que products_data)
+    """
+    headers = settings.get_shopify_headers()
+    session = requests.Session()
+    session.headers.update(headers)
+
+    results = []
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(_update_single_product, session, prod, chg): i
+            for i, (prod, chg) in enumerate(zip(products_data, changes_per_product))
+        }
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    results.sort(key=lambda r: r.get("sku", ""))
+    return results
+
+
 def _extract_categoria(metafields_edges: list) -> str:
     """Extrae categoría de los metafields de un producto."""
     for meta_edge in metafields_edges:
@@ -756,6 +952,24 @@ mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsB
 }
 """
 
+
+_PRODUCT_UPDATE_MUTATION = """
+mutation productUpdate($input: ProductInput!) {
+  productUpdate(input: $input) {
+    product { id title }
+    userErrors { field message }
+  }
+}
+"""
+
+_PRODUCT_CREATE_MEDIA_MUTATION = """
+mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+  productCreateMedia(productId: $productId, media: $media) {
+    media { id }
+    mediaUserErrors { field message }
+  }
+}
+"""
 
 _MIN_IMAGE_SIZE = 1024  # 1 KB — placeholder images are typically < 100 bytes
 
