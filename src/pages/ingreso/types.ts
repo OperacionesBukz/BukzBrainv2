@@ -40,6 +40,7 @@ export interface ShopifyCreateResult {
   sku: string;
   title: string;
   success: boolean;
+  skipped?: boolean;
   error?: string;
   shopify_id?: string;
 }
@@ -47,6 +48,7 @@ export interface ShopifyCreateResult {
 export interface ShopifyCreateResponse {
   total: number;
   created: number;
+  skipped: number;
   failed: number;
   results: ShopifyCreateResult[];
 }
