@@ -32,8 +32,7 @@ export interface LocationItem {
 
 export interface SalesLoadResponse {
   success: boolean;
-  skus_count: number;
-  loaded_at: string;
+  message: string;
 }
 
 export interface ShopifyCreateResult {
@@ -58,6 +57,10 @@ export interface SalesStatusResponse {
     loaded: boolean;
     skus_count: number;
     loaded_at: string | null;
+  };
+  job: {
+    running: boolean;
+    error: string | null;
   };
   bulk_operation: Record<string, unknown>;
 }

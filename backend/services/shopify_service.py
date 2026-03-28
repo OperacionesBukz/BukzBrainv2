@@ -984,22 +984,42 @@ mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
 _MIN_IMAGE_SIZE = 1024  # 1 KB — placeholder images are typically < 100 bytes
 
 
-def _is_valid_image_url(url: str) -> bool:
-    """Verifica que la URL apunte a una imagen real (no un placeholder transparente)."""
-    try:
-        resp = requests.head(url, timeout=5, allow_redirects=True)
-        if resp.status_code != 200:
+def _is_valid_image_url(url: str, retries: int = 2) -> bool:
+    """Verifica que la URL apunte a una imagen real (no un placeholder transparente).
+    Reintenta hasta `retries` veces ante fallos temporales."""
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.head(url, timeout=5, allow_redirects=True)
+            if resp.status_code != 200:
+                if attempt < retries:
+                    time.sleep(0.5)
+                    continue
+                return False
+            content_length = resp.headers.get("Content-Length")
+            if content_length and int(content_length) >= _MIN_IMAGE_SIZE:
+                return True
+            # Algunos servidores no envían Content-Length en HEAD; hacer GET parcial
+            resp = requests.get(url, timeout=5, stream=True, headers={"Range": "bytes=0-1023"})
+            chunk = resp.raw.read(1024)
+            resp.close()
+            return len(chunk) >= _MIN_IMAGE_SIZE
+        except Exception:
+            if attempt < retries:
+                time.sleep(0.5)
+                continue
             return False
-        content_length = resp.headers.get("Content-Length")
-        if content_length and int(content_length) >= _MIN_IMAGE_SIZE:
-            return True
-        # Algunos servidores no envían Content-Length en HEAD; hacer GET parcial
-        resp = requests.get(url, timeout=5, stream=True, headers={"Range": "bytes=0-1023"})
-        chunk = resp.raw.read(1024)
-        resp.close()
-        return len(chunk) >= _MIN_IMAGE_SIZE
-    except Exception:
-        return False
+    return False
+
+
+def validate_image_urls(urls: list[str]) -> dict[str, bool]:
+    """Valida múltiples URLs de imagen en paralelo. Retorna {url: is_valid}."""
+    results = {}
+    with ThreadPoolExecutor(max_workers=min(len(urls), 10)) as executor:
+        futures = {executor.submit(_is_valid_image_url, url): url for url in urls}
+        for future in as_completed(futures):
+            url = futures[future]
+            results[url] = future.result()
+    return results
 
 
 def _build_product_input(row: dict) -> tuple[dict, list]:
@@ -1046,11 +1066,14 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
     if metafields:
         product_input["metafields"] = metafields
 
-    # Media (imagen) — solo si la URL apunta a una imagen real (>1KB)
+    # Media (imagen) — usa resultado pre-validado si existe, sino valida inline
     media = []
     img_src = row.get("Image Src")
     if img_src and str(img_src).strip() and str(img_src).lower() != "nan":
-        if _is_valid_image_url(str(img_src)):
+        is_valid = row.get("_image_validated")
+        if is_valid is None:
+            is_valid = _is_valid_image_url(str(img_src))
+        if is_valid:
             alt = str(row.get("Image Alt Text", "")) or ""
             media.append({
                 "originalSource": str(img_src),
@@ -1252,6 +1275,20 @@ def create_products_batch(rows: list[dict]) -> list[dict]:
             })
         else:
             new_rows.append(row)
+
+    # Pre-validar imágenes en paralelo para no hacerlo secuencialmente por producto
+    image_urls = []
+    for row in new_rows:
+        img = row.get("Image Src")
+        if img and str(img).strip() and str(img).lower() != "nan":
+            image_urls.append(str(img).strip())
+    if image_urls:
+        valid_images = validate_image_urls(list(set(image_urls)))
+        for row in new_rows:
+            img = row.get("Image Src")
+            if img and str(img).strip() and str(img).lower() != "nan":
+                url = str(img).strip()
+                row["_image_validated"] = valid_images.get(url, False)
 
     created_results = []
     if new_rows:

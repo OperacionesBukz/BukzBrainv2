@@ -44,12 +44,14 @@ export default function InventarioMultiBodegaTab() {
   const salesStatus = useSalesStatus(true);
   const salesLoad = useSalesLoad();
   const salesLoaded = salesStatus.data?.cache.loaded ?? false;
+  const salesJobRunning = salesStatus.data?.job?.running ?? false;
+  const salesJobError = salesStatus.data?.job?.error ?? null;
   const [includeSales, setIncludeSales] = useState(false);
 
   const handleLoadSales = async () => {
     try {
-      const result = await salesLoad.mutateAsync();
-      toast.success(`Ventas cargadas: ${result.skus_count} SKUs`);
+      await salesLoad.mutateAsync();
+      toast.success("Carga de ventas iniciada en background");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al cargar ventas");
     }
@@ -97,6 +99,13 @@ export default function InventarioMultiBodegaTab() {
         <CardContent className="space-y-3">
           {salesStatus.isLoading ? (
             <Skeleton className="h-8 w-48" />
+          ) : salesJobRunning ? (
+            <div className="flex items-center gap-3 flex-wrap">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm text-muted-foreground">
+                Cargando ventas en background... esto puede tardar varios minutos
+              </span>
+            </div>
           ) : salesLoaded ? (
             <div className="flex items-center gap-3 flex-wrap">
               <Badge variant="secondary">
@@ -122,19 +131,20 @@ export default function InventarioMultiBodegaTab() {
               </Button>
             </div>
           ) : (
-            <Button
-              onClick={handleLoadSales}
-              disabled={salesLoad.isPending}
-            >
-              {salesLoad.isPending ? (
-                <>
+            <div className="space-y-2">
+              <Button
+                onClick={handleLoadSales}
+                disabled={salesLoad.isPending}
+              >
+                {salesLoad.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cargando ventas... esto puede tardar varios minutos
-                </>
-              ) : (
-                "Cargar Ventas"
+                ) : null}
+                Cargar Ventas
+              </Button>
+              {salesJobError && (
+                <p className="text-sm text-destructive">{salesJobError}</p>
               )}
-            </Button>
+            </div>
           )}
 
           <Label className="flex items-center gap-2 font-normal cursor-pointer">

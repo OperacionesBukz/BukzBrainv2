@@ -38,6 +38,7 @@ class InventoryRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 _sales_cache: dict = {"data": None, "loaded_at": None, "skus_count": 0}
+_sales_job: dict = {"running": False, "error": None}
 
 
 # ---------------------------------------------------------------------------
@@ -211,38 +212,61 @@ async def inventory_excel(
 # Ventas (Bulk Operations)
 # ---------------------------------------------------------------------------
 
+def _sales_worker():
+    """Background worker que carga ventas sin bloquear el endpoint."""
+    from datetime import datetime
+
+    try:
+        sales_data, error = shopify_service.load_sales_sync()
+        if error:
+            _sales_job["error"] = error
+            print(f"[SALES] Job failed: {error}", flush=True)
+        else:
+            _sales_cache["data"] = sales_data
+            _sales_cache["skus_count"] = len(sales_data) if sales_data else 0
+            _sales_cache["loaded_at"] = datetime.now().isoformat()
+            _sales_job["error"] = None
+            print(f"[SALES] Job done: {_sales_cache['skus_count']} SKUs", flush=True)
+    except Exception as e:
+        _sales_job["error"] = str(e)
+        print(f"[SALES] Job exception: {e}", flush=True)
+    finally:
+        _sales_job["running"] = False
+
+
 @router.post("/sales/load")
 def load_sales():
     """
     Inicia la carga de ventas de los últimos 12 meses vía Bulk Operation.
-    NOTA: Esta operación puede tardar varios minutos.
+    Retorna inmediatamente — el trabajo corre en background.
+    Consultar /sales/status para ver el progreso.
     """
-    sales_data, error = shopify_service.load_sales_sync()
-    if error:
-        raise HTTPException(status_code=500, detail=error)
+    import threading
 
-    from datetime import datetime
+    if _sales_job["running"]:
+        return {"success": True, "message": "Ya hay una carga en progreso"}
 
-    _sales_cache["data"] = sales_data
-    _sales_cache["skus_count"] = len(sales_data) if sales_data else 0
-    _sales_cache["loaded_at"] = datetime.now().isoformat()
+    _sales_job["running"] = True
+    _sales_job["error"] = None
+    thread = threading.Thread(target=_sales_worker, daemon=True)
+    thread.start()
 
-    return {
-        "success": True,
-        "skus_count": _sales_cache["skus_count"],
-        "loaded_at": _sales_cache["loaded_at"],
-    }
+    return {"success": True, "message": "Carga de ventas iniciada en background"}
 
 
 @router.get("/sales/status")
 def sales_status():
-    """Retorna el estado actual de la caché de ventas y de la Bulk Operation."""
+    """Retorna el estado actual de la caché de ventas y del job de carga."""
     bulk_status = shopify_service.check_bulk_operation_status()
     return {
         "cache": {
             "loaded": _sales_cache["data"] is not None,
             "skus_count": _sales_cache["skus_count"],
             "loaded_at": _sales_cache["loaded_at"],
+        },
+        "job": {
+            "running": _sales_job["running"],
+            "error": _sales_job["error"],
         },
         "bulk_operation": bulk_status,
     }

@@ -64,6 +64,8 @@ export function useSalesStatus(enabled: boolean) {
     enabled,
     refetchInterval: (query) => {
       const data = query.state.data;
+      // Keep polling while job is running or cache not loaded yet
+      if (data?.job?.running) return 5000;
       if (data?.cache.loaded) return false;
       return 5000;
     },
