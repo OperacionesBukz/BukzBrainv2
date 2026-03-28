@@ -843,8 +843,8 @@ def check_existing_skus(skus: list[str]) -> set[str]:
                     sku = str(edge["node"].get("sku", "")).strip()
                     if sku in batch:
                         found.add(sku)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[SKU CHECK] Error checking batch: {e}", flush=True)
         return found
 
     with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:

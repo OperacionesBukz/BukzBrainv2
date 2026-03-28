@@ -133,10 +133,12 @@ export default function CrearProductos() {
         if (data.skipped > 0) parts.push(`${data.skipped} saltado${data.skipped !== 1 ? "s" : ""}`);
         if (data.failed > 0) parts.push(`${data.failed} con errores`);
         const msg = parts.join(", ");
-        if (data.failed === 0) {
-          toast.success(msg);
-        } else {
+        if (data.failed > 0) {
           toast.warning(msg);
+        } else if (data.created === 0) {
+          toast.info(msg);
+        } else {
+          toast.success(msg);
         }
       },
       onError: (err) => {
