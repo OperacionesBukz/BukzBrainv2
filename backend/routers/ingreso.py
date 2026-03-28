@@ -518,3 +518,190 @@ async def crear_productos_shopify(file: UploadFile = File(...)):
         "failed": failed,
         "results": results,
     }
+
+
+# ---------------------------------------------------------------------------
+# Actualizar Productos
+# ---------------------------------------------------------------------------
+
+_UPDATE_DATA_COLUMNS = {
+    "Titulo", "Sipnosis", "Vendor", "Precio", "Precio de comparacion",
+    "Portada (URL)", "Autor", "Editorial", "Idioma", "Formato",
+    "Categoria", "Subcategoria", "Peso (kg)",
+}
+
+
+async def _parse_update_excel(file: UploadFile) -> tuple:
+    """Lee Excel de actualizacion. Retorna (rows, data_columns_present)."""
+    content = await file.read()
+    try:
+        df = pd.read_excel(BytesIO(content), sheet_name="Products")
+    except Exception:
+        df = pd.read_excel(BytesIO(content))
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    has_sku = "SKU" in df.columns
+    has_id = "ID" in df.columns
+    if not has_sku and not has_id:
+        raise HTTPException(status_code=400, detail='Se requiere columna "SKU" o "ID"')
+
+    data_cols = [c for c in df.columns if c in _UPDATE_DATA_COLUMNS]
+    if not data_cols:
+        raise HTTPException(status_code=400, detail="No se encontraron columnas de datos a actualizar")
+
+    rows = []
+    for _, row in df.iterrows():
+        item = {}
+        if has_sku:
+            raw = row["SKU"]
+            item["SKU"] = str(int(raw)) if isinstance(raw, float) else str(raw).strip()
+        if has_id:
+            raw = row.get("ID", "")
+            item["ID"] = str(int(raw)) if isinstance(raw, float) else str(raw).strip()
+
+        for col in data_cols:
+            val = row.get(col)
+            if pd.notna(val) and str(val).strip():
+                item[col] = str(val).strip()
+
+        rows.append(item)
+
+    return rows, data_cols
+
+
+@router.post("/productos/actualizar/preview")
+async def preview_update_products(file: UploadFile = File(...)):
+    """
+    Sube Excel con SKU/ID + columnas a actualizar.
+    Retorna preview con diff (valor actual vs nuevo) por producto.
+    """
+    rows, data_cols = await _parse_update_excel(file)
+
+    # Extraer identificadores
+    isbn_list = []
+    for r in rows:
+        identifier = r.get("SKU") or r.get("ID", "")
+        if identifier:
+            isbn_list.append(identifier)
+
+    if not isbn_list:
+        raise HTTPException(status_code=400, detail="No se encontraron identificadores validos")
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    products = await loop.run_in_executor(
+        None, shopify_service.fetch_products_for_update, isbn_list
+    )
+
+    preview = []
+    not_found_skus = []
+    changes_count = 0
+    no_changes_count = 0
+
+    for r in rows:
+        identifier = r.get("SKU") or r.get("ID", "")
+        product = products.get(identifier)
+
+        if not product:
+            not_found_skus.append(identifier)
+            continue
+
+        fields = []
+        for col in data_cols:
+            new_val = r.get(col)
+            if new_val is None:
+                continue
+            current_val = product["current"].get(col, "")
+            if str(new_val) != str(current_val):
+                fields.append({
+                    "field": col,
+                    "current": str(current_val),
+                    "new": str(new_val),
+                })
+
+        if fields:
+            changes_count += 1
+            preview.append({
+                "sku": product["sku"],
+                "title": product["title"],
+                "product_id": product["product_id"],
+                "variant_id": product["variant_id"],
+                "fields": fields,
+            })
+        else:
+            no_changes_count += 1
+
+    return {
+        "total": len(isbn_list),
+        "found": len(isbn_list) - len(not_found_skus),
+        "not_found": len(not_found_skus),
+        "changes": changes_count,
+        "no_changes": no_changes_count,
+        "preview": preview,
+        "not_found_skus": not_found_skus,
+    }
+
+
+@router.post("/productos/actualizar/apply")
+async def apply_update_products(file: UploadFile = File(...)):
+    """
+    Sube Excel con SKU/ID + columnas a actualizar.
+    Aplica los cambios en Shopify y retorna resultados.
+    """
+    rows, data_cols = await _parse_update_excel(file)
+
+    isbn_list = []
+    for r in rows:
+        identifier = r.get("SKU") or r.get("ID", "")
+        if identifier:
+            isbn_list.append(identifier)
+
+    if not isbn_list:
+        raise HTTPException(status_code=400, detail="No se encontraron identificadores validos")
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    products = await loop.run_in_executor(
+        None, shopify_service.fetch_products_for_update, isbn_list
+    )
+
+    # Build lists of products and their changes
+    products_to_update = []
+    changes_to_apply = []
+
+    for r in rows:
+        identifier = r.get("SKU") or r.get("ID", "")
+        product = products.get(identifier)
+        if not product:
+            continue
+
+        changes = {}
+        for col in data_cols:
+            new_val = r.get(col)
+            if new_val is None:
+                continue
+            current_val = product["current"].get(col, "")
+            if str(new_val) != str(current_val):
+                changes[col] = new_val
+
+        if changes:
+            products_to_update.append(product)
+            changes_to_apply.append(changes)
+
+    if not products_to_update:
+        return {"total": 0, "updated": 0, "failed": 0, "results": []}
+
+    results = await loop.run_in_executor(
+        None, shopify_service.update_products_batch, products_to_update, changes_to_apply
+    )
+
+    updated = sum(1 for r in results if r["success"])
+    failed = sum(1 for r in results if not r["success"])
+
+    return {
+        "total": len(results),
+        "updated": updated,
+        "failed": failed,
+        "results": results,
+    }
