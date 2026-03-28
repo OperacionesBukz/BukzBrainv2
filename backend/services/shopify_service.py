@@ -496,7 +496,17 @@ def _update_single_product(
                         time.sleep(_throttler.handle_429(resp))
                         continue
                     break
-                fields_updated.append("Portada (URL)")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    media_errors = (
+                        data.get("data", {})
+                        .get("productCreateMedia", {})
+                        .get("mediaUserErrors", [])
+                    )
+                    if not media_errors:
+                        fields_updated.append("Portada (URL)")
+                    else:
+                        print(f"[UPDATE] Media error for SKU {sku}: {media_errors}", flush=True)
 
         return {
             "sku": sku,
