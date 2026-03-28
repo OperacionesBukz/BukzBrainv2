@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   CheckCircle2,
   XCircle,
+  SkipForward,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -39,6 +40,7 @@ import {
 } from "./ingreso/hooks";
 import { downloadTemplate, downloadBlob } from "./ingreso/api";
 import type { ShopifyCreateResponse } from "./ingreso/types";
+import { validateProductFile, type ValidationError } from "./ingreso/validation";
 import * as XLSX from "xlsx";
 
 interface PreviewRow {
@@ -58,6 +60,7 @@ export default function CrearProductos() {
   const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
   const [shopifyResult, setShopifyResult] =
     useState<ShopifyCreateResponse | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   const handleFileSelected = (f: File) => {
     setFile(f);
@@ -65,6 +68,7 @@ export default function CrearProductos() {
     shopifyMutation.reset();
     setProcessedBlob(null);
     setShopifyResult(null);
+    setValidationErrors([]);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -73,13 +77,16 @@ export default function CrearProductos() {
         const wb = XLSX.read(data, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json<PreviewRow>(ws);
+        const cols = json.length > 0 ? Object.keys(json[0]) : [];
         setTotalRows(json.length);
-        setColumns(json.length > 0 ? Object.keys(json[0]) : []);
+        setColumns(cols);
         setPreview(json.slice(0, 5));
+        setValidationErrors(validateProductFile(json, cols));
       } catch {
         setPreview([]);
         setColumns([]);
         setTotalRows(0);
+        setValidationErrors([]);
       }
     };
     reader.readAsArrayBuffer(f);
@@ -121,12 +128,15 @@ export default function CrearProductos() {
     shopifyMutation.mutate(file, {
       onSuccess: (data) => {
         setShopifyResult(data);
+        const parts: string[] = [];
+        if (data.created > 0) parts.push(`${data.created} creado${data.created !== 1 ? "s" : ""}`);
+        if (data.skipped > 0) parts.push(`${data.skipped} saltado${data.skipped !== 1 ? "s" : ""}`);
+        if (data.failed > 0) parts.push(`${data.failed} con errores`);
+        const msg = parts.join(", ");
         if (data.failed === 0) {
-          toast.success(`${data.created} producto${data.created !== 1 ? "s" : ""} creado${data.created !== 1 ? "s" : ""} en Shopify`);
+          toast.success(msg);
         } else {
-          toast.warning(
-            `${data.created} creados, ${data.failed} con errores`,
-          );
+          toast.warning(msg);
         }
       },
       onError: (err) => {
@@ -280,6 +290,31 @@ export default function CrearProductos() {
                   Mostrando 5 de {totalRows} filas
                 </p>
               )}
+
+              {validationErrors.length > 0 ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>
+                    {validationErrors.length} error{validationErrors.length !== 1 && "es"} encontrado{validationErrors.length !== 1 && "s"}
+                  </AlertTitle>
+                  <AlertDescription>
+                    <ul className="mt-2 space-y-1 text-sm list-disc list-inside">
+                      {validationErrors.slice(0, 20).map((err, i) => (
+                        <li key={i}>{err.message}</li>
+                      ))}
+                    </ul>
+                    {validationErrors.length > 20 && (
+                      <p className="mt-1 text-xs">
+                        ...y {validationErrors.length - 20} errores más
+                      </p>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Badge className="bg-green-600 text-white hover:bg-green-700">
+                  Archivo válido
+                </Badge>
+              )}
             </div>
           )}
         </CardContent>
@@ -300,7 +335,7 @@ export default function CrearProductos() {
         <CardContent className="space-y-4">
           <Button
             onClick={handleProcess}
-            disabled={!file || processMutation.isPending}
+            disabled={!file || validationErrors.length > 0 || processMutation.isPending}
           >
             {processMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -401,13 +436,18 @@ export default function CrearProductos() {
 
           {shopifyResult && (
             <div className="space-y-4 overflow-hidden">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <Badge
                   variant={shopifyResult.failed === 0 ? "default" : "secondary"}
                 >
                   {shopifyResult.created} creado
                   {shopifyResult.created !== 1 && "s"}
                 </Badge>
+                {shopifyResult.skipped > 0 && (
+                  <Badge variant="outline" className="border-yellow-500 text-yellow-600 dark:text-yellow-400">
+                    {shopifyResult.skipped} saltado{shopifyResult.skipped !== 1 && "s"}
+                  </Badge>
+                )}
                 {shopifyResult.failed > 0 && (
                   <Badge variant="destructive">
                     {shopifyResult.failed} con errores
@@ -432,6 +472,8 @@ export default function CrearProductos() {
                         <TableCell>
                           {r.success ? (
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : r.skipped ? (
+                            <SkipForward className="h-4 w-4 text-yellow-500" />
                           ) : (
                             <XCircle className="h-4 w-4 text-destructive" />
                           )}
