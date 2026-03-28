@@ -871,7 +871,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main
-        className="flex-1 transition-all duration-300 bg-sidebar"
+        className="flex-1 min-w-0 overflow-x-hidden transition-all duration-300 bg-sidebar"
         style={{
           marginLeft: isMobile ? 0 : (collapsed ? 64 : 240) + subSidebarWidth,
           marginTop: 'calc(3.5rem + env(safe-area-inset-top))',
