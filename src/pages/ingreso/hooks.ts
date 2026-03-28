@@ -10,6 +10,8 @@ import {
   processCreateProducts,
   createProductsInShopify,
   downloadBlob,
+  previewUpdateProducts,
+  applyUpdateProducts,
 } from "./api";
 
 export function useHealthCheck() {
@@ -91,5 +93,17 @@ export function useInventoryExcel() {
       locationNames: string[];
       includeSales: boolean;
     }) => inventoryExcel(file, locationNames, includeSales),
+  });
+}
+
+export function usePreviewUpdate() {
+  return useMutation({
+    mutationFn: (file: File) => previewUpdateProducts(file),
+  });
+}
+
+export function useApplyUpdate() {
+  return useMutation({
+    mutationFn: (file: File) => applyUpdateProducts(file),
   });
 }

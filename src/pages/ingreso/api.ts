@@ -6,6 +6,8 @@ import {
   type SalesLoadResponse,
   type SalesStatusResponse,
   type ShopifyCreateResponse,
+  type UpdatePreviewResponse,
+  type UpdateApplyResponse,
 } from "./types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -138,6 +140,32 @@ export async function createProductsInShopify(
   form.append("file", file);
   return handleResponse(
     await resilientFetch(`${API_BASE}/api/ingreso/productos/shopify`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Actualizar Productos
+// ---------------------------------------------------------------------------
+
+export async function previewUpdateProducts(file: File): Promise<UpdatePreviewResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/productos/actualizar/preview`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+export async function applyUpdateProducts(file: File): Promise<UpdateApplyResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/productos/actualizar/apply`, {
       method: "POST",
       body: form,
     }),
