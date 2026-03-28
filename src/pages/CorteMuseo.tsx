@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { Loader2, Send, Plus, Trash2, Upload, FileSpreadsheet, X, Check } from "lucide-react";
+import { Loader2, Send, Plus, Trash2, Upload, FileSpreadsheet, X, Check, ChevronDown, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { resilientFetch } from "@/lib/resilient-fetch";
 import { API_BASE } from "@/pages/ingreso/types";
 import { MESES } from "@/pages/corte-planeta/constants";
@@ -200,32 +201,45 @@ export default function CorteMuseo() {
         )}
       </div>
 
-      {/* Recipients */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Destinatarios</Label>
-        <div className="space-y-2">
-          {recipients.map((email) => (
-            <div key={email} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-              <span className="text-sm flex-1">{email}</span>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRemoveEmail(email)}>
-                <Trash2 className="h-3.5 w-3.5" />
+      {/* Recipients (collapsible) */}
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors group"
+          >
+            <span className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              Destinatarios ({recipients.length})
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="space-y-2 pt-3">
+            {recipients.map((email) => (
+              <div key={email} className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                <span className="text-sm flex-1">{email}</span>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleRemoveEmail(email)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Input
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddEmail()}
+                placeholder="Agregar correo..."
+                className="flex-1"
+              />
+              <Button size="sm" variant="outline" onClick={handleAddEmail} disabled={!newEmail.trim()}>
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <Input
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddEmail()}
-            placeholder="Agregar correo..."
-            className="flex-1"
-          />
-          <Button size="sm" variant="outline" onClick={handleAddEmail} disabled={!newEmail.trim()}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Subject (readonly) */}
       <div className="space-y-1.5">
