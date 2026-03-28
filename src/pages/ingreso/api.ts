@@ -8,6 +8,7 @@ import {
   type ShopifyCreateResponse,
   type UpdatePreviewResponse,
   type UpdateApplyResponse,
+  type InlineUpdateItem,
 } from "./types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -168,6 +169,22 @@ export async function applyUpdateProducts(file: File): Promise<UpdateApplyRespon
     await resilientFetch(`${API_BASE}/api/ingreso/productos/actualizar/apply`, {
       method: "POST",
       body: form,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline Update (from search table)
+// ---------------------------------------------------------------------------
+
+export async function applyInlineUpdates(
+  items: InlineUpdateItem[],
+): Promise<UpdateApplyResponse> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/productos/actualizar/inline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
     }),
   );
 }

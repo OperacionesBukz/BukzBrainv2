@@ -107,3 +107,12 @@ export interface UpdateApplyResponse {
   failed: number;
   results: UpdateApplyResult[];
 }
+
+// ---------------------------------------------------------------------------
+// Inline Update (from search table)
+// ---------------------------------------------------------------------------
+
+export interface InlineUpdateItem {
+  sku: string;
+  changes: Record<string, string>;
+}

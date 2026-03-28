@@ -12,7 +12,9 @@ import {
   downloadBlob,
   previewUpdateProducts,
   applyUpdateProducts,
+  applyInlineUpdates,
 } from "./api";
+import type { InlineUpdateItem } from "./types";
 
 export function useHealthCheck() {
   return useQuery({
@@ -107,5 +109,11 @@ export function usePreviewUpdate() {
 export function useApplyUpdate() {
   return useMutation({
     mutationFn: (file: File) => applyUpdateProducts(file),
+  });
+}
+
+export function useApplyInlineUpdate() {
+  return useMutation({
+    mutationFn: (items: InlineUpdateItem[]) => applyInlineUpdates(items),
   });
 }

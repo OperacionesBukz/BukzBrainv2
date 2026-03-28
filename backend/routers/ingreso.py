@@ -33,6 +33,15 @@ class InventoryRequest(BaseModel):
     include_sales: bool = False
 
 
+class InlineUpdateItem(BaseModel):
+    sku: str
+    changes: dict[str, str]
+
+
+class InlineUpdateRequest(BaseModel):
+    items: list[InlineUpdateItem]
+
+
 # ---------------------------------------------------------------------------
 # Estado en memoria para ventas (se carga una vez y se reutiliza)
 # ---------------------------------------------------------------------------
@@ -708,6 +717,61 @@ async def apply_update_products(file: UploadFile = File(...)):
             current_val = product["current"].get(col, "")
             if str(new_val) != str(current_val):
                 changes[col] = new_val
+
+        if changes:
+            products_to_update.append(product)
+            changes_to_apply.append(changes)
+
+    if not products_to_update:
+        return {"total": 0, "updated": 0, "failed": 0, "results": []}
+
+    results = await loop.run_in_executor(
+        None, shopify_service.update_products_batch, products_to_update, changes_to_apply
+    )
+
+    updated = sum(1 for r in results if r["success"])
+    failed = sum(1 for r in results if not r["success"])
+
+    return {
+        "total": len(results),
+        "updated": updated,
+        "failed": failed,
+        "results": results,
+    }
+
+
+@router.post("/productos/actualizar/inline")
+async def inline_update_products(body: InlineUpdateRequest):
+    """
+    Recibe JSON con SKUs y cambios para actualizar directamente en Shopify.
+    Usado por la edición inline en la tabla de consulta de productos.
+    """
+    if not body.items:
+        raise HTTPException(status_code=400, detail="No se enviaron productos para actualizar")
+
+    isbn_list = [item.sku for item in body.items if item.sku.strip()]
+    if not isbn_list:
+        raise HTTPException(status_code=400, detail="No se encontraron SKUs válidos")
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    products = await loop.run_in_executor(
+        None, shopify_service.fetch_products_for_update, isbn_list
+    )
+
+    products_to_update = []
+    changes_to_apply = []
+
+    for item in body.items:
+        product = products.get(item.sku.strip())
+        if not product:
+            continue
+
+        changes = {}
+        for field, new_val in item.changes.items():
+            current_val = product["current"].get(field, "")
+            if str(new_val).strip() != str(current_val).strip():
+                changes[field] = new_val.strip()
 
         if changes:
             products_to_update.append(product)
