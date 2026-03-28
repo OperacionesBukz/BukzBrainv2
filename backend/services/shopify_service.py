@@ -196,6 +196,149 @@ def _build_batch_query(isbn_list: list[str]) -> str:
     """ % conditions
 
 
+def _build_update_query(isbn_list: list[str]) -> str:
+    """Construye query GraphQL extendida para update preview (trae todos los campos)."""
+    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in isbn_list])
+    return """
+    {
+      productVariants(first: 100, query: "%s") {
+        edges {
+          node {
+            id
+            sku
+            barcode
+            price
+            compareAtPrice
+            inventoryItem {
+              id
+              measurement { weight { value unit } }
+            }
+            product {
+              id
+              title
+              vendor
+              descriptionHtml
+              images(first: 1) { edges { node { url } } }
+              metafields(first: 50) {
+                edges {
+                  node { namespace key value }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """ % conditions
+
+
+def _extract_metafield(metafields_edges: list, key: str) -> str:
+    """Extrae un metafield por key."""
+    for meta_edge in metafields_edges:
+        meta = meta_edge.get("node", {})
+        if meta.get("namespace") == "custom" and meta.get("key") == key:
+            valor = meta.get("value", "")
+            # Limpiar formato lista JSON
+            return (
+                valor.replace('["', "").replace('"]', "")
+                .replace("[", "").replace("]", "")
+                .replace('"', "").strip()
+            )
+    return ""
+
+
+def _process_batch_for_update(
+    session: requests.Session,
+    isbn_batch: list[str],
+) -> dict:
+    """Procesa un batch de ISBNs para update preview, trayendo todos los campos."""
+    graphql_url = settings.get_graphql_url()
+    results = {}
+
+    try:
+        query = _build_update_query(isbn_batch)
+        _throttler.wait_if_needed()
+        response = session.post(graphql_url, json={"query": query}, timeout=30)
+        _throttler.update_from_response(response)
+
+        if response.status_code == 200:
+            data = response.json()
+            edges = (
+                data.get("data", {})
+                .get("productVariants", {})
+                .get("edges", [])
+            )
+
+            for edge in edges:
+                node = edge["node"]
+                sku = str(node.get("sku", "")).strip()
+                barcode = str(node.get("barcode", "")).strip()
+
+                matched_isbn = None
+                for isbn in isbn_batch:
+                    if sku == isbn or barcode == isbn:
+                        matched_isbn = isbn
+                        break
+
+                if matched_isbn and matched_isbn not in results:
+                    product = node["product"]
+                    metafields = product.get("metafields", {}).get("edges", [])
+                    images = product.get("images", {}).get("edges", [])
+                    weight_data = (
+                        node.get("inventoryItem", {})
+                        .get("measurement", {})
+                        .get("weight", {})
+                    )
+
+                    results[matched_isbn] = {
+                        "sku": sku,
+                        "product_id": product.get("id", ""),
+                        "variant_id": node.get("id", ""),
+                        "title": product.get("title", ""),
+                        "current": {
+                            "Titulo": product.get("title", ""),
+                            "Sipnosis": product.get("descriptionHtml", ""),
+                            "Vendor": product.get("vendor", ""),
+                            "Precio": str(node.get("price", "")),
+                            "Precio de comparacion": str(node.get("compareAtPrice", "") or ""),
+                            "Portada (URL)": images[0]["node"]["url"] if images else "",
+                            "Autor": _extract_metafield(metafields, "autor"),
+                            "Editorial": _extract_metafield(metafields, "editorial"),
+                            "Idioma": _extract_metafield(metafields, "idioma"),
+                            "Formato": _extract_metafield(metafields, "formato"),
+                            "Categoria": _extract_metafield(metafields, "categoria"),
+                            "Subcategoria": _extract_metafield(metafields, "subcategoria"),
+                            "Peso (kg)": str(weight_data.get("value", "")) if weight_data else "",
+                        },
+                    }
+    except Exception as e:
+        print(f"[UPDATE PREVIEW] Error: {e}", flush=True)
+
+    return results
+
+
+def fetch_products_for_update(isbn_list: list[str]) -> dict:
+    """
+    Busca productos completos en Shopify para preview de actualizacion.
+    Retorna dict {isbn: {sku, product_id, variant_id, title, current: {field: value}}}.
+    """
+    headers = settings.get_shopify_headers()
+    batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))
+    all_results = {}
+    session = requests.Session()
+    session.headers.update(headers)
+
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(_process_batch_for_update, session, batch): i
+            for i, batch in enumerate(batches)
+        }
+        for future in as_completed(futures):
+            all_results.update(future.result())
+
+    return all_results
+
+
 def _extract_categoria(metafields_edges: list) -> str:
     """Extrae categoría de los metafields de un producto."""
     for meta_edge in metafields_edges:
