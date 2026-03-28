@@ -61,3 +61,46 @@ export interface SalesStatusResponse {
   };
   bulk_operation: Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------------
+// Update Products
+// ---------------------------------------------------------------------------
+
+export interface UpdateFieldDiff {
+  field: string;
+  current: string;
+  new: string;
+}
+
+export interface UpdateProductPreview {
+  sku: string;
+  title: string;
+  product_id: string;
+  variant_id: string;
+  fields: UpdateFieldDiff[];
+}
+
+export interface UpdatePreviewResponse {
+  total: number;
+  found: number;
+  not_found: number;
+  changes: number;
+  no_changes: number;
+  preview: UpdateProductPreview[];
+  not_found_skus: string[];
+}
+
+export interface UpdateApplyResult {
+  sku: string;
+  title: string;
+  success: boolean;
+  fields_updated?: string[];
+  error?: string;
+}
+
+export interface UpdateApplyResponse {
+  total: number;
+  updated: number;
+  failed: number;
+  results: UpdateApplyResult[];
+}
