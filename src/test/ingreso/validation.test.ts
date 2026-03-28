@@ -161,4 +161,33 @@ describe("validateUpdateFile", () => {
     const dupError = errors.find((e) => e.message.includes("duplicado"));
     expect(dupError).toBeDefined();
   });
+
+  it("warns about data columns present but completely empty", () => {
+    const rows = [
+      { SKU: "111", Precio: 100, Vendor: "" },
+      { SKU: "222", Precio: 200, Vendor: "" },
+    ];
+    const errors = validateUpdateFile(rows, ["SKU", "Precio", "Vendor"]);
+    const emptyCol = errors.find((e) => e.field === "Vendor" && e.message.includes("no tiene datos"));
+    expect(emptyCol).toBeDefined();
+  });
+
+  it("blocks when ALL data columns are empty", () => {
+    const rows = [
+      { SKU: "111", Precio: "", Vendor: "" },
+      { SKU: "222", Precio: "", Vendor: "" },
+    ];
+    const errors = validateUpdateFile(rows, ["SKU", "Precio", "Vendor"]);
+    expect(errors.length).toBeGreaterThanOrEqual(2);
+    expect(errors.every((e) => e.message.includes("no tiene datos"))).toBe(true);
+  });
+
+  it("does not warn about columns with at least some data", () => {
+    const rows = [
+      { SKU: "111", Precio: 100, Vendor: "" },
+      { SKU: "222", Precio: "", Vendor: "Planeta" },
+    ];
+    const errors = validateUpdateFile(rows, ["SKU", "Precio", "Vendor"]);
+    expect(errors.filter((e) => e.message.includes("no tiene datos"))).toHaveLength(0);
+  });
 });

@@ -120,7 +120,27 @@ export function validateUpdateFile(
     return errors;
   }
 
-  // 3. Per-row validation
+  // 3. Detect columns with no data (all rows empty)
+  const emptyColumns = dataColumns.filter((col) =>
+    rows.every((row) => {
+      const val = row[col];
+      return val == null || String(val).trim() === "";
+    }),
+  );
+  if (emptyColumns.length > 0) {
+    for (const col of emptyColumns) {
+      errors.push({
+        field: col,
+        message: `La columna "${col}" está presente pero no tiene datos. Elimínala del archivo o agrega los valores a actualizar.`,
+      });
+    }
+  }
+  // If ALL data columns are empty, it's a hard block
+  if (emptyColumns.length === dataColumns.length) {
+    return errors;
+  }
+
+  // 4. Per-row validation
   const idSeen = new Map<string, number>();
 
   rows.forEach((row, i) => {
