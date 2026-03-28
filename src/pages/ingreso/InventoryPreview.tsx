@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useInlineEditing } from "./useInlineEditing";
 import EditableCell from "./EditableCell";
@@ -188,7 +187,7 @@ export default function InventoryPreview({
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">Sin resultados</p>
         ) : (
-          <ScrollArea className="mt-2 w-full whitespace-nowrap rounded-md border max-h-[420px]">
+          <div className="mt-2 max-h-[420px] overflow-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -279,8 +278,7 @@ export default function InventoryPreview({
                 })}
               </TableBody>
             </Table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
         )}
       </CollapsibleContent>
     </Collapsible>
