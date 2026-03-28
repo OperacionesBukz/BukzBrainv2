@@ -508,11 +508,13 @@ async def crear_productos_shopify(file: UploadFile = File(...)):
     )
 
     created = sum(1 for r in results if r["success"])
-    failed = sum(1 for r in results if not r["success"])
+    skipped = sum(1 for r in results if r.get("skipped"))
+    failed = sum(1 for r in results if not r["success"] and not r.get("skipped"))
 
     return {
         "total": len(results),
         "created": created,
+        "skipped": skipped,
         "failed": failed,
         "results": results,
     }
