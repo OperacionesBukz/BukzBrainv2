@@ -13,6 +13,7 @@ from routers import cortes
 from routers import envio_cortes
 from routers import devoluciones
 from routers import corte_planeta
+from routers import corte_museo
 
 app = FastAPI(
     title="BUKZ Operaciones API",
@@ -37,6 +38,7 @@ app.include_router(cortes.router)
 app.include_router(envio_cortes.router)
 app.include_router(devoluciones.router)
 app.include_router(corte_planeta.router)
+app.include_router(corte_museo.router)
 
 
 @app.get("/health")
