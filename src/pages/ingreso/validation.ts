@@ -84,3 +84,98 @@ export function validateProductFile(
 
   return errors;
 }
+
+const UPDATE_DATA_COLUMNS = [
+  "Titulo", "Sipnosis", "Vendor", "Precio", "Precio de comparacion",
+  "Portada (URL)", "Autor", "Editorial", "Idioma", "Formato",
+  "Categoria", "Subcategoria", "Peso (kg)",
+] as const;
+
+export function validateUpdateFile(
+  rows: Record<string, unknown>[],
+  columns: string[],
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  // 1. At least one identifier column
+  const hasSku = columns.includes("SKU");
+  const hasId = columns.includes("ID");
+  if (!hasSku && !hasId) {
+    errors.push({
+      field: "Identificador",
+      message: 'Se requiere al menos una columna identificadora: "SKU" o "ID"',
+    });
+    return errors;
+  }
+
+  // 2. At least one data column
+  const dataColumns = columns.filter((c) =>
+    (UPDATE_DATA_COLUMNS as readonly string[]).includes(c),
+  );
+  if (dataColumns.length === 0) {
+    errors.push({
+      field: "Datos",
+      message: "Se requiere al menos una columna de datos a actualizar",
+    });
+    return errors;
+  }
+
+  // 3. Per-row validation
+  const idSeen = new Map<string, number>();
+
+  rows.forEach((row, i) => {
+    const rowNum = i + 2;
+
+    // Identifier: prefer SKU, fallback to ID
+    if (hasSku) {
+      const sku = cleanSku(row["SKU"]);
+      if (!sku) {
+        errors.push({ row: rowNum, field: "SKU", message: `Fila ${rowNum}: SKU vacío` });
+      } else {
+        const firstRow = idSeen.get(sku);
+        if (firstRow !== undefined) {
+          errors.push({
+            row: rowNum,
+            field: "SKU",
+            message: `Fila ${rowNum}: SKU "${sku}" duplicado (ya en fila ${firstRow})`,
+          });
+        } else {
+          idSeen.set(sku, rowNum);
+        }
+      }
+    } else if (hasId) {
+      const id = String(row["ID"] ?? "").trim();
+      if (!id) {
+        errors.push({ row: rowNum, field: "ID", message: `Fila ${rowNum}: ID vacío` });
+      }
+    }
+
+    // Price validation (if present)
+    for (const priceCol of ["Precio", "Precio de comparacion"]) {
+      if (priceCol in row && row[priceCol] != null && String(row[priceCol]).trim() !== "") {
+        const val = Number(row[priceCol]);
+        if (isNaN(val) || val <= 0) {
+          errors.push({
+            row: rowNum,
+            field: priceCol,
+            message: `Fila ${rowNum}: ${priceCol} inválido "${row[priceCol]}"`,
+          });
+        }
+      }
+    }
+
+    // URL validation (if present)
+    if ("Portada (URL)" in row && row["Portada (URL)"] != null) {
+      const url = String(row["Portada (URL)"]).trim();
+      if (url && !/^https?:\/\/.+/i.test(url)) {
+        errors.push({
+          row: rowNum,
+          field: "Portada (URL)",
+          message: `Fila ${rowNum}: URL de portada inválida`,
+        });
+      }
+    }
+  });
+
+  return errors;
+}
