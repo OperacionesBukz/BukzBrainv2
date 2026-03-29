@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { createNotification } from "@/lib/notifications";
 import { LeaveRequest } from "../requests/types";
 import { RequestOrder, OrderStatus } from "../bookstore/types";
 
@@ -67,6 +68,19 @@ export function useRequestsHubData() {
         rejected: "Rechazado",
       };
       toast.success(`Estado actualizado a ${statusLabels[newStatus]}`);
+
+      // Fire-and-forget notification to the requesting user
+      const request = leaveRequests.find((r) => r.id === requestId);
+      if (request && request.userEmail && (newStatus === "approved" || newStatus === "rejected")) {
+        const statusText = newStatus === "approved" ? "aprobada" : "rechazada";
+        createNotification({
+          userId: request.userEmail,
+          type: newStatus === "approved" ? "leave_request_approved" : "leave_request_rejected",
+          title: `Solicitud ${statusText}`,
+          message: `Tu solicitud de permiso ha sido ${statusText}`,
+          resourcePath: "/requests",
+        }).catch((err) => console.warn("[notifications] Error:", err));
+      }
     } catch (error) {
       toast.error("Error al actualizar el estado: " + (error instanceof Error ? error.message : "Error desconocido"));
     }

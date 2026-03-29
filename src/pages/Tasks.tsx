@@ -42,6 +42,7 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { createNotification } from "@/lib/notifications";
 import { DatePickerButton } from "@/components/ui/date-picker";
 
 import { Task, SubTask, priorities, priorityColor, adminEmails, assignableUsers } from "./tasks/types";
@@ -212,6 +213,18 @@ const Tasks = () => {
       if (assignStartDate) assignData.startDate = format(assignStartDate, "yyyy-MM-dd");
       if (assignDueDate) assignData.dueDate = format(assignDueDate, "yyyy-MM-dd");
       await addDoc(collection(db, "user_tasks"), assignData);
+
+      // Fire-and-forget notification to the assignee
+      if (assignTo && assignTo !== user.email) {
+        createNotification({
+          userId: assignTo,
+          type: "task_assigned",
+          title: "Nueva tarea asignada",
+          message: `${user.email?.split("@")[0] ?? "Alguien"} te asigno la tarea "${assignTitle.trim()}"`,
+          resourcePath: "/tasks",
+        }).catch((err) => console.warn("[notifications] Error:", err));
+      }
+
       setAssignTitle("");
       setAssignPriority("Media");
       setAssignTo("");

@@ -8,6 +8,7 @@ import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp,
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { createNotificationForAdmins } from "@/lib/notifications";
 import { Badge } from "@/components/ui/badge";
 import { RequestType, LeaveRequest, RequestFormState, requestTypeConfig } from "./requests/types";
 import RequestFormDialog from "./requests/RequestFormDialog";
@@ -78,6 +79,14 @@ const Requests = () => {
         userId: user.uid,
         userEmail: user.email,
       });
+
+      // Fire-and-forget notification to all admins
+      createNotificationForAdmins({
+        type: "leave_request_created",
+        title: "Nueva solicitud de permiso",
+        message: `${user.email?.split("@")[0] ?? "Un usuario"} creo una solicitud de permiso`,
+        resourcePath: "/requests-hub",
+      }).catch((err) => console.warn("[notifications] Error:", err));
 
       // Trigger email sending via PythonAnywhere API (Free fallback)
       const requestLabel = requestTypeConfig.find(t => t.value === dialogType)?.label;

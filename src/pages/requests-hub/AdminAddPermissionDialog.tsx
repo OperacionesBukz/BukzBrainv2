@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
+import { createNotificationForAdmins } from "@/lib/notifications";
 
 interface AdminAddPermissionDialogProps {
   open: boolean;
@@ -68,6 +69,14 @@ const AdminAddPermissionDialog = ({
         fullName: employeeName.trim(),
         createdAt: serverTimestamp(),
       });
+
+      // Fire-and-forget notification to all admins
+      createNotificationForAdmins({
+        type: "leave_request_created",
+        title: "Nuevo permiso registrado",
+        message: `Se registro un permiso para ${employeeName.trim()}: ${customTypeLabel.trim()}`,
+        resourcePath: "/requests-hub",
+      }).catch((err) => console.warn("[notifications] Error:", err));
 
       toast.success("Permiso registrado correctamente");
       resetForm();
