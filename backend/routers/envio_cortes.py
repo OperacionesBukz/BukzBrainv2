@@ -5,11 +5,13 @@ Migrado desde el panel Streamlit (Modulos/CortesVentas.py y CortesNoVentas.py).
 import base64
 import zipfile
 from io import BytesIO
+from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from services.email_service import build_no_ventas_html, build_ventas_html, send_email
+from services.firebase_service import get_firestore_db
 
 router = APIRouter(prefix="/api/envio-cortes", tags=["envio-cortes"])
 
@@ -99,27 +101,65 @@ def _parse_correos(correo_str: str) -> tuple[list[str], list[str] | None]:
     return [correos[0]], correos[1:] if len(correos) > 1 else None
 
 
+def _get_supplier_emails_from_firestore() -> dict[str, str]:
+    """Load supplier primary emails from Firestore. Returns dict of name -> email."""
+    try:
+        db = get_firestore_db()
+        docs = db.collection("suppliers").where("estado", "==", "Activo").stream()
+        result: dict[str, str] = {}
+        for doc in docs:
+            data = doc.to_dict()
+            empresa = data.get("empresa", "")
+            correo = data.get("correo", "")
+            if empresa and correo:
+                result[empresa] = correo
+        return result
+    except Exception as e:
+        print(f"[envio_cortes] Firestore error: {e}")
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # POST /api/envio-cortes/ventas
 # ---------------------------------------------------------------------------
 
 @router.post("/ventas")
 async def enviar_cortes_ventas(
-    proveedores_file: UploadFile = File(...),
     ventas_file: UploadFile = File(...),
     mes: str = Form(...),
     anio: str = Form(...),
     remitente: str = Form(...),
+    proveedores_file: Optional[UploadFile] = File(None),
 ):
     """Procesa ventas mensuales, genera Excel por proveedor y envía emails."""
 
-    # --- Leer archivos ---
-    try:
-        prov_df = pd.read_excel(BytesIO(await proveedores_file.read()))
-        prov_df.columns = prov_df.columns.str.strip()
-    except Exception:
-        raise HTTPException(400, detail="No se pudo leer el archivo de proveedores")
+    # --- Leer archivo de proveedores (si se proporcionó) o usar Firestore ---
+    correo_map: dict[str, str] = {}
+    if proveedores_file is not None:
+        try:
+            prov_df = pd.read_excel(BytesIO(await proveedores_file.read()))
+            prov_df.columns = prov_df.columns.str.strip()
+        except Exception:
+            raise HTTPException(400, detail="No se pudo leer el archivo de proveedores")
 
+        prov_required = {"Proveedores", "Correo"}
+        if not prov_required.issubset(set(prov_df.columns)):
+            raise HTTPException(
+                400,
+                detail=f"El archivo de proveedores debe tener las columnas: {', '.join(prov_required)}",
+            )
+        correo_map = dict(
+            zip(prov_df["Proveedores"], prov_df["Correo"].astype(str))
+        )
+    else:
+        correo_map = _get_supplier_emails_from_firestore()
+        if not correo_map:
+            raise HTTPException(
+                400,
+                detail="No se proporcionó archivo de proveedores y no se pudieron obtener correos de Firestore",
+            )
+
+    # --- Leer archivo de ventas ---
     try:
         ventas_df = pd.read_excel(BytesIO(await ventas_file.read()))
         ventas_df.columns = ventas_df.columns.str.strip()
@@ -127,13 +167,6 @@ async def enviar_cortes_ventas(
         raise HTTPException(400, detail="No se pudo leer el archivo de ventas")
 
     # --- Validar columnas ---
-    prov_required = {"Proveedores", "Correo"}
-    if not prov_required.issubset(set(prov_df.columns)):
-        raise HTTPException(
-            400,
-            detail=f"El archivo de proveedores debe tener las columnas: {', '.join(prov_required)}",
-        )
-
     ventas_required = {
         "product_title", "variant_sku", "product_vendor",
         "pos_location_name", "net_quantity",
@@ -167,11 +200,6 @@ async def enviar_cortes_ventas(
         .reset_index()
     )
     grouped["variant_sku"] = grouped["variant_sku"].apply(_format_sku)
-
-    # --- Construir mapa proveedor → correos ---
-    correo_map: dict[str, str] = dict(
-        zip(prov_df["Proveedores"], prov_df["Correo"].astype(str))
-    )
 
     # --- Enviar emails + generar archivos ---
     html_body = build_ventas_html(mes)
@@ -251,32 +279,43 @@ async def enviar_cortes_ventas(
 
 @router.post("/no-ventas")
 async def enviar_cortes_no_ventas(
-    proveedores_file: UploadFile = File(...),
     estado_file: UploadFile = File(...),
     mes: str = Form(...),
     anio: str = Form(...),
     remitente: str = Form(...),
+    proveedores_file: Optional[UploadFile] = File(None),
 ):
     """Identifica proveedores sin ventas y les envía notificación por email."""
 
-    # --- Leer archivos ---
-    try:
-        prov_df = pd.read_excel(BytesIO(await proveedores_file.read()))
-        prov_df.columns = prov_df.columns.str.strip()
-    except Exception:
-        raise HTTPException(400, detail="No se pudo leer el archivo de proveedores")
+    # --- Leer archivo de proveedores (si se proporcionó) o usar Firestore ---
+    correo_map: dict[str, str] = {}
+    if proveedores_file is not None:
+        try:
+            prov_df = pd.read_excel(BytesIO(await proveedores_file.read()))
+            prov_df.columns = prov_df.columns.str.strip()
+        except Exception:
+            raise HTTPException(400, detail="No se pudo leer el archivo de proveedores")
+
+        if "Proveedores" not in prov_df.columns or "Correo" not in prov_df.columns:
+            raise HTTPException(
+                400, detail="El archivo de proveedores debe tener las columnas: Proveedores, Correo"
+            )
+        correo_map = dict(
+            zip(prov_df["Proveedores"], prov_df["Correo"].astype(str))
+        )
+    else:
+        correo_map = _get_supplier_emails_from_firestore()
+        if not correo_map:
+            raise HTTPException(
+                400,
+                detail="No se proporcionó archivo de proveedores y no se pudieron obtener correos de Firestore",
+            )
 
     try:
         estado_df = pd.read_excel(BytesIO(await estado_file.read()))
         estado_df.columns = estado_df.columns.str.strip()
     except Exception:
         raise HTTPException(400, detail="No se pudo leer el archivo de estado de envío")
-
-    # --- Validar columnas ---
-    if "Proveedores" not in prov_df.columns or "Correo" not in prov_df.columns:
-        raise HTTPException(
-            400, detail="El archivo de proveedores debe tener las columnas: Proveedores, Correo"
-        )
 
     # Detectar columna de proveedor en estado (puede ser "Proveedor" o "proveedor")
     estado_col = None
@@ -291,18 +330,19 @@ async def enviar_cortes_no_ventas(
 
     # --- Identificar proveedores sin ventas ---
     proveedores_con_ventas = set(estado_df[estado_col].dropna().astype(str))
-    no_ventas_df = prov_df[~prov_df["Proveedores"].isin(proveedores_con_ventas)].copy()
+    # Build list of all known suppliers (from file or Firestore)
+    all_suppliers = list(correo_map.keys())
+    no_ventas_proveedores = [p for p in all_suppliers if p not in proveedores_con_ventas]
 
     # Filtrar proveedores excluidos
-    no_ventas_df = no_ventas_df[~no_ventas_df["Proveedores"].isin(PROVEEDORES_EXCLUIR)]
+    no_ventas_proveedores = [p for p in no_ventas_proveedores if p not in PROVEEDORES_EXCLUIR]
 
     # --- Enviar emails ---
     html_body = build_no_ventas_html(mes)
     resultados: list[dict] = []
 
-    for _, row in no_ventas_df.iterrows():
-        proveedor = str(row["Proveedores"])
-        correo_raw = str(row.get("Correo", ""))
+    for proveedor in no_ventas_proveedores:
+        correo_raw = correo_map.get(proveedor, "")
         to_list, cc_list = _parse_correos(correo_raw)
 
         if not to_list:
