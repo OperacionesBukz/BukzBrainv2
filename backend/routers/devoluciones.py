@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from services.email_service import send_email
+from services.firebase_service import get_firestore_db
 
 router = APIRouter(prefix="/api/devoluciones", tags=["devoluciones"])
 
@@ -174,6 +175,28 @@ INFO_CIUDAD: dict[str, dict[str, str]] = {
 }
 
 
+def _get_suppliers_from_firestore() -> dict[str, list[str]]:
+    """Load active suppliers from Firestore, returning dict of empresa -> [emails].
+
+    Falls back to the hardcoded PROVEEDORES_EMAIL if Firestore is unavailable.
+    """
+    try:
+        db = get_firestore_db()
+        docs = db.collection("suppliers").where("estado", "==", "Activo").stream()
+        result = {}
+        for doc in docs:
+            data = doc.to_dict()
+            empresa = data.get("empresa", "")
+            correo = data.get("correo", "")
+            cc = data.get("correos_cc", [])
+            if empresa and correo:
+                result[empresa] = [correo] + cc
+        return result
+    except Exception as e:
+        print(f"[devoluciones] Firestore error, using fallback: {e}")
+        return PROVEEDORES_EMAIL
+
+
 def _build_sedes_html(proveedor_nombre: str) -> str:
     return (
         "<p>Buen día compañeros, espero que todo marche bien.</p>"
@@ -203,10 +226,11 @@ def _build_proveedores_html(num_cajas: int, ciudad: str, info: dict[str, str]) -
 @router.get("/config")
 async def get_config():
     """Retorna listas de configuración para los formularios del frontend."""
+    suppliers = _get_suppliers_from_firestore()
     return {
         "sedes": list(SEDES.keys()),
         "motivos_sedes": MOTIVOS_SEDES,
-        "proveedores": sorted(PROVEEDORES_EMAIL.keys()),
+        "proveedores": sorted(suppliers.keys()),
         "motivos_proveedores": MOTIVOS_PROVEEDORES,
         "ciudades": CIUDADES,
     }
@@ -261,7 +285,8 @@ async def enviar_devolucion_proveedor(
     archivo: UploadFile = File(...),
 ):
     """Envía email de devolución lista a un proveedor."""
-    if proveedor not in PROVEEDORES_EMAIL:
+    suppliers = _get_suppliers_from_firestore()
+    if proveedor not in suppliers:
         raise HTTPException(404, detail=f"Proveedor '{proveedor}' no encontrado")
     if ciudad not in INFO_CIUDAD:
         raise HTTPException(400, detail=f"Ciudad '{ciudad}' no válida. Opciones: {', '.join(CIUDADES)}")
@@ -270,7 +295,7 @@ async def enviar_devolucion_proveedor(
     fecha_str = datetime.now().strftime("%d %b %Y")
     asunto = f'{motivo} "{proveedor}" - {ciudad} - {fecha_str}'
     html_body = _build_proveedores_html(num_cajas, ciudad, info)
-    correos = PROVEEDORES_EMAIL[proveedor]
+    correos = suppliers[proveedor]
 
     archivo_bytes = await archivo.read()
     nombre_archivo = archivo.filename or "devolucion.xlsx"
