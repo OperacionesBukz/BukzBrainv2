@@ -2,10 +2,16 @@
 Servicio para consultar detalles de ordenes Shopify por nombre.
 Usado por el modulo de Cortes para identificar regalos en promociones 3X2.
 """
+import re
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import settings
+
+
+def _sanitize_graphql_value(value: str) -> str:
+    """Elimina caracteres que podrían romper/inyectar queries GraphQL."""
+    return re.sub(r'["\\\n\r{}()\[\]]', "", value.strip())
 
 
 def chunk_list(lst: list, size: int):
@@ -15,7 +21,7 @@ def chunk_list(lst: list, size: int):
 
 def _build_orders_query(order_names: list[str]) -> str:
     """Construye query GraphQL para buscar ordenes por nombre."""
-    name_filter = " OR ".join(f"name:{n}" for n in order_names)
+    name_filter = " OR ".join(f"name:{_sanitize_graphql_value(n)}" for n in order_names)
     return """
     {
       orders(first: %d, query: "%s") {

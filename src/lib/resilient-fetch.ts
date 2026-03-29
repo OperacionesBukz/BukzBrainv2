@@ -1,7 +1,10 @@
+import { auth } from "@/lib/firebase";
+
 interface ResilientFetchOptions extends RequestInit {
   retries?: number;
   retryDelays?: number[];
   timeout?: number;
+  skipAuth?: boolean;
 }
 
 const DEFAULT_RETRIES = 2;
@@ -9,6 +12,19 @@ const DEFAULT_RETRY_DELAYS = [1000, 3000];
 const DEFAULT_TIMEOUT = 15_000;
 
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      return { Authorization: `Bearer ${token}` };
+    }
+  } catch {
+    // Si no hay usuario logueado, no agregamos header
+  }
+  return {};
+}
 
 export async function resilientFetch(
   url: string,
@@ -18,8 +34,18 @@ export async function resilientFetch(
     retries = DEFAULT_RETRIES,
     retryDelays = DEFAULT_RETRY_DELAYS,
     timeout = DEFAULT_TIMEOUT,
+    skipAuth = false,
     ...fetchOptions
   } = options;
+
+  // Inyectar token Firebase automáticamente
+  if (!skipAuth) {
+    const authHeaders = await getAuthHeaders();
+    fetchOptions.headers = {
+      ...authHeaders,
+      ...fetchOptions.headers,
+    };
+  }
 
   let lastError: Error | null = null;
 

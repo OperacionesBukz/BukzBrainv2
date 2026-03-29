@@ -3,6 +3,7 @@ Servicio de Shopify — lógica de negocio extraída de IngresoMercancia.py
 Sin dependencias de Streamlit. Puro Python + requests.
 """
 import json
+import re
 import time
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,6 +12,11 @@ from datetime import datetime, timedelta
 import threading
 
 from config import settings
+
+
+def _sanitize_graphql_value(value: str) -> str:
+    """Elimina caracteres que podrían romper/inyectar queries GraphQL."""
+    return re.sub(r'["\\\n\r{}()\[\]]', "", value.strip())
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +174,8 @@ def get_locations() -> dict:
 
 def _build_batch_query(isbn_list: list[str]) -> str:
     """Construye query GraphQL para múltiples ISBNs."""
-    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in isbn_list])
+    safe = [_sanitize_graphql_value(isbn) for isbn in isbn_list]
+    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in safe])
     return """
     {
       productVariants(first: 100, query: "%s") {
@@ -198,7 +205,8 @@ def _build_batch_query(isbn_list: list[str]) -> str:
 
 def _build_update_query(isbn_list: list[str]) -> str:
     """Construye query GraphQL extendida para update preview (trae todos los campos)."""
-    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in isbn_list])
+    safe = [_sanitize_graphql_value(isbn) for isbn in isbn_list]
+    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in safe])
     return """
     {
       productVariants(first: 100, query: "%s") {
@@ -1212,7 +1220,7 @@ def check_existing_skus(skus: list[str]) -> set[str]:
 
     def _check_batch(batch: list[str]) -> set[str]:
         found = set()
-        conditions = " OR ".join([f"sku:{sku}" for sku in batch])
+        conditions = " OR ".join([f"sku:{_sanitize_graphql_value(sku)}" for sku in batch])
         query = """
         {
           productVariants(first: 250, query: "%s") {

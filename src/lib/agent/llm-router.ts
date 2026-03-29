@@ -1,3 +1,4 @@
+import { auth } from "@/lib/firebase";
 import type { ProviderResponse, ToolDefinition } from "./types";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
@@ -19,9 +20,17 @@ export async function sendToLLM(
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          headers["Authorization"] = `Bearer ${await user.getIdToken()}`;
+        }
+      } catch { /* sin auth, continuar sin token */ }
+
       const res = await fetch(`${BACKEND_URL}/agent/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ messages, tools: toolDefs }),
       });
 

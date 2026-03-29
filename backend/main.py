@@ -2,9 +2,10 @@
 Backend FastAPI para Panel de Operaciones BUKZ.
 Expone la lógica de negocio de los módulos Python como API REST.
 """
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from auth import verify_firebase_token
 from config import settings
 from routers import ingreso
 from routers import scrap
@@ -30,15 +31,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registrar routers
-app.include_router(ingreso.router)
-app.include_router(scrap.router)
-app.include_router(agent.router)
-app.include_router(cortes.router)
-app.include_router(envio_cortes.router)
-app.include_router(devoluciones.router)
-app.include_router(corte_planeta.router)
-app.include_router(corte_museo.router)
+# Registrar routers — todos protegidos con autenticación Firebase
+_auth = [Depends(verify_firebase_token)]
+app.include_router(ingreso.router, dependencies=_auth)
+app.include_router(scrap.router, dependencies=_auth)
+app.include_router(agent.router, dependencies=_auth)
+app.include_router(cortes.router, dependencies=_auth)
+app.include_router(envio_cortes.router, dependencies=_auth)
+app.include_router(devoluciones.router, dependencies=_auth)
+app.include_router(corte_planeta.router, dependencies=_auth)
+app.include_router(corte_museo.router, dependencies=_auth)
 
 
 @app.get("/health")
