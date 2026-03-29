@@ -48,6 +48,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigationPermissions } from "@/hooks/useNavigationPermissions";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useTour } from "@/hooks/useTour";
 import { ChatBubble } from "@/components/agent/ChatBubble";
 import { PAGE_REGISTRY } from "@/lib/pages";
@@ -835,6 +836,9 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2 md:gap-3">
+          {/* Notificaciones */}
+          <NotificationBell />
+
           {/* ThemeToggle - solo si mobile o sidebar collapsed */}
           {(isMobile || collapsed) && <ThemeToggle />}
 
