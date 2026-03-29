@@ -125,5 +125,20 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
       }
     }
+
+    // ─── Notifications (Phase 1) ──────────────────────────────
+    // Usuarios leen/actualizan solo sus propias notificaciones.
+    // Cualquier usuario autenticado puede crear (triggers crean para otros).
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated()
+                  && resource.data.userId == request.auth.token.email;
+
+      allow create: if isAuthenticated();
+
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.token.email;
+
+      allow delete: if isAdmin();
+    }
   }
 }
