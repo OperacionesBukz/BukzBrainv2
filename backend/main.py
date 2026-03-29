@@ -15,6 +15,7 @@ from routers import envio_cortes
 from routers import devoluciones
 from routers import corte_planeta
 from routers import corte_museo
+from routers import gift_cards
 
 app = FastAPI(
     title="BUKZ Operaciones API",
@@ -41,6 +42,7 @@ app.include_router(envio_cortes.router, dependencies=_auth)
 app.include_router(devoluciones.router, dependencies=_auth)
 app.include_router(corte_planeta.router, dependencies=_auth)
 app.include_router(corte_museo.router, dependencies=_auth)
+app.include_router(gift_cards.router, dependencies=_auth)
 
 
 @app.get("/health")

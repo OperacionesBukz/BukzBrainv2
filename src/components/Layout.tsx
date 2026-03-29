@@ -18,6 +18,7 @@ import {
   GitBranchPlus,
   Mail,
   Undo2,
+  Gift,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -83,6 +84,12 @@ const workflowSubCategories = [
     category: "Devoluciones",
     items: [
       { title: "Devoluciones", path: "/devoluciones", icon: Undo2 },
+    ],
+  },
+  {
+    category: "Tiendas",
+    items: [
+      { title: "Gift Cards", path: "/gift-cards", icon: Gift },
     ],
   },
 ];
