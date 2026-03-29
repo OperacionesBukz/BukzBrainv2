@@ -140,5 +140,12 @@ service cloud.firestore {
 
       allow delete: if isAdmin();
     }
+
+    // ─── Suppliers (Phase 2) ──────────────────────────────────
+    // Proveedores centralizados. Lectura abierta, escritura solo admin.
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
   }
 }
