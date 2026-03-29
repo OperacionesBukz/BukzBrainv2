@@ -1,0 +1,1821 @@
+[
+  {
+    "empresa": "Proveedor Prueba",
+    "correo": "cedi@bukz.co",
+    "correos_cc": [],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Penguin RandomHouse (MED)",
+    "correo": "natalia.Hurtado@penguinrandomhouse.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Penguin RandomHouse (BOG)",
+    "correo": "fernanda.Herrera@penguinrandomhouse.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Grupo Editorial Planeta (MED)",
+    "correo": "mromero@planeta.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Grupo Editorial Planeta (BOG)",
+    "correo": "ovargas@planeta.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Oceano",
+    "correo": "alejandro.vargas@oceano.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Grupo Penta",
+    "correo": "zoraida.ojeda@grupopenta.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Siglo del Hombre (MED)",
+    "correo": "hjimenez@siglodelhombre.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Siglo del Hombre (BOG)",
+    "correo": "jbernal@somossiglo.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Grupo Monserrate",
+    "correo": "grupomonserratemedellin@hotmail.com",
+    "correos_cc": [
+      "artbooksmilenaleonel@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Sin Fronteras",
+    "correo": "comercial1@gruposinfronteras.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "ACLI",
+    "correo": "info.aclilibreros@gmail.com",
+    "correos_cc": [
+      "inventariosacli@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Alianza Editorial",
+    "correo": "alianzaeditorialmed@hotmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Alicia Mejia",
+    "correo": "administrativo@thinklicious.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Angosta Editores",
+    "correo": "auxiliar@angosta.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Arquine",
+    "correo": "camilo@agendarq.com",
+    "correos_cc": [
+      "andrea@arquine.com",
+      "miquel@arquine.com",
+      "distribucion@arquine.com"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Artemis Libros",
+    "correo": "artemislibros@yahoo.es",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Caballito de Acero",
+    "correo": "editorial@caballitodeacero.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Calixta Editores",
+    "correo": "luis.izquierdo@calixtaeditores.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Carolina Giraldo García",
+    "correo": "hola@carogiraldogarcia.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Carolina Pérez Botero",
+    "correo": "carolina@amorescaprichosos.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Catalina Mayorga",
+    "correo": "gonzalez.saldarriaga@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Circulo de lectores",
+    "correo": "aremil@circulo.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Contenido",
+    "correo": "contenido.contenido@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Cubo Universo Creativo",
+    "correo": "gerencia@cubocultural.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Difusora Larousse de Colombia",
+    "correo": "francygonzalez@larousse.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Diseños Lalys",
+    "correo": "leamosliteraturayletras@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones Gaviota",
+    "correo": "ventas1@ediciones-gaviota.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones Urano (MED)",
+    "correo": "m.osorio@edicionesurano.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones Urano (BOG)",
+    "correo": "f.arevalo@uranoworld.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones Vestigio",
+    "correo": "editor.vestigio@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Editorial Eafit",
+    "correo": "aherrerag@eafit.edu.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Editorial Quimbombó",
+    "correo": "editorialquimbombo@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Editorial Solar",
+    "correo": "nathalie.editorialsolar@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Elev8 Media S.A.S",
+    "correo": "gary@elev8.io",
+    "correos_cc": [
+      "elizabeth@elev8.io",
+      "giraldo.anamaria@asesoriashg.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Epifánico",
+    "correo": "contacto@epifanico.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Estrategia en Ventas",
+    "correo": "soporte@estrategiaenventas.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "FCE",
+    "correo": "camilo.hernandez@fce.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Fondo Cultural Iberoamericano (MED)",
+    "correo": "focui@outlook.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Fondo Cultural Iberoamericano (BOG)",
+    "correo": "vivianateresaluna15@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Frailejón Editores",
+    "correo": "frailejoneditores@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Huracán Distribución",
+    "correo": "huracandistribucion@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Icaro Libros",
+    "correo": "ventas@icarolibros.com",
+    "correos_cc": [],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "La Editora - Ana Meza",
+    "correo": "ana@analaeditora.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Libro Arte S.A.S",
+    "correo": "Ventas@tarangoplay.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Lobolunar",
+    "correo": "lobolunarcolombia@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Mandalas para el alma",
+    "correo": "direccion@andreagudelo.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Marco Polo",
+    "correo": "marcopolo.encuadernacion.art@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Mesaestandar",
+    "correo": "contacto@mesaestandar.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "No Apto",
+    "correo": "marianavasquez90@hotmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Plaza & Janes",
+    "correo": "diego.ospina@plazayjanescolombia.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Poster Colombia",
+    "correo": "postercolombia@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Raya Editores",
+    "correo": "rayaeditorial@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Rey Naranjo",
+    "correo": "administrativo@reynaranjo.net",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Silaba Editores",
+    "correo": "asistentesilaba@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "SITRA Mundo Creativo",
+    "correo": "basalmobiliario@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Taller de edición Rocca",
+    "correo": "correotallerdeedicionrocca@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ingenio",
+    "correo": "comercial@ingeniodestrezamental.com",
+    "correos_cc": [
+      "pperez@ingeniodestrezamental.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Tool-be",
+    "correo": "alejandra.zuluaga@tool-be.com",
+    "correos_cc": [
+      "maria.velez@tool-be.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Tragaluz Editores",
+    "correo": "ventas@tragaluzeditores.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Travesía Juglar",
+    "correo": "travesiajuglar@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Universidad CES",
+    "correo": "ndurangor@ces.edu.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Vasquez Editores",
+    "correo": "vasquezeditores@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Viiel",
+    "correo": "solarber2010@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Policefalo",
+    "correo": "policefaloediciones@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Asociación de Editoriales Independientes de Chile",
+    "correo": "andresfberdugo@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "La Valija de Fuego Editorial",
+    "correo": "lavalijadefuegoeditorial@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Arbitraria",
+    "correo": "arbitrariaeditorial@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Libros del Motín",
+    "correo": "david7g@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Lazo Libros",
+    "correo": "hola@lazolibros.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Axioma Editores",
+    "correo": "axiomaeditores@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Grammata - Vazquez",
+    "correo": "vasquezeditores@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Saga Libros",
+    "correo": "ventas@saga.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Mo Ediciones",
+    "correo": "monica.montes@moediciones.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Cain Press",
+    "correo": "info@cainpress.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Libros del Fuego",
+    "correo": "rodcasares@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Verso Libre",
+    "correo": "versolibre@comunycorriente.org",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Artimaña Editorial",
+    "correo": "artimanaeditorial@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "McMullan Birding",
+    "correo": "ensiferaeditores@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Club Editores S.A.",
+    "correo": "dianapaezm@yahoo.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "As Ediciones",
+    "correo": "gerencia@asediciones.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Amelia Amortegui",
+    "correo": "holavengaledigo@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Dos Gatos Editores",
+    "correo": "xtinawilhelm@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Cypres",
+    "correo": "cypreslibrerias@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Kocodio",
+    "correo": "info@kocodio.com",
+    "correos_cc": [
+      "comercial@kocodio.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Astropuerta",
+    "correo": "astropuerta@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones el Silencio",
+    "correo": "logisticaedicioneselsilencio@gmail.com",
+    "correos_cc": [
+      "auxiliardeventas@edicioneselsilencio.com.co",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones de la U",
+    "correo": "comercial1@edicionesdelau.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Fera",
+    "correo": "ventas.fera@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Poiema Publicaciones",
+    "correo": "celis@poiema.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones Gamma",
+    "correo": "comercial@revistadiners.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Union Editorial Colombia",
+    "correo": "gilberto.ramirez@unioneditorial.net",
+    "correos_cc": [
+      "freddyjosecarrillo@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Lavanda Editoras",
+    "correo": "claudiaivonne09@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Germán Puerta",
+    "correo": "astropuerta@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Villegas Editores",
+    "correo": "comercial@villegaseditores.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "La Diligencia",
+    "correo": "ladiligenciacolombia@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Babel",
+    "correo": "libros.babel@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Luz Karime Saleme Correa",
+    "correo": "lksaleme@leonardonino.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Cangrejo Editores",
+    "correo": "camilo.aljure@cangrejoeditores.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Testigo Directo",
+    "correo": "produccion@testigodirectoeditorial.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Panamericana",
+    "correo": "panamericanaeditorial.pedidos@panamericana.com.co",
+    "correos_cc": [
+      "adriana.tovar@panamericana.com.co",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Hipertexto",
+    "correo": "lider.supplychain@hipertexto.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Unilat",
+    "correo": "ventas@unilat.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ojos de tus Ojos",
+    "correo": "carojimet@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Secretos para Contar",
+    "correo": "yeny.castrillon@secretosparacontar.org",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "SOFIA EDITORES SAS",
+    "correo": "sofiaeditores@gmail.com",
+    "correos_cc": [
+      "moniquillar@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Proyectos Sin Limites",
+    "correo": "ventas@proyectossinlimites.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Catherine Villota",
+    "correo": "catyvillota@fashionradicals.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Jaime Botero",
+    "correo": "lasagabotero@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Empoderados SAS",
+    "correo": "diana@antu.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "The Black Bean",
+    "correo": "hola@theblackbean.net",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Harry Marin",
+    "correo": "marinvahos@hotmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Holz Haus",
+    "correo": "xilostech@gmail.com",
+    "correos_cc": [
+      "cechavarriasoto@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Ediciones La Pluma del Águila",
+    "correo": "jarredondo@aguiladescalza.com.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Maria Pulido Alvarez",
+    "correo": "laura.alvarezlopez83@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Nelly Giraldo Gil",
+    "correo": "wonderwiseeod@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Fundación Casa Arcoíris",
+    "correo": "casaarcoiris7@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Valeria Marín Pineda",
+    "correo": "gatosmaestrosdevida@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Aguila Descalza",
+    "correo": "contabilidad@aguiladescalza.com.co",
+    "correos_cc": [
+      "asisadministrativo@aguiladescalza.com.co",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Acuarell",
+    "correo": "zalamt@hotmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Happy Kiddo",
+    "correo": "lorena@happykiddobooks.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Feliciano Escobar",
+    "correo": "felicianoescobar@yahoo.com",
+    "correos_cc": [
+      "medellinupclose@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Booktique",
+    "correo": "booktiquecol@gmail.com",
+    "correos_cc": [
+      "medellinupclose@gmail.com",
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Idealo Pez",
+    "correo": "lestrada@idealopez.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Alejandro Salazar",
+    "correo": "administrativa@tbreakthrough.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Toy",
+    "correo": "comercial@toystyle.co",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Sin Ocasión",
+    "correo": "sinocasion@outlook.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Arpegio Cool",
+    "correo": "arpegio.cool@gmail.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  },
+  {
+    "empresa": "Norma",
+    "correo": "imontoya@edicionesnorma.com",
+    "correos_cc": [
+      "cedi@bukz.co"
+    ],
+    "ciudad": "",
+    "nit": "",
+    "razonSocial": "",
+    "margen": 0,
+    "estado": "Activo",
+    "tipo": "proveedor",
+    "createdBy": "migration"
+  }
+]
