@@ -395,6 +395,7 @@ async def enviar_corte_individual(
     df_filtered = ventas_df[mask]
 
     # Si no hay coincidencias, usar todas las filas (archivo ya es específico del proveedor)
+    filter_applied = not df_filtered.empty
     if df_filtered.empty:
         df_filtered = ventas_df
 
@@ -449,4 +450,5 @@ async def enviar_corte_individual(
         "correo_cc": cc_list,
         "asunto": subject,
         "filas_procesadas": len(grouped),
+        "filter_applied": filter_applied,
     }

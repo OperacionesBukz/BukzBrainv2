@@ -65,6 +65,7 @@ export interface IndividualResponse {
   correo_cc: string[];
   asunto: string;
   filas_procesadas: number;
+  filter_applied: boolean;
 }
 
 export async function enviarCorteIndividual(

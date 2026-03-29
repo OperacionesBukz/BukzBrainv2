@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Loader2, RotateCcw, CheckCircle2, Mail } from "lucide-react";
+import { Loader2, RotateCcw, CheckCircle2, Mail, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,7 +137,7 @@ export default function CorteIndividualTab() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="anio-individual">Ano</Label>
+              <Label htmlFor="anio-individual">Año</Label>
               <Input
                 id="anio-individual"
                 value={anio}
@@ -231,9 +231,18 @@ export default function CorteIndividualTab() {
             </div>
           </div>
 
+          {response.filter_applied === false && (
+            <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/30">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                No se encontraron filas para el proveedor "{response.proveedor}" en el archivo. Se enviaron todas las filas del archivo.
+              </p>
+            </div>
+          )}
+
           <Button variant="outline" size="sm" onClick={handleReset}>
             <RotateCcw className="h-4 w-4 mr-2" />
-            Nuevo envio
+            Nuevo envío
           </Button>
         </div>
       )}
