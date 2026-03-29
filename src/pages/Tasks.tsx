@@ -220,7 +220,7 @@ const Tasks = () => {
           userId: assignTo,
           type: "task_assigned",
           title: "Nueva tarea asignada",
-          message: `${user.email?.split("@")[0] ?? "Alguien"} te asigno la tarea "${assignTitle.trim()}"`,
+          message: `${user.email?.split("@")[0] ?? "Alguien"} te asignó la tarea "${assignTitle.trim()}"`,
           resourcePath: "/tasks",
         }).catch((err) => console.warn("[notifications] Error:", err));
       }

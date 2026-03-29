@@ -84,7 +84,7 @@ const Requests = () => {
       createNotificationForAdmins({
         type: "leave_request_created",
         title: "Nueva solicitud de permiso",
-        message: `${user.email?.split("@")[0] ?? "Un usuario"} creo una solicitud de permiso`,
+        message: `${user.email?.split("@")[0] ?? "Un usuario"} creó una solicitud de permiso`,
         resourcePath: "/requests-hub",
       }).catch((err) => console.warn("[notifications] Error:", err));
 

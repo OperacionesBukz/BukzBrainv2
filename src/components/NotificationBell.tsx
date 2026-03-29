@@ -32,9 +32,11 @@ export function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const handleNotificationClick = async (notification: Notification) => {
+  const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) {
-      await markNotificationAsRead(notification.id);
+      markNotificationAsRead(notification.id).catch((err) =>
+        console.warn("[notifications] markAsRead error:", err)
+      );
     }
     if (notification.resourcePath) {
       navigate(notification.resourcePath);
@@ -42,9 +44,11 @@ export function NotificationBell() {
     setOpen(false);
   };
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = () => {
     if (!user?.email) return;
-    await markAllNotificationsAsRead(user.email);
+    markAllNotificationsAsRead(user.email).catch((err) =>
+      console.warn("[notifications] markAllAsRead error:", err)
+    );
   };
 
   const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
@@ -75,7 +79,7 @@ export function NotificationBell() {
               onClick={handleMarkAllAsRead}
             >
               <CheckCheck className="mr-1 h-3.5 w-3.5" />
-              Marcar todas como leidas
+              Marcar todas como leídas
             </Button>
           )}
         </div>

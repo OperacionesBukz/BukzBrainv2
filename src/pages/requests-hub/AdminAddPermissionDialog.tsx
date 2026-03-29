@@ -74,7 +74,7 @@ const AdminAddPermissionDialog = ({
       createNotificationForAdmins({
         type: "leave_request_created",
         title: "Nuevo permiso registrado",
-        message: `Se registro un permiso para ${employeeName.trim()}: ${customTypeLabel.trim()}`,
+        message: `Se registró un permiso para ${employeeName.trim()}: ${customTypeLabel.trim()}`,
         resourcePath: "/requests-hub",
       }).catch((err) => console.warn("[notifications] Error:", err));
 

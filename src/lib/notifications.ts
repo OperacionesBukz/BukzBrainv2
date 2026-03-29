@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
   query,
   serverTimestamp,
   updateDoc,
@@ -51,7 +52,8 @@ export async function markAllNotificationsAsRead(
   const q = query(
     collection(db, "notifications"),
     where("userId", "==", userId),
-    where("read", "==", false)
+    where("read", "==", false),
+    limit(500)
   );
   const snapshot = await getDocs(q);
   if (snapshot.empty) return;
