@@ -25,12 +25,12 @@ Milestone v1.0 delivers two independent capabilities: a real-time notification s
   3. Al hacer click en el icono de notificaciones se abre un panel con la lista de notificaciones ordenadas por fecha
   4. El usuario puede marcar notificaciones como leidas (individual y masivamente) y al hacer click en una notificacion navega directamente al recurso relacionado
   5. Admin recibe notificacion cuando se crea una solicitud de permiso; usuario recibe notificacion cuando su solicitud es aprobada o rechazada
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Capa de datos: tipos, helpers CRUD, hook useNotifications, reglas Firestore
+- [ ] 01-02-PLAN.md — UI: NotificationBell con badge, popover desplegable, marcar leidas, navegacion
+- [ ] 01-03-PLAN.md — Triggers: crear notificaciones al asignar tareas y gestionar solicitudes de permiso
 
 ### Phase 2: Gestion de Proveedores Centralizada
 **Goal**: Admins gestionan proveedores desde el frontend y el backend consulta proveedores dinamicamente desde Firestore en vez de datos hardcodeados
@@ -55,5 +55,5 @@ Phases execute in numeric order: 1 -> 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sistema de Notificaciones | 0/? | Not started | - |
+| 1. Sistema de Notificaciones | 0/3 | Not started | - |
 | 2. Gestion de Proveedores Centralizada | 0/? | Not started | - |
