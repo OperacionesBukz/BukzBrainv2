@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import CortesVentasTab from "./envio-cortes/CortesVentasTab";
 import CortesNoVentasTab from "./envio-cortes/CortesNoVentasTab";
+import CorteIndividualTab from "./envio-cortes/CorteIndividualTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageSkeleton } from "@/components/PageSkeleton";
 
@@ -22,6 +23,7 @@ const EnvioCortes = () => (
       <TabsList>
         <TabsTrigger value="ventas">Cortes Ventas</TabsTrigger>
         <TabsTrigger value="no-ventas">Cortes No Ventas</TabsTrigger>
+        <TabsTrigger value="individual">Corte Individual</TabsTrigger>
         <TabsTrigger value="penguin">Corte Penguin</TabsTrigger>
         <TabsTrigger value="planeta">Corte Planeta</TabsTrigger>
         <TabsTrigger value="museo">Corte Museo</TabsTrigger>
@@ -31,6 +33,9 @@ const EnvioCortes = () => (
       </TabsContent>
       <TabsContent value="no-ventas">
         <CortesNoVentasTab />
+      </TabsContent>
+      <TabsContent value="individual">
+        <CorteIndividualTab />
       </TabsContent>
       <TabsContent value="penguin">
         <Suspense fallback={<PageSkeleton />}>

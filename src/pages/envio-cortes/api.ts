@@ -58,6 +58,42 @@ export async function enviarCortesNoVentas(
   );
 }
 
+export interface IndividualResponse {
+  success: boolean;
+  proveedor: string;
+  correo: string;
+  correo_cc: string[];
+  asunto: string;
+  filas_procesadas: number;
+}
+
+export async function enviarCorteIndividual(
+  ventasFile: File,
+  proveedor: string,
+  correo: string,
+  correoCc: string,
+  mes: string,
+  anio: string,
+  remitente: string,
+): Promise<IndividualResponse> {
+  const form = new FormData();
+  form.append("ventas_file", ventasFile);
+  form.append("proveedor", proveedor);
+  form.append("correo", correo);
+  form.append("correo_cc", correoCc);
+  form.append("mes", mes);
+  form.append("anio", anio);
+  form.append("remitente", remitente);
+
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/envio-cortes/individual`, {
+      method: "POST",
+      body: form,
+      timeout: 60_000,
+    }),
+  );
+}
+
 export function downloadZipFromBase64(base64: string, filename: string) {
   const byteChars = atob(base64);
   const byteArray = new Uint8Array(byteChars.length);
