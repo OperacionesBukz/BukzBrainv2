@@ -97,6 +97,7 @@ export default function DirectoryTab({
         nit: row.nit,
         margen: row.margen,
         correo: row.correo,
+        correos_cc: row.correos_cc || [],
         estado: "Activo",
       });
       count++;

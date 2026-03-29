@@ -40,6 +40,7 @@ export function exportDirectory(
       NIT: e.nit,
       "Margen %": e.margen,
       Correo: e.correo || "",
+      "Correos CC": (e.correos_cc || []).join("; "),
       Estado: e.estado,
     }));
   }
@@ -66,6 +67,7 @@ export interface ParsedSupplierRow {
   nit: string;
   margen: number;
   correo: string;
+  correos_cc: string[];
 }
 
 export interface ParseError {
@@ -95,6 +97,7 @@ const SUPPLIER_COLUMN_MAP: Record<string, keyof ParsedSupplierRow> = {
   "margen %": "margen",
   correo: "correo",
   email: "correo",
+  "correos cc": "correos_cc",
 };
 
 function normalizeHeader(header: string): string {
@@ -248,6 +251,10 @@ export async function parseSupplierExcel(
       nit: mapped.nit || "",
       margen,
       correo: mapped.correo || "",
+      correos_cc: (mapped.correos_cc || "")
+        .split(";")
+        .map((s: string) => s.trim())
+        .filter(Boolean),
     });
   });
 

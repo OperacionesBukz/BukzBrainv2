@@ -118,7 +118,7 @@ export default function DirectoryImportDialog({
 
   const columnsHint = isPersonType
     ? "Nombre, Apellido, Cédula, Celular, Correo"
-    : "Empresa, Razón Social, NIT, Margen, Correo";
+    : "Empresa, Razón Social, NIT, Margen, Correo, Correos CC";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -245,6 +245,9 @@ export default function DirectoryImportDialog({
                             <th className="text-left px-3 py-2 font-medium">
                               Correo
                             </th>
+                            <th className="text-left px-3 py-2 font-medium">
+                              Correos CC
+                            </th>
                           </>
                         )}
                       </tr>
@@ -278,6 +281,9 @@ export default function DirectoryImportDialog({
                               <td className="px-3 py-1.5">{row.margen}%</td>
                               <td className="px-3 py-1.5 text-muted-foreground">
                                 {row.correo}
+                              </td>
+                              <td className="px-3 py-1.5 text-muted-foreground">
+                                {row.correos_cc.join("; ")}
                               </td>
                             </tr>
                           ))}

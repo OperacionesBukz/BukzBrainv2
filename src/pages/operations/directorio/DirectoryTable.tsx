@@ -74,6 +74,7 @@ const emptySupplier = {
   nit: "",
   margen: "",
   correo: "",
+  correos_cc: "",
   estado: "Activo" as DirectoryStatus,
 };
 
@@ -118,6 +119,10 @@ export default function DirectoryTable({
         nit: s.nit.trim(),
         margen: parseFloat(s.margen) || 0,
         correo: s.correo.trim(),
+        correos_cc: (s.correos_cc || "")
+          .split(";")
+          .map((v: string) => v.trim())
+          .filter(Boolean),
         estado: s.estado,
       } as Omit<SupplierEntry, "id" | "createdBy" | "createdAt" | "updatedAt">);
       setNewRow({ ...emptySupplier });

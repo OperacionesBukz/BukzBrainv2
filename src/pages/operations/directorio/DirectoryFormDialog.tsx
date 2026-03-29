@@ -45,6 +45,7 @@ const initialSupplier = {
   nit: "",
   margen: "",
   correo: "",
+  correos_cc: "",
   estado: "Activo" as DirectoryStatus,
 };
 
@@ -82,6 +83,7 @@ export default function DirectoryFormDialog({
           nit: s.nit,
           margen: String(s.margen),
           correo: s.correo || "",
+          correos_cc: (s.correos_cc || []).join("; "),
           estado: s.estado,
         });
       }
@@ -118,6 +120,10 @@ export default function DirectoryFormDialog({
         nit: supplierForm.nit.trim(),
         margen: parseFloat(supplierForm.margen) || 0,
         correo: supplierForm.correo.trim(),
+        correos_cc: supplierForm.correos_cc
+          .split(";")
+          .map((s) => s.trim())
+          .filter(Boolean),
         estado: supplierForm.estado,
       } as Omit<SupplierEntry, "id" | "createdBy" | "createdAt" | "updatedAt">;
 
@@ -267,6 +273,19 @@ export default function DirectoryFormDialog({
                   }
                   placeholder="correo@ejemplo.com"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Correos CC</label>
+                <Input
+                  value={supplierForm.correos_cc}
+                  onChange={(e) =>
+                    setSupplierForm((f) => ({ ...f, correos_cc: e.target.value }))
+                  }
+                  placeholder="cc1@ejemplo.com; cc2@ejemplo.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Separar con punto y coma (;)
+                </p>
               </div>
             </>
           )}

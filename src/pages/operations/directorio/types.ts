@@ -52,6 +52,7 @@ export interface SupplierEntry extends DirectoryBase {
   nit: string;
   margen: number;
   correo: string;
+  correos_cc: string[];  // CC emails for devoluciones
 }
 
 export type DirectoryEntry = PersonEntry | SupplierEntry;
