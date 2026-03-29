@@ -1,13 +1,17 @@
 """
 Router de Gift Cards — endpoints para crear y listar tarjetas de regalo de Shopify.
 """
+import logging
 import re
 from datetime import date, timedelta
 
+import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from services import shopify_service
+from config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/gift-cards", tags=["Gift Cards"])
 
@@ -33,15 +37,11 @@ class GiftCardSearchRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _sanitize(value: str) -> str:
-    """Elimina caracteres peligrosos para queries GraphQL."""
     return re.sub(r'["\\\n\r{}()\[\]]', "", value.strip())
 
 
 def _graphql(query: str, variables: dict | None = None) -> dict:
     """Ejecuta query GraphQL contra Shopify y retorna data."""
-    import requests
-    from config import settings
-
     payload: dict = {"query": query}
     if variables:
         payload["variables"] = variables
@@ -49,14 +49,25 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
     headers = settings.get_shopify_headers()
     url = settings.get_graphql_url()
 
-    resp = requests.post(url, json=payload, headers=headers, timeout=30)
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+    except Exception as e:
+        logger.error(f"Error conectando a Shopify: {e}")
+        raise HTTPException(status_code=503, detail=f"No se pudo conectar a Shopify: {e}")
+
     if resp.status_code == 429:
-        raise HTTPException(status_code=429, detail="Shopify rate limit alcanzado, intenta en unos segundos")
-    resp.raise_for_status()
+        raise HTTPException(status_code=429, detail="Shopify rate limit, intenta en unos segundos")
+
+    if resp.status_code != 200:
+        logger.error(f"Shopify HTTP {resp.status_code}: {resp.text[:500]}")
+        raise HTTPException(status_code=502, detail=f"Shopify respondió HTTP {resp.status_code}")
 
     data = resp.json()
+
     if "errors" in data:
-        raise HTTPException(status_code=502, detail=f"Error GraphQL: {data['errors']}")
+        error_msgs = [e.get("message", str(e)) for e in data["errors"]]
+        logger.error(f"Shopify GraphQL errors: {error_msgs}")
+        raise HTTPException(status_code=400, detail=f"Error Shopify: {'; '.join(error_msgs)}")
 
     return data.get("data", {})
 
@@ -122,6 +133,7 @@ mutation giftCardDisable($id: ID!) {
 @router.get("/health")
 def health_check():
     """Verifica conexión con Shopify."""
+    from services import shopify_service
     result = shopify_service.verify_shopify_connection()
     if not result.get("connected"):
         raise HTTPException(status_code=503, detail=result.get("error", "No conectado"))
@@ -149,7 +161,6 @@ def create_gift_card(req: GiftCardCreateRequest):
     }
 
     if req.customer_email:
-        # Buscar customer por email para asociar la gift card
         customer_id = _find_customer_by_email(req.customer_email)
         if customer_id:
             variables["input"]["customerId"] = customer_id
@@ -216,7 +227,6 @@ def disable_gift_card(gift_card_gid: str):
 # ---------------------------------------------------------------------------
 
 def _find_customer_by_email(email: str) -> str | None:
-    """Busca un customer en Shopify por email. Retorna el GID o None."""
     query = """
     query customerByEmail($query: String!) {
       customers(first: 1, query: $query) {
@@ -225,15 +235,17 @@ def _find_customer_by_email(email: str) -> str | None:
     }
     """
     safe_email = _sanitize(email)
-    data = _graphql(query, {"query": f"email:{safe_email}"})
-    edges = data.get("customers", {}).get("edges", [])
-    if edges:
-        return edges[0]["node"]["id"]
+    try:
+        data = _graphql(query, {"query": f"email:{safe_email}"})
+        edges = data.get("customers", {}).get("edges", [])
+        if edges:
+            return edges[0]["node"]["id"]
+    except Exception:
+        pass
     return None
 
 
 def _format_gift_card(gc: dict) -> dict:
-    """Formatea una gift card de Shopify para el frontend."""
     customer = gc.get("customer")
     return {
         "id": gc.get("id", ""),
