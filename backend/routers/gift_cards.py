@@ -81,7 +81,8 @@ mutation giftCardCreate($input: GiftCardCreateInput!) {
   giftCardCreate(input: $input) {
     giftCard {
       id
-      code
+      lastCharacters
+      maskedCode
       balance { amount currencyCode }
       initialValue { amount currencyCode }
       expiresOn
@@ -101,7 +102,8 @@ query giftCards($first: Int!, $query: String, $after: String) {
     edges {
       node {
         id
-        code
+        lastCharacters
+        maskedCode
         balance { amount currencyCode }
         initialValue { amount currencyCode }
         expiresOn
@@ -247,9 +249,13 @@ def _find_customer_by_email(email: str) -> str | None:
 
 def _format_gift_card(gc: dict) -> dict:
     customer = gc.get("customer")
+    last4 = gc.get("lastCharacters", "")
+    masked = gc.get("maskedCode", "")
+    display_code = masked if masked else f"····{last4}" if last4 else ""
     return {
         "id": gc.get("id", ""),
-        "code": gc.get("code", ""),
+        "code": display_code,
+        "last_characters": last4,
         "balance": gc.get("balance", {}).get("amount", "0"),
         "currency": gc.get("balance", {}).get("currencyCode", "COP"),
         "initial_value": gc.get("initialValue", {}).get("amount", "0"),
