@@ -2,6 +2,7 @@
 Router de Devoluciones — envío de emails a sedes (recolección) y proveedores (devolución lista).
 Migrado desde Panel-Operaciones/Modulos/Devoluciones.py.
 """
+import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -226,7 +227,7 @@ def _build_proveedores_html(num_cajas: int, ciudad: str, info: dict[str, str]) -
 @router.get("/config")
 async def get_config():
     """Retorna listas de configuración para los formularios del frontend."""
-    suppliers = _get_suppliers_from_firestore()
+    suppliers = await asyncio.to_thread(_get_suppliers_from_firestore)
     return {
         "sedes": list(SEDES.keys()),
         "motivos_sedes": MOTIVOS_SEDES,
@@ -285,7 +286,7 @@ async def enviar_devolucion_proveedor(
     archivo: UploadFile = File(...),
 ):
     """Envía email de devolución lista a un proveedor."""
-    suppliers = _get_suppliers_from_firestore()
+    suppliers = await asyncio.to_thread(_get_suppliers_from_firestore)
     if proveedor not in suppliers:
         raise HTTPException(404, detail=f"Proveedor '{proveedor}' no encontrado")
     if ciudad not in INFO_CIUDAD:

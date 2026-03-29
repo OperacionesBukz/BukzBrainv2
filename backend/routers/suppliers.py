@@ -50,7 +50,7 @@ class SupplierUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("")
-async def list_suppliers():
+def list_suppliers():
     """Lista todos los proveedores de la colección suppliers."""
     db = get_firestore_db()
     docs = db.collection(COLLECTION).order_by("empresa").stream()
@@ -63,7 +63,7 @@ async def list_suppliers():
 
 
 @router.get("/by-name/{name}")
-async def get_supplier_by_name(name: str):
+def get_supplier_by_name(name: str):
     """Busca un proveedor por nombre exacto de empresa."""
     db = get_firestore_db()
     docs = (
@@ -80,7 +80,7 @@ async def get_supplier_by_name(name: str):
 
 
 @router.get("/{supplier_id}")
-async def get_supplier(supplier_id: str):
+def get_supplier(supplier_id: str):
     """Obtiene un proveedor por su ID de documento."""
     db = get_firestore_db()
     doc = db.collection(COLLECTION).document(supplier_id).get()
@@ -92,7 +92,7 @@ async def get_supplier(supplier_id: str):
 
 
 @router.post("")
-async def create_supplier(supplier: SupplierCreate):
+def create_supplier(supplier: SupplierCreate):
     """Crea un nuevo proveedor."""
     db = get_firestore_db()
 
@@ -116,11 +116,12 @@ async def create_supplier(supplier: SupplierCreate):
     doc_ref = db.collection(COLLECTION).add(doc_data)
     doc_id = doc_ref[1].id
 
-    return {"id": doc_id, "message": f"Proveedor '{supplier.empresa}' creado", **doc_data}
+    response_data = {k: v for k, v in doc_data.items() if k not in ("createdAt", "updatedAt")}
+    return {"id": doc_id, "message": f"Proveedor '{supplier.empresa}' creado", **response_data}
 
 
 @router.put("/{supplier_id}")
-async def update_supplier(supplier_id: str, supplier: SupplierUpdate):
+def update_supplier(supplier_id: str, supplier: SupplierUpdate):
     """Actualiza un proveedor existente."""
     db = get_firestore_db()
     doc_ref = db.collection(COLLECTION).document(supplier_id)
@@ -139,7 +140,7 @@ async def update_supplier(supplier_id: str, supplier: SupplierUpdate):
 
 
 @router.delete("/{supplier_id}")
-async def delete_supplier(supplier_id: str):
+def delete_supplier(supplier_id: str):
     """Elimina un proveedor."""
     db = get_firestore_db()
     doc_ref = db.collection(COLLECTION).document(supplier_id)
@@ -152,7 +153,7 @@ async def delete_supplier(supplier_id: str):
 
 
 @router.post("/seed")
-async def seed_suppliers():
+def seed_suppliers():
     """
     Carga inicial de proveedores desde suppliers_seed.json.
     Idempotente: no crea duplicados si el proveedor ya existe por nombre.
