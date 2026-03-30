@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 05-01-PLAN.md — reposicion_service.py + test suite
-last_updated: "2026-03-30T19:31:34.551Z"
+status: verifying
+stopped_at: Completed 05-02-PLAN.md — POST /calculate endpoint + Pydantic models
+last_updated: "2026-03-30T19:37:39.580Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 
 Phase: 05 (motor-de-c-lculo-de-reposici-n) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04-pipeline-de-datos-shopify P01 | 5 | 2 tasks | 3 files |
 | Phase 04-pipeline-de-datos-shopify P02 | 3 | 2 tasks | 2 files |
 | Phase 05-motor-de-c-lculo-de-reposici-n P01 | 3m23s | 2 tasks | 2 files |
+| Phase 05-motor-de-c-lculo-de-reposici-n P02 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 04]: 409 guard in sales/refresh checks both local job state AND live Shopify API to prevent ingreso module conflicts
 - [Phase 05-motor-de-c-lculo-de-reposici-n]: Calculos como funciones puras sin dependencias HTTP/Firestore — testables en aislamiento (Plan 01)
 - [Phase 05-motor-de-c-lculo-de-reposici-n]: Tests en TypeScript (no pytest) — proyecto sin test framework backend configurado
+- [Phase 05-motor-de-c-lculo-de-reposici-n]: 424 status for missing/not-ready sales cache (not 404 or 500) — signals dependency failure
+- [Phase 05-motor-de-c-lculo-de-reposici-n]: Effective date range = max(requested_start, cache_start) to respect cache coverage boundaries
+- [Phase 05-motor-de-c-lculo-de-reposici-n]: Draft borrador persisted to replenishment_orders with full products/vendor_summary/stats for Phase 6 approval flow
 
 ### Context from initialization
 
@@ -109,6 +113,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T19:31:34.547Z
-Stopped at: Completed 05-01-PLAN.md — reposicion_service.py + test suite
+Last session: 2026-03-30T19:37:39.576Z
+Stopped at: Completed 05-02-PLAN.md — POST /calculate endpoint + Pydantic models
 Resume file: None

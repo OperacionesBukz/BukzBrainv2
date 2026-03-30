@@ -13,7 +13,7 @@ Las fases 1–3 del milestone v1.0 están pausadas. Las fases de este milestone 
 - Decimal phases (4.1, 4.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 4: Pipeline de Datos Shopify** - Endpoints de Locations, inventario por sede y proveedor, y cache de ventas históricas (6 meses) via Bulk Operations con persistencia en Firestore (completed 2026-03-30)
-- [ ] **Phase 5: Motor de Cálculo de Reposición** - Servicio Python que calcula cantidad sugerida por SKU con fórmula velocidad×lead_time − stock − en_tránsito, clasificación por velocidad y urgencia, y detección inteligente de inventario en tránsito desde pedidos pendientes
+- [x] **Phase 5: Motor de Cálculo de Reposición** - Servicio Python que calcula cantidad sugerida por SKU con fórmula velocidad×lead_time − stock − en_tránsito, clasificación por velocidad y urgencia, y detección inteligente de inventario en tránsito desde pedidos pendientes (completed 2026-03-30)
 - [ ] **Phase 6: Wizard Frontend — Config y Sugeridos** - Módulo React /reposiciones con wizard de configuración (sede, proveedores, lead time, rango fechas), tabla editable de sugeridos y resumen por proveedor
 - [ ] **Phase 7: Aprobación, Pedidos y Exportación** - Flujo Borrador→Aprobado con transacción Firestore, generación de pedidos por proveedor, exportación Excel+ZIP, acción "Marcar como Enviado" y KPIs
 - [ ] **Phase 8: Historial de Pedidos** - Lista de todos los pedidos con filtros, detalle por pedido, re-descarga Excel, transiciones de estado Aprobado→Enviado→Parcial→Recibido y audit trail completo
@@ -48,7 +48,7 @@ Plans:
 **Plans**: 2 planes
 Plans:
 - [x] 05-01-PLAN.md — Test scaffold (CALC-01 a CALC-06) + reposicion_service.py con funciones puras de cálculo
-- [ ] 05-02-PLAN.md — POST /calculate endpoint en reposiciones.py + Pydantic models + Firestore draft persistence
+- [x] 05-02-PLAN.md — POST /calculate endpoint en reposiciones.py + Pydantic models + Firestore draft persistence
 **UI hint**: no
 
 ### Phase 6: Wizard Frontend — Config y Sugeridos
@@ -98,7 +98,7 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Pipeline de Datos Shopify | 2/2 | Complete   | 2026-03-30 |
-| 5. Motor de Cálculo de Reposición | 1/2 | In Progress|  |
+| 5. Motor de Cálculo de Reposición | 2/2 | Complete   | 2026-03-30 |
 | 6. Wizard Frontend — Config y Sugeridos | 0/? | Not started | - |
 | 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |
 | 8. Historial de Pedidos | 0/? | Not started | - |
