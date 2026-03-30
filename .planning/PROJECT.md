@@ -29,8 +29,11 @@ Centralizar y automatizar las operaciones diarias de Bukz para que el equipo pue
 
 ### Active
 
-- [ ] Sistema de notificaciones en tiempo real
-- [ ] Gestión de proveedores centralizada (migrar hardcoded a Firestore)
+- [ ] Módulo Reposiciones con integración Shopify API (inventario, ventas, productos por proveedor)
+- [ ] Motor de cálculo de reposición con detección inteligente de inventario en tránsito
+- [ ] Flujo de aprobación de sugeridos (borrador → aprobación → pedidos)
+- [ ] Historial de pedidos con tracking de estados
+- [ ] Cache de ventas históricas en Firestore via Bulk Operations
 
 ### Out of Scope
 
@@ -56,13 +59,20 @@ Centralizar y automatizar las operaciones diarias de Bukz para que el equipo pue
 - **Deploy**: Frontend en GitHub Pages, backend en EasyPanel
 - **Permisos**: Nuevas páginas deben registrarse en PAGE_REGISTRY y navigation_permissions
 
-## Current Milestone: v1.0 Notificaciones + Proveedores
+## Current Milestone: v2.0 Reposiciones Automatizadas
 
-**Goal:** Agregar sistema de notificaciones en tiempo real y centralizar la gestión de proveedores migrando datos hardcodeados a Firestore con CRUD completo.
+**Goal:** Nuevo módulo "Reposiciones" con integración Shopify API, motor de cálculo inteligente con detección de inventario en tránsito basado en ventas reales, flujo de aprobación y tracking de pedidos.
 
 **Target features:**
-- Sistema de notificaciones con badge, panel desplegable, tiempo real
-- Gestión de proveedores centralizada con CRUD, búsqueda, y consulta dinámica desde backend
+- Conexión directa a Shopify API para inventario por Location/Sede y productos por proveedor
+- Ventas históricas (6 meses) via Bulk Operations API + cache en Firestore
+- Configuración: sede, filtro de proveedores, lead time, rango de ventas
+- Motor de cálculo inteligente con detección de inventario en tránsito — usa ventas reales de Shopify desde la fecha del pedido pendiente para determinar cuánto se vendió vs cuánto está realmente en camino
+- Flujo de aprobación: borrador → revisión/edición cantidades → aprobación
+- Selección de proveedores para generar pedidos individuales
+- Descarga ZIP con Excel por proveedor
+- Historial de pedidos con estados (Borrador → Aprobado → Enviado → Parcial → Recibido)
+- Persistencia en Firestore de sugeridos, pedidos y cache de ventas
 
 ## Key Decisions
 
@@ -71,6 +81,11 @@ Centralizar y automatizar las operaciones diarias de Bukz para que el equipo pue
 | Firestore para notificaciones | Ya se usa onSnapshot en todo el proyecto, consistencia | — Pending |
 | Proveedores en Firestore (no PostgreSQL) | Mantener un solo backend de datos, ya hay directorio | — Pending |
 | No push notifications | Uso interno, overkill para equipo pequeño | — Pending |
+| Shopify Bulk Operations para ventas 6 meses | Maneja cualquier volumen, async, JSONL output | — Pending |
+| Cache ventas en Firestore | Primera vez 1-3 min, recurrentes instantáneo | — Pending |
+| Motor cálculo en Python (no JS) | Datos vienen de Shopify via backend, no CSV upload | — Pending |
+| Inventario en tránsito basado en ventas reales | Más preciso que comparar stock — usa ventas de Shopify desde fecha del pedido | — Pending |
+| Módulo nuevo "Reposiciones" separado del existente | Seguridad: no romper lo existente hasta validar | — Pending |
 
 ## Evolution
 
@@ -90,4 +105,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-29 after milestone v1.0 initialization*
+*Last updated: 2026-03-30 after milestone v2.0 initialization*

@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-29)
+See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Centralizar y automatizar las operaciones diarias de Bukz
-**Current focus:** Phase 1 - Sistema de Notificaciones
+**Current focus:** Milestone v2.0 - Reposiciones Automatizadas
 
 ## Current Position
 
-Phase: 1 of 2 (Sistema de Notificaciones)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-29 — Roadmap created for milestone v1.0
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-30 — Milestone v2.0 started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -37,20 +37,20 @@ Progress: [░░░░░░░░░░] 0%
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Firestore para notificaciones (onSnapshot, consistencia con el resto del proyecto)
-- Proveedores en Firestore (no PostgreSQL, mantener un solo backend de datos)
-- No push notifications (uso interno, overkill para equipo pequeno)
+- Shopify Bulk Operations API para ventas históricas (6 meses, async, cualquier volumen)
+- Cache de ventas agregadas en Firestore (primera vez 1-3 min, recurrentes instantáneo)
+- Motor de cálculo en Python backend (datos de Shopify, no CSV)
+- Inventario en tránsito basado en ventas reales de Shopify desde fecha del pedido
+- Módulo nuevo "Reposiciones" separado del existente "Reposición" hasta validar
 
 ### Context from initialization
 
-- Proyecto brownfield con 14+ modulos validados
-- 150+ proveedores hardcodeados en devoluciones.py necesitan migracion
-- El directorio frontend ya tiene tab de proveedores (base para extension)
-- No existe sistema de notificaciones actual
-- Firestore onSnapshot ya se usa extensivamente (patron establecido)
+- Proyecto brownfield con 14+ módulos validados
+- Backend FastAPI ya tiene integración Shopify GraphQL
+- Módulo actual "Reposición" es 100% client-side (CSV upload → cálculo → ZIP download)
+- El motor de cálculo existente (replenishment-engine.ts) tiene lógica válida para reusar en Python
+- Shopify tiene Locations (sedes), Products con vendor, Orders para ventas
+- Se preserva descarga ZIP con Excel por proveedor como feature
 
 ### Pending Todos
 
@@ -58,11 +58,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Auth deshabilitado temporalmente en backend (placeholder) — puede afectar si se necesitan endpoints protegidos
-- 150+ proveedores hardcodeados en backend/services/devoluciones.py — requiere script de migracion cuidadoso
+- Auth deshabilitado temporalmente en backend (placeholder)
+- Bulk Operations API requiere webhook o polling para saber cuándo termina
 
 ## Session Continuity
 
-Last session: 2026-03-29
-Stopped at: Roadmap created, ready to plan Phase 1
+Last session: 2026-03-30
+Stopped at: Milestone v2.0 initialized, defining requirements
 Resume file: None
