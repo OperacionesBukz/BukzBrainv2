@@ -1421,3 +1421,158 @@ def load_sales_sync() -> tuple[dict | None, str | None]:
         time.sleep(5)
 
     return None, "Timeout - la operación tardó demasiado"
+
+
+# ---------------------------------------------------------------------------
+# Reposiciones — vendors e inventory por location
+# ---------------------------------------------------------------------------
+
+def get_vendors_from_shopify() -> list[dict]:
+    """
+    Devuelve lista de proveedores únicos desde productos de Shopify con conteo de productos.
+    Pagina con cursor hasta obtener todos los productos (Bukz tiene 150+ proveedores).
+    Returns: [{"name": "Editorial X", "product_count": 42}, ...]
+    """
+    graphql_url = settings.get_graphql_url()
+    headers = settings.get_shopify_headers()
+
+    vendor_counts: dict[str, int] = {}
+    cursor = None
+
+    while True:
+        after_clause = f', after: "{cursor}"' if cursor else ""
+        query = """
+        {
+          products(first: 250%s) {
+            pageInfo { hasNextPage endCursor }
+            edges {
+              node { vendor }
+            }
+          }
+        }
+        """ % after_clause
+
+        _throttler.wait_if_needed()
+        try:
+            resp = requests.post(
+                graphql_url,
+                json={"query": query},
+                headers=headers,
+                timeout=30,
+            )
+            _throttler.update_from_response(resp)
+            if resp.status_code != 200:
+                break
+
+            data = resp.json().get("data", {}).get("products", {})
+            for edge in data.get("edges", []):
+                vendor = (edge.get("node") or {}).get("vendor", "").strip()
+                if vendor:
+                    vendor_counts[vendor] = vendor_counts.get(vendor, 0) + 1
+
+            page_info = data.get("pageInfo", {})
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+        except Exception:
+            break
+
+    return [{"name": v, "product_count": c} for v, c in sorted(vendor_counts.items())]
+
+
+def get_inventory_by_location(location_gid: str, vendor_filter: list[str] | None = None) -> list[dict]:
+    """
+    Devuelve niveles de inventario (available) para todos los productos en una sede de Shopify.
+    Filtra por vendor si vendor_filter no es None ni vacío.
+
+    Args:
+        location_gid: GID de Shopify, e.g. "gid://shopify/Location/12345"
+        vendor_filter: lista de nombres de proveedor exactos; None o [] = todos
+
+    Returns: [{"sku": str, "title": str, "vendor": str, "available": int}, ...]
+    """
+    graphql_url = settings.get_graphql_url()
+    headers = settings.get_shopify_headers()
+
+    results: list[dict] = []
+    cursor = None
+
+    while True:
+        after_clause = f', after: "{cursor}"' if cursor else ""
+        query = """
+        {
+          location(id: "%s") {
+            inventoryLevels(first: 250%s) {
+              pageInfo { hasNextPage endCursor }
+              edges {
+                node {
+                  quantities(names: ["available"]) {
+                    name
+                    quantity
+                  }
+                  item {
+                    sku
+                    variant {
+                      product {
+                        vendor
+                        title
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """ % (location_gid, after_clause)
+
+        _throttler.wait_if_needed()
+        try:
+            resp = requests.post(
+                graphql_url,
+                json={"query": query},
+                headers=headers,
+                timeout=30,
+            )
+            _throttler.update_from_response(resp)
+            if resp.status_code != 200:
+                break
+
+            location_data = resp.json().get("data", {}).get("location") or {}
+            inv_levels = location_data.get("inventoryLevels", {})
+
+            for edge in inv_levels.get("edges", []):
+                node = edge.get("node", {})
+                item = node.get("item", {})
+                sku = (item.get("sku") or "").strip()
+                variant = (item.get("variant") or {})
+                product = (variant.get("product") or {})
+                vendor = (product.get("vendor") or "").strip()
+                title = (product.get("title") or "").strip()
+
+                # Filtrar por vendor si se especificó
+                if vendor_filter and vendor not in vendor_filter:
+                    continue
+
+                available = 0
+                for qty_entry in node.get("quantities", []):
+                    if qty_entry.get("name") == "available":
+                        available = int(qty_entry.get("quantity") or 0)
+                        break
+
+                if sku:
+                    results.append({
+                        "sku": sku,
+                        "title": title,
+                        "vendor": vendor,
+                        "available": available,
+                    })
+
+            page_info = inv_levels.get("pageInfo", {})
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+        except Exception:
+            break
+
+    return results
