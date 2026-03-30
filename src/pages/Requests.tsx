@@ -8,6 +8,7 @@ import { collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp,
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { resilientFetch } from "@/lib/resilient-fetch";
 import { createNotificationForAdmins } from "@/lib/notifications";
 import { Badge } from "@/components/ui/badge";
 import { RequestType, LeaveRequest, RequestFormState, requestTypeConfig } from "./requests/types";
@@ -190,18 +191,15 @@ ${form.idDocument}`;
       }
 
       try {
-        await fetch("https://Operaciones.pythonanywhere.com/send-email", {
+        const API_URL = import.meta.env.VITE_API_URL ?? "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
+        await resilientFetch(`${API_URL}/api/email/send`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...form,
+            to_email: emailRecipient,
             userEmail: user.email,
-            type_label: requestLabel,
             subject: subject,
             email_body: body,
-            to_email: emailRecipient
           }),
         });
         toast.success("Solicitud enviada y notificación enviada por correo");

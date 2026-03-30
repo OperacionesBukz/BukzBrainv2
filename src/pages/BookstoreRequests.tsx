@@ -18,6 +18,7 @@ import {
     Timestamp
 } from "firebase/firestore";
 import { toast } from "sonner";
+import { resilientFetch } from "@/lib/resilient-fetch";
 import {
     Store,
     History,
@@ -265,13 +266,13 @@ const BookstoreRequests = () => {
         </table>
       `;
 
-            await fetch("https://Operaciones.pythonanywhere.com/send-email", {
+            const API_URL = import.meta.env.VITE_API_URL ?? "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
+            await resilientFetch(`${API_URL}/api/email/send`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    recipient_email: "operaciones@bukz.co", // Explicitly added based on request
-                    userEmail: user?.email, // Keep this for context if backend uses it
-                    type_label: "Solicitud Librería",
+                    to_email: "operaciones@bukz.co",
+                    userEmail: user?.email,
                     subject: `Solicitud Librería - ${selectedBranch}`,
                     email_body: emailBody
                 }),

@@ -19,6 +19,7 @@ from routers import gift_cards
 from routers import suppliers
 from routers import reposiciones
 from routers import webhooks
+from routers import email
 
 app = FastAPI(
     title="BUKZ Operaciones API",
@@ -48,6 +49,7 @@ app.include_router(corte_museo.router, dependencies=_auth)
 app.include_router(gift_cards.router, dependencies=_auth)
 app.include_router(suppliers.router, dependencies=_auth)
 app.include_router(reposiciones.router, dependencies=_auth)
+app.include_router(email.router, dependencies=_auth)
 
 # Webhooks — SIN auth (Shopify envia su propia verificacion HMAC)
 app.include_router(webhooks.router)
