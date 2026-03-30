@@ -47,7 +47,7 @@ Plans:
   4. Los resultados están agrupados por proveedor con totales de SKUs, unidades y conteo de urgentes
 **Plans**: 2 planes
 Plans:
-- [ ] 05-01-PLAN.md — Test scaffold (CALC-01 a CALC-06) + reposicion_service.py con funciones puras de cálculo
+- [x] 05-01-PLAN.md — Test scaffold (CALC-01 a CALC-06) + reposicion_service.py con funciones puras de cálculo
 - [ ] 05-02-PLAN.md — POST /calculate endpoint en reposiciones.py + Pydantic models + Firestore draft persistence
 **UI hint**: no
 
@@ -98,7 +98,7 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Pipeline de Datos Shopify | 2/2 | Complete   | 2026-03-30 |
-| 5. Motor de Cálculo de Reposición | 0/2 | Not started | - |
+| 5. Motor de Cálculo de Reposición | 1/2 | In Progress|  |
 | 6. Wizard Frontend — Config y Sugeridos | 0/? | Not started | - |
 | 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |
 | 8. Historial de Pedidos | 0/? | Not started | - |

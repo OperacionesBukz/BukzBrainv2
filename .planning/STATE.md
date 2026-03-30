@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-30T19:10:13.401Z"
+status: executing
+stopped_at: Completed 05-01-PLAN.md — reposicion_service.py + test suite
+last_updated: "2026-03-30T19:31:34.551Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Centralizar y automatizar las operaciones diarias de Bukz
-**Current focus:** Phase 04 — pipeline-de-datos-shopify
+**Current focus:** Phase 05 — motor-de-c-lculo-de-reposici-n
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 05 (motor-de-c-lculo-de-reposici-n) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase 04-pipeline-de-datos-shopify P01 | 5 | 2 tasks | 3 files |
 | Phase 04-pipeline-de-datos-shopify P02 | 3 | 2 tasks | 2 files |
+| Phase 05-motor-de-c-lculo-de-reposici-n P01 | 3m23s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 04]: Endpoint /inventory usa alias vendors[] en Query param para compatibilidad con frontend multi-select
 - [Phase 04]: Use currentQuantity (not quantity) in reposiciones bulk query to avoid order edit inflation
 - [Phase 04]: 409 guard in sales/refresh checks both local job state AND live Shopify API to prevent ingreso module conflicts
+- [Phase 05-motor-de-c-lculo-de-reposici-n]: Calculos como funciones puras sin dependencias HTTP/Firestore — testables en aislamiento (Plan 01)
+- [Phase 05-motor-de-c-lculo-de-reposici-n]: Tests en TypeScript (no pytest) — proyecto sin test framework backend configurado
 
 ### Context from initialization
 
@@ -106,6 +109,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T19:10:13.397Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-motor-de-c-lculo-de-reposici-n/05-CONTEXT.md
+Last session: 2026-03-30T19:31:34.547Z
+Stopped at: Completed 05-01-PLAN.md — reposicion_service.py + test suite
+Resume file: None

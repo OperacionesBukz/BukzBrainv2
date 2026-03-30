@@ -17,12 +17,12 @@
 
 ### Motor de Cálculo
 
-- [ ] **CALC-01**: Motor calcula cantidad sugerida por SKU: `(velocidad_ventas * lead_time * safety_factor) - stock_actual - en_transito_real`
-- [ ] **CALC-02**: Motor clasifica productos por velocidad de ventas (Bestseller ≥10/mes, Regular ≥3, Slow ≥1, Long Tail <1)
-- [ ] **CALC-03**: Motor asigna nivel de urgencia basado en días de inventario (Urgente ≤7, Pronto ≤14, Normal ≤30, OK >30)
-- [ ] **CALC-04**: Motor detecta inventario en tránsito inteligentemente — para cada pedido pendiente (Aprobado/Enviado), consulta ventas reales de Shopify desde la fecha del pedido; si ventas ≥ cantidad pedida, entiende que la demanda absorbió esas unidades y NO descuenta; solo descuenta como en tránsito las unidades no absorbidas por ventas
-- [ ] **CALC-05**: Motor soporta múltiples pedidos pendientes por SKU (lista, no escalar) y calcula en tránsito neto correctamente
-- [ ] **CALC-06**: Motor agrega resultados por proveedor (total SKUs, total unidades, conteo urgentes)
+- [x] **CALC-01**: Motor calcula cantidad sugerida por SKU: `(velocidad_ventas * lead_time * safety_factor) - stock_actual - en_transito_real`
+- [x] **CALC-02**: Motor clasifica productos por velocidad de ventas (Bestseller ≥10/mes, Regular ≥3, Slow ≥1, Long Tail <1)
+- [x] **CALC-03**: Motor asigna nivel de urgencia basado en días de inventario (Urgente ≤7, Pronto ≤14, Normal ≤30, OK >30)
+- [x] **CALC-04**: Motor detecta inventario en tránsito inteligentemente — para cada pedido pendiente (Aprobado/Enviado), consulta ventas reales de Shopify desde la fecha del pedido; si ventas ≥ cantidad pedida, entiende que la demanda absorbió esas unidades y NO descuenta; solo descuenta como en tránsito las unidades no absorbidas por ventas
+- [x] **CALC-05**: Motor soporta múltiples pedidos pendientes por SKU (lista, no escalar) y calcula en tránsito neto correctamente
+- [x] **CALC-06**: Motor agrega resultados por proveedor (total SKUs, total unidades, conteo urgentes)
 
 ### Configuración
 
@@ -94,12 +94,12 @@
 | SHOP-05 | Phase 4 | Complete |
 | SHOP-06 | Phase 4 | Complete |
 | SHOP-07 | Phase 4 | Complete |
-| CALC-01 | Phase 5 | Pending |
-| CALC-02 | Phase 5 | Pending |
-| CALC-03 | Phase 5 | Pending |
-| CALC-04 | Phase 5 | Pending |
-| CALC-05 | Phase 5 | Pending |
-| CALC-06 | Phase 5 | Pending |
+| CALC-01 | Phase 5 | Complete |
+| CALC-02 | Phase 5 | Complete |
+| CALC-03 | Phase 5 | Complete |
+| CALC-04 | Phase 5 | Complete |
+| CALC-05 | Phase 5 | Complete |
+| CALC-06 | Phase 5 | Complete |
 | CONF-01 | Phase 6 | Pending |
 | CONF-02 | Phase 6 | Pending |
 | CONF-03 | Phase 6 | Pending |
