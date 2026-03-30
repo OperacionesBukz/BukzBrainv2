@@ -241,7 +241,8 @@ const BookstoreRequests = () => {
             // 2. Send Email
             const itemsTableRows = cart.map(item => `
         <tr>
-          <td style="padding: 8px; border: 1px solid #ddd;">${item.name}${item.code ? ` <span style="color: #666; font-size: 12px;">(${item.code})</span>` : ''}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${item.code || ''}</td>
+          <td style="padding: 8px; border: 1px solid #ddd;">${item.name}</td>
           <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
         </tr>
       `).join("");
@@ -256,6 +257,7 @@ const BookstoreRequests = () => {
         <table style="width: 100%; border-collapse: collapse; max-width: 600px;">
           <thead>
             <tr style="background-color: #f2f2f2;">
+              <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Código</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Producto</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">Cantidad</th>
             </tr>
