@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-03-30T20:36:00.366Z"
+status: verifying
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-03-30T20:41:52.134Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 
 Phase: 06 (wizard-frontend-config-y-sugeridos) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -61,6 +61,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05-motor-de-c-lculo-de-reposici-n P02 | 5 | 2 tasks | 1 files |
 | Phase 06-wizard-frontend-config-y-sugeridos P01 | 45 | 4 tasks | 9 files |
 | Phase 06-wizard-frontend-config-y-sugeridos P02 | 25 | 3 tasks | 4 files |
+| Phase 06-wizard-frontend-config-y-sugeridos P03 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 06-wizard-frontend-config-y-sugeridos]: Sales status polling refetchInterval = 3000ms only when status is running or data is undefined — stops polling automatically when job finishes
 - [Phase 06-wizard-frontend-config-y-sugeridos]: pendingRequest stored as useRef (not useState) in useCalculationFlow to avoid stale closure in polling useEffect
 - [Phase 06-wizard-frontend-config-y-sugeridos]: VendorMultiSelect: empty array = Todos pattern; auto-collapses to [] when all vendors individually selected
+- [Phase 06-wizard-frontend-config-y-sugeridos]: VendorSummaryPanel recomputes from effectiveProducts (NOT from backend vendor_summary) — ensures edits and deletions are reflected without a round-trip
+- [Phase 06-wizard-frontend-config-y-sugeridos]: overridesMap and deletedSkus NOT reset when results change — preserves manual work across recalculations (D-09)
 
 ### Context from initialization
 
@@ -120,6 +123,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T20:36:00.360Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-03-30T20:41:52.131Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
