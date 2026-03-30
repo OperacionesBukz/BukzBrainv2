@@ -9,6 +9,7 @@ import time
 import threading
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from typing import Optional
 
 from services import shopify_service
@@ -452,3 +453,151 @@ def sales_data():
             raise HTTPException(status_code=500, detail=f"Error leyendo chunks: {str(e)}")
 
     raise HTTPException(status_code=500, detail="Cache en estado inconsistente.")
+
+
+# ---------------------------------------------------------------------------
+# Constantes para Motor de Cálculo de Reposición
+# ---------------------------------------------------------------------------
+
+_REPLENISHMENT_ORDERS_COLLECTION = "replenishment_orders"
+
+
+# ---------------------------------------------------------------------------
+# Modelos Pydantic — POST /calculate (CALC-01 a CALC-06)
+# ---------------------------------------------------------------------------
+
+class CalculateRequest(BaseModel):
+    location_id: str
+    vendors: Optional[list[str]] = None
+    lead_time_days: int = 14
+    safety_factor: float = 1.5
+    date_range_days: int = 180
+
+class ProductAnalysis(BaseModel):
+    sku: str
+    title: str
+    vendor: str
+    classification: str          # "Bestseller" | "Regular" | "Slow" | "Long Tail"
+    classification_label: str
+    sales_per_month: float
+    sales_per_week: float
+    sales_per_day: float
+    total_sold: int
+    stock: int
+    days_of_inventory: Optional[float]   # None cuando daily_sales == 0 (D-10, Pitfall 2)
+    urgency: str                  # "URGENTE" | "PRONTO" | "NORMAL" | "OK"
+    urgency_label: str
+    reorder_point: float
+    needs_reorder: bool
+    suggested_qty: int
+    in_transit_real: int
+
+class VendorSummary(BaseModel):
+    vendor: str
+    total_skus: int
+    total_units_to_order: int
+    urgent_count: int
+
+class ReplenishmentStats(BaseModel):
+    total_products: int
+    needs_replenishment: int
+    urgent: int
+    out_of_stock: int
+    vendors_with_orders: int
+
+class CalculateResponse(BaseModel):
+    products: list[ProductAnalysis]
+    vendor_summary: list[VendorSummary]
+    stats: ReplenishmentStats
+    draft_id: str                # ID del documento borrador en Firestore (D-13)
+
+
+# ---------------------------------------------------------------------------
+# Helpers de datos para /calculate
+# ---------------------------------------------------------------------------
+
+def _load_sales_cache_data(db) -> tuple[dict, dict]:
+    """
+    Lee sales_cache/6m_global desde Firestore.
+    Maneja tanto almacenamiento inline (<=8000 SKUs) como chunked (>8000 SKUs).
+    Returns: (sales_data_dict, cache_meta_dict)
+    Raises: HTTPException 424 si el cache no existe o no está listo (Pitfall 4).
+    """
+    doc = db.collection(_SALES_CACHE_COLLECTION).document(_SALES_CACHE_DOC).get()
+    if not doc.exists:
+        raise HTTPException(
+            status_code=424,
+            detail="Cache de ventas no disponible. Ejecuta POST /sales/refresh primero."
+        )
+    cache_meta = doc.to_dict()
+    if cache_meta.get("status") != "ready":
+        raise HTTPException(
+            status_code=424,
+            detail="Cache de ventas en proceso de generación. Espera a que termine."
+        )
+
+    if "data" in cache_meta:
+        return cache_meta["data"], cache_meta
+
+    if cache_meta.get("chunked"):
+        merged = {}
+        chunks = db.collection(_SALES_CACHE_COLLECTION).document(_SALES_CACHE_DOC) \
+                   .collection("chunks").stream()
+        for chunk in chunks:
+            merged.update(chunk.to_dict().get("data", {}))
+        return merged, cache_meta
+
+    raise HTTPException(status_code=500, detail="Cache en estado inconsistente.")
+
+
+def _load_pending_orders_map(db) -> dict[str, list[dict]]:
+    """
+    Lee replenishment_orders donde status in ['aprobado', 'enviado'].
+    Construye mapa {sku: [{quantity, created_at, ...}]} para lookup O(1) en el motor.
+    Retorna dict vacío si no hay pedidos pendientes (D-03: correcto en primer run).
+
+    SCHEMA CONTRACT: Los documentos deben tener campo 'items' como lista de
+    {sku, quantity, vendor, title} y campo 'created_at' como ISO 8601 UTC string.
+    Phase 7 debe escribir replenishment_orders con este schema.
+    """
+    pending_map: dict[str, list[dict]] = {}
+    try:
+        # Pitfall 3: filtrar explícitamente por status para no inflar in-transit
+        docs = db.collection(_REPLENISHMENT_ORDERS_COLLECTION) \
+                 .where("status", "in", ["aprobado", "enviado"]) \
+                 .stream()
+        for doc in docs:
+            order = doc.to_dict()
+            created_at_str = order.get("created_at", "")
+            items = order.get("items", [])
+            for item in items:
+                sku = item.get("sku", "")
+                qty = item.get("quantity", 0)
+                if not sku or qty <= 0:
+                    continue
+                if sku not in pending_map:
+                    pending_map[sku] = []
+                pending_map[sku].append({
+                    "quantity": qty,
+                    "created_at": created_at_str,
+                })
+    except Exception:
+        pass  # Colección vacía o no existe — correcto en primer run (D-03)
+    return pending_map
+
+
+def _persist_draft(db, result: dict, request_params: dict) -> str:
+    """
+    Crea documento borrador en replenishment_orders (D-13).
+    Retorna el ID del documento creado.
+    """
+    doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document()
+    doc_ref.set({
+        "status": "borrador",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "params": request_params,
+        "products": result["products"],
+        "vendor_summary": result["vendor_summary"],
+        "stats": result["stats"],
+    })
+    return doc_ref.id
