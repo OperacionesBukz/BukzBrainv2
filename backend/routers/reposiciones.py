@@ -7,6 +7,10 @@ Plan 02: sales/refresh, sales/status, sales/data (bulk ops + cache)
 import json
 import time
 import threading
+import base64
+import zipfile
+import openpyxl
+from io import BytesIO
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -703,3 +707,192 @@ def calculate_replenishment_endpoint(body: CalculateRequest):
         stats=ReplenishmentStats(**result["stats"]),
         draft_id=draft_id,
     )
+
+
+# ─── Pydantic models — Phase 7: Aprobación y Pedidos ──────────────────────
+
+class EffectiveProductItem(BaseModel):
+    sku: str
+    title: str
+    vendor: str
+    quantity: int
+    stock: int
+
+class ApproveRequest(BaseModel):
+    draft_id: str
+    approved_by: str
+    effective_products: list[EffectiveProductItem]
+
+class ApproveResponse(BaseModel):
+    status: str
+    approved_at: str
+
+class GenerateOrdersRequest(BaseModel):
+    draft_id: str
+    vendors: list[str]
+    created_by: str
+
+class OrderCreated(BaseModel):
+    order_id: str
+    vendor: str
+    item_count: int
+
+class GenerateOrdersResponse(BaseModel):
+    orders: list[OrderCreated]
+
+class ExportOrdersRequest(BaseModel):
+    order_ids: list[str]
+
+class ExportOrdersResponse(BaseModel):
+    zip_base64: str
+    filename: str
+
+class MarkSentResponse(BaseModel):
+    status: str
+    sent_at: str
+
+
+# ─── APPR-05: POST /approve ────────────────────────────────────────────────
+
+@router.post("/approve", response_model=ApproveResponse)
+def approve_draft(body: ApproveRequest):
+    """
+    Aprueba un borrador usando transacción Firestore.
+    Verifica status=='borrador' dentro de la transacción — si ya aprobado, falla con 409.
+    """
+    from google.cloud.firestore_v1 import transactional as _transactional
+
+    db = _get_firestore()
+    doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(body.draft_id)
+    now_str = datetime.now(timezone.utc).isoformat()
+
+    @_transactional
+    def _do_approve(transaction, doc_ref):
+        snap = doc_ref.get(transaction=transaction)
+        if not snap.exists:
+            raise ValueError("Borrador no encontrado")
+        current_status = snap.to_dict().get("status")
+        if current_status != "borrador":
+            raise ValueError(
+                f"El borrador ya fue procesado (status={current_status}). Recarga la pagina."
+            )
+        transaction.update(doc_ref, {
+            "status": "aprobado",
+            "approved_by": body.approved_by,
+            "approved_at": now_str,
+            "effective_products": [p.dict() for p in body.effective_products],
+        })
+
+    transaction = db.transaction()
+    try:
+        _do_approve(transaction, doc_ref)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error aprobando borrador: {str(e)}")
+
+    return ApproveResponse(status="aprobado", approved_at=now_str)
+
+
+# ─── APPR-06 + ORD-01: POST /orders/generate ──────────────────────────────
+
+@router.post("/orders/generate", response_model=GenerateOrdersResponse)
+def generate_orders(body: GenerateOrdersRequest):
+    """
+    Lee el draft aprobado, filtra effective_products por vendors seleccionados,
+    crea un documento en replenishment_orders por proveedor.
+    """
+    db = _get_firestore()
+
+    draft_snap = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(body.draft_id).get()
+    if not draft_snap.exists:
+        raise HTTPException(status_code=404, detail="Borrador no encontrado")
+    draft_data = draft_snap.to_dict()
+    if draft_data.get("status") != "aprobado":
+        raise HTTPException(status_code=409, detail="El borrador no ha sido aprobado")
+
+    effective_products = draft_data.get("effective_products", [])
+    now_str = datetime.now(timezone.utc).isoformat()
+
+    created_orders: list[dict] = []
+    for vendor in body.vendors:
+        items = [
+            {"sku": p["sku"], "title": p["title"], "quantity": p["quantity"], "stock": p["stock"]}
+            for p in effective_products
+            if p.get("vendor") == vendor and p.get("quantity", 0) > 0
+        ]
+        if not items:
+            continue
+
+        order_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document()
+        order_ref.set({
+            "draft_id": body.draft_id,
+            "vendor": vendor,
+            "status": "aprobado",
+            "items": items,
+            "created_by": body.created_by,
+            "created_at": now_str,
+        })
+        created_orders.append({"order_id": order_ref.id, "vendor": vendor, "item_count": len(items)})
+
+    return GenerateOrdersResponse(orders=[OrderCreated(**o) for o in created_orders])
+
+
+# ─── ORD-02 + ORD-03: POST /orders/export ─────────────────────────────────
+
+@router.post("/orders/export", response_model=ExportOrdersResponse)
+def export_orders(body: ExportOrdersRequest):
+    """
+    Genera ZIP base64 con un Excel por order_id.
+    Columnas Excel: SKU, Titulo, Cantidad, Stock Actual.
+    """
+    db = _get_firestore()
+    zip_buffer = BytesIO()
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for order_id in body.order_ids:
+            order_snap = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(order_id).get()
+            if not order_snap.exists:
+                continue
+            order_data = order_snap.to_dict()
+            vendor = order_data.get("vendor", "proveedor")
+            items = order_data.get("items", [])
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Pedido"
+            ws.append(["SKU", "Titulo", "Cantidad", "Stock Actual"])
+            for item in items:
+                ws.append([
+                    item.get("sku", ""),
+                    item.get("title", ""),
+                    item.get("quantity", 0),
+                    item.get("stock", 0),
+                ])
+
+            excel_buf = BytesIO()
+            wb.save(excel_buf)
+
+            safe_vendor = vendor.replace("/", "-").replace("\\", "-").replace(" ", "_")
+            zf.writestr(f"pedido_{safe_vendor}.xlsx", excel_buf.getvalue())
+
+    zip_base64 = base64.b64encode(zip_buffer.getvalue()).decode("utf-8")
+    return ExportOrdersResponse(
+        zip_base64=zip_base64,
+        filename=f"pedidos_reposicion_{today_str}.zip",
+    )
+
+
+# ─── ORD-04: PATCH /orders/{order_id}/send ────────────────────────────────
+
+@router.patch("/orders/{order_id}/send", response_model=MarkSentResponse)
+def mark_order_sent(order_id: str, sent_by: str):
+    """Marca un pedido como enviado. Query param: sent_by (UID)."""
+    db = _get_firestore()
+    doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(order_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    now_str = datetime.now(timezone.utc).isoformat()
+    doc_ref.update({"status": "enviado", "sent_at": now_str, "sent_by": sent_by})
+    return MarkSentResponse(status="enviado", sent_at=now_str)
