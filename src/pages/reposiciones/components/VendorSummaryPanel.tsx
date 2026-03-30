@@ -8,9 +8,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Factory } from "lucide-react";
+import { CheckCircle2, Factory, Send } from "lucide-react";
 import type { ProductResult } from "../types";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -19,6 +21,14 @@ interface VendorSummaryPanelProps {
   products: ProductResult[];
   overridesMap: Record<string, number>;
   deletedSkus: Set<string>;
+  // Phase 7 additions
+  isApproved?: boolean;
+  selectedVendors?: Set<string>;
+  onVendorToggle?: (vendor: string) => void;
+  ordersByVendor?: Record<string, string>;
+  sentVendors?: Set<string>;
+  onMarkSent?: (vendor: string, orderId: string) => void;
+  isMarkingSent?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -27,6 +37,13 @@ export default function VendorSummaryPanel({
   products,
   overridesMap,
   deletedSkus,
+  isApproved,
+  selectedVendors,
+  onVendorToggle,
+  ordersByVendor,
+  sentVendors,
+  onMarkSent,
+  isMarkingSent,
 }: VendorSummaryPanelProps) {
   // CRITICAL: Recompute vendor summary from effective products (NOT from backend vendor_summary)
   // This ensures edits and deletions are always reflected.
@@ -90,15 +107,26 @@ export default function VendorSummaryPanel({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isApproved && <TableHead className="w-8"></TableHead>}
                     <TableHead>Proveedor</TableHead>
                     <TableHead className="text-right">Titulos</TableHead>
                     <TableHead className="text-right">Unidades</TableHead>
                     <TableHead className="text-right">Urgentes</TableHead>
+                    {ordersByVendor && <TableHead>Estado</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {effectiveVendorSummary.map((v) => (
                     <TableRow key={v.vendor}>
+                      {isApproved && (
+                        <TableCell className="w-8 pr-0">
+                          <Checkbox
+                            checked={selectedVendors?.has(v.vendor) ?? true}
+                            onCheckedChange={() => onVendorToggle?.(v.vendor)}
+                            aria-label={`Seleccionar ${v.vendor}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">{v.vendor}</TableCell>
                       <TableCell className="text-right font-mono">
                         {v.total_skus}
@@ -115,10 +143,36 @@ export default function VendorSummaryPanel({
                           <span className="text-muted-foreground font-mono">—</span>
                         )}
                       </TableCell>
+                      {ordersByVendor && (
+                        <TableCell>
+                          {ordersByVendor[v.vendor] ? (
+                            sentVendors?.has(v.vendor) ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Enviado
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1"
+                                disabled={isMarkingSent === v.vendor}
+                                onClick={() => onMarkSent?.(v.vendor, ordersByVendor[v.vendor])}
+                              >
+                                <Send className="h-3 w-3" />
+                                {isMarkingSent === v.vendor ? "Enviando..." : "Marcar Enviado"}
+                              </Button>
+                            )
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {/* Footer totals row */}
                   <TableRow className="border-t-2 font-semibold bg-muted/30">
+                    {isApproved && <TableCell />}
                     <TableCell>Total</TableCell>
                     <TableCell className="text-right font-mono">
                       {totals.total_skus}
@@ -135,6 +189,7 @@ export default function VendorSummaryPanel({
                         <span className="text-muted-foreground font-mono">—</span>
                       )}
                     </TableCell>
+                    {ordersByVendor && <TableCell />}
                   </TableRow>
                 </TableBody>
               </Table>
