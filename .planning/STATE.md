@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-03-30T20:48:30.807Z"
+stopped_at: Phase 7 planned — 2 plans, 2 waves, skip-verify
+last_updated: "2026-03-30T23:53:09.372Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 7
+  total_plans: 9
   completed_plans: 7
   percent: 0
 ---
@@ -123,6 +123,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T20:41:52.131Z
-Stopped at: Completed 06-03-PLAN.md
-Resume file: None
+Last session: 2026-03-30T23:53:09.368Z
+Stopped at: Phase 7 planned — 2 plans, 2 waves, skip-verify
+Resume file: .planning/phases/07-aprobaci-n-pedidos-y-exportaci-n/07-01-PLAN.md
