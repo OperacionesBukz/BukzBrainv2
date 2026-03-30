@@ -1,13 +1,21 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import {
   getLocations,
   getVendors,
   getSalesStatus,
+  refreshSales,
   calculateReplenishment,
 } from "./api";
-import type { ReplenishmentConfig, CalculateRequest } from "./types";
+import type {
+  ReplenishmentConfig,
+  CalculateRequest,
+  CalculateResponse,
+  SalesStatusResponse,
+} from "./types";
 
 export function useLocations() {
   return useQuery({
@@ -69,4 +77,135 @@ export async function saveReplenishmentConfig(
     ...config,
     updated_at: serverTimestamp(),
   });
+}
+
+// --- useCalculationFlow ---
+
+interface CalculationFlowState {
+  isPolling: boolean;
+  isCalculating: boolean;
+  salesStatus: SalesStatusResponse | null;
+  results: CalculateResponse | null;
+  error: string | null;
+}
+
+const CACHE_FRESHNESS_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function isCacheFresh(lastRefreshed: string | undefined): boolean {
+  if (!lastRefreshed) return false;
+  const refreshTime = new Date(lastRefreshed).getTime();
+  return Date.now() - refreshTime < CACHE_FRESHNESS_MS;
+}
+
+export function useCalculationFlow(): CalculationFlowState & {
+  startCalculation: (request: CalculateRequest) => Promise<void>;
+  resetResults: () => void;
+} {
+  const [isPolling, setIsPolling] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [results, setResults] = useState<CalculateResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Use ref to avoid stale closure in polling effect
+  const pendingRequestRef = useRef<CalculateRequest | null>(null);
+
+  const pollingQuery = useSalesStatusPolling(isPolling);
+  const calculateMutation = useCalculate();
+
+  // Watch polling status — when completed, trigger calculation
+  useEffect(() => {
+    const data = pollingQuery.data;
+    if (
+      isPolling &&
+      data?.status === "completed" &&
+      pendingRequestRef.current
+    ) {
+      const request = pendingRequestRef.current;
+      pendingRequestRef.current = null;
+      setIsPolling(false);
+      setIsCalculating(true);
+      calculateMutation.mutate(request, {
+        onSuccess: (res) => {
+          setResults(res);
+          setIsCalculating(false);
+          toast.success("Calculo completado");
+        },
+        onError: (err: Error) => {
+          setError(err.message);
+          setIsCalculating(false);
+          toast.error(err.message);
+        },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollingQuery.data, isPolling]);
+
+  async function startCalculation(request: CalculateRequest): Promise<void> {
+    setError(null);
+
+    // 1. Check sales cache status
+    let status: SalesStatusResponse;
+    try {
+      status = await getSalesStatus();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al verificar estado de ventas";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    // 2. If cache is fresh, calculate directly
+    if (status.status === "completed" && isCacheFresh(status.last_refreshed)) {
+      setIsCalculating(true);
+      calculateMutation.mutate(request, {
+        onSuccess: (res) => {
+          setResults(res);
+          setIsCalculating(false);
+          toast.success("Calculo completado");
+        },
+        onError: (err: Error) => {
+          setError(err.message);
+          setIsCalculating(false);
+          toast.error(err.message);
+        },
+      });
+      return;
+    }
+
+    // 3. Cache stale/missing — trigger refresh + start polling
+    try {
+      toast.info("Actualizando datos de ventas...");
+      await refreshSales(request.date_range_days);
+      pendingRequestRef.current = request;
+      setIsPolling(true);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Error al actualizar ventas";
+
+      // D-06: 409 OPERATION_IN_PROGRESS specific message
+      if (errMsg.includes("Bulk") || errMsg.includes("operacion") || errMsg.includes("OPERATION_IN_PROGRESS")) {
+        toast.error("Hay una operacion Bulk en curso en Shopify. Intenta en unos minutos.");
+        setError("Hay una operacion Bulk en curso en Shopify. Intenta en unos minutos.");
+      } else {
+        toast.error(errMsg);
+        setError(errMsg);
+      }
+    }
+  }
+
+  function resetResults() {
+    setResults(null);
+    setError(null);
+    setIsPolling(false);
+    setIsCalculating(false);
+    pendingRequestRef.current = null;
+  }
+
+  return {
+    isPolling,
+    isCalculating,
+    salesStatus: pollingQuery.data ?? null,
+    results,
+    error,
+    startCalculation,
+    resetResults,
+  };
 }
