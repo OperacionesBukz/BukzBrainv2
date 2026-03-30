@@ -147,5 +147,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // --- Replenishment Config (per-user settings) ----------------
+    // Each user can read/write only their own config document.
+    match /replenishment_config/{userId} {
+      allow read, write: if isAuthenticated()
+                         && request.auth.uid == userId;
+    }
   }
 }
