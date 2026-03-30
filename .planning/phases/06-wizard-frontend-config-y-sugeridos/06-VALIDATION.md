@@ -2,8 +2,8 @@
 phase: 6
 slug: wizard-frontend-config-y-sugeridos
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-30
 ---
 
@@ -34,30 +34,31 @@ created: 2026-03-30
 
 ---
 
+## Wave 0 Requirements
+
+- [x] `src/test/reposiciones/config.test.tsx` — Test stubs for CONF-01 through CONF-05 (created in 06-01 Task 0)
+- [x] `src/test/reposiciones/table.test.tsx` — Test stubs for APPR-02 through APPR-04 (created in 06-01 Task 0)
+
+*Wave 0 tasks are in Plan 06-01 Task 0. Test directory and stubs are created before any implementation tasks.*
+
+---
+
 ## Per-Task Verification Map
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 06-01-01 | 01 | 1 | CONF-01 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-01-02 | 01 | 1 | CONF-02 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-01-03 | 01 | 1 | CONF-03 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-01-04 | 01 | 1 | CONF-04 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-01-05 | 01 | 1 | CONF-05 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-02-01 | 02 | 2 | APPR-01 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-02-02 | 02 | 2 | APPR-02 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-02-03 | 02 | 2 | APPR-03 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
-| 06-02-04 | 02 | 2 | APPR-04 | integration | `npx vitest run src/test/reposiciones` | ❌ W0 | ⬜ pending |
+| 06-01-00 | 01 | 1 | CONF-01..05, APPR-02..04 | stub | `npx vitest run src/test/reposiciones` | Wave 0 task | pending |
+| 06-01-01 | 01 | 1 | CONF-01 | integration | `npx vitest run src/test/reposiciones` | config.test.tsx | pending |
+| 06-01-02 | 01 | 1 | CONF-02 | integration | `npx vitest run src/test/reposiciones` | config.test.tsx | pending |
+| 06-01-03 | 01 | 1 | CONF-03 | integration | `npx vitest run src/test/reposiciones` | config.test.tsx | pending |
+| 06-01-04 | 01 | 1 | CONF-04 | integration | `npx vitest run src/test/reposiciones` | config.test.tsx | pending |
+| 06-01-05 | 01 | 1 | CONF-05 | integration | `npx vitest run src/test/reposiciones` | config.test.tsx | pending |
+| 06-02-01 | 02 | 2 | APPR-01 | integration | `npx vitest run src/test/reposiciones` | table.test.tsx | pending |
+| 06-02-02 | 02 | 2 | APPR-02 | integration | `npx vitest run src/test/reposiciones` | table.test.tsx | pending |
+| 06-02-03 | 02 | 2 | APPR-03 | integration | `npx vitest run src/test/reposiciones` | table.test.tsx | pending |
+| 06-02-04 | 02 | 2 | APPR-04 | integration | `npx vitest run src/test/reposiciones` | table.test.tsx | pending |
 
-*Status: pending · green · red · flaky*
-
----
-
-## Wave 0 Requirements
-
-- [ ] `src/test/reposiciones/` — test directory for reposiciones module
-- [ ] Test stubs for CONF-01 through CONF-05 and APPR-01 through APPR-04
-
-*Existing vitest infrastructure covers framework needs — only test files needed.*
+*Status: pending | green | red | flaky*
 
 ---
 
@@ -75,11 +76,11 @@ created: 2026-03-30
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (Plan 06-01 Task 0)
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
