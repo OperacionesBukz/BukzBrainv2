@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import ConfigPanel from "./components/ConfigPanel";
+import SuggestionsTable from "./components/SuggestionsTable";
+import VendorSummaryPanel from "./components/VendorSummaryPanel";
 import {
   useLocations,
   useVendors,
@@ -11,6 +14,35 @@ import {
   useCalculationFlow,
 } from "./hooks";
 import type { CalculateRequest } from "./types";
+
+// ─── StatCard ────────────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number;
+  variant?: "destructive" | "warning";
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-4 pb-4">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p
+          className={cn(
+            "text-2xl font-bold",
+            variant === "destructive" && "text-red-600 dark:text-red-400",
+            variant === "warning" && "text-amber-600 dark:text-amber-400"
+          )}
+        >
+          {value}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 
@@ -69,6 +101,13 @@ export default function ReposicionesPage() {
 
   const [config, setConfig] = useState(DEFAULT_CONFIG);
 
+  // Override/deletion state — persists across recalculations (keyed by SKU string)
+  const [overridesMap, setOverridesMap] = useState<Record<string, number>>({});
+  const [deletedSkus, setDeletedSkus] = useState<Set<string>>(new Set());
+
+  // Store draft_id for Phase 7 approval flow
+  const [draftId, setDraftId] = useState<string | null>(null);
+
   // Merge saved Firestore config when it loads
   useEffect(() => {
     if (!savedConfig.data) return;
@@ -92,11 +131,7 @@ export default function ReposicionesPage() {
 
   // When locations load and no location_id yet, default to first
   useEffect(() => {
-    if (
-      !config.location_id &&
-      locations.data &&
-      locations.data.length > 0
-    ) {
+    if (!config.location_id && locations.data && locations.data.length > 0) {
       setConfig((prev) => ({
         ...prev,
         location_id: locations.data![0].id,
@@ -104,6 +139,13 @@ export default function ReposicionesPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations.data]);
+
+  // When results come back, store draft_id (overridesMap and deletedSkus are NOT reset)
+  useEffect(() => {
+    if (results?.draft_id) {
+      setDraftId(results.draft_id);
+    }
+  }, [results]);
 
   async function handleCalcular() {
     if (!user?.uid || !config.location_id) return;
@@ -162,15 +204,50 @@ export default function ReposicionesPage() {
       {/* Results section — only after successful calculation */}
       {results && (
         <div className="space-y-6">
-          {/* Plan 03 will add SuggestionsTable and VendorSummaryPanel here */}
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground">
-                {results.stats.total_products} productos analizados,{" "}
-                {results.stats.needs_replenishment} necesitan reposicion
-              </p>
-            </CardContent>
-          </Card>
+          {/* Stats summary bar — APPR-01 */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <StatCard label="Total Productos" value={results.stats.total_products} />
+            <StatCard
+              label="Necesitan Reposicion"
+              value={results.stats.needs_replenishment}
+            />
+            <StatCard
+              label="Urgentes"
+              value={results.stats.urgent}
+              variant="destructive"
+            />
+            <StatCard
+              label="Agotados"
+              value={results.stats.out_of_stock}
+              variant="warning"
+            />
+            <StatCard label="Proveedores" value={results.stats.vendors_with_orders} />
+          </div>
+
+          {/* Editable suggestions table — APPR-02, APPR-03 */}
+          <SuggestionsTable
+            products={results.products}
+            overridesMap={overridesMap}
+            onOverrideChange={(sku, qty) =>
+              setOverridesMap((prev) => ({ ...prev, [sku]: qty }))
+            }
+            deletedSkus={deletedSkus}
+            onDeleteSku={(sku) =>
+              setDeletedSkus((prev) => new Set(prev).add(sku))
+            }
+          />
+
+          {/* Vendor summary reflecting edits and deletions — APPR-04 */}
+          <VendorSummaryPanel
+            products={results.products}
+            overridesMap={overridesMap}
+            deletedSkus={deletedSkus}
+          />
+
+          {/* Hidden: draft_id available for Phase 7 approval flow */}
+          {draftId && (
+            <input type="hidden" name="draft_id" value={draftId} />
+          )}
         </div>
       )}
     </div>
