@@ -21,6 +21,7 @@ const GuideDetail = lazyWithReload(() => import("./pages/GuideDetail"));
 const Requests = lazyWithReload(() => import("./pages/Requests"));
 const BookstoreRequests = lazyWithReload(() => import("./pages/BookstoreRequests"));
 const Reposicion = lazyWithReload(() => import("./pages/Reposicion"));
+const Reposiciones = lazyWithReload(() => import("./pages/reposiciones"));
 const Celesa = lazyWithReload(() => import("./pages/Celesa"));
 const IngresoMercancia = lazyWithReload(() => import("./pages/IngresoMercancia"));
 const ScrapBukz = lazyWithReload(() => import("./pages/ScrapBukz"));
@@ -85,6 +86,7 @@ const App = () => {
                               <Route path="/bookstore-requests" element={<BookstoreRequests />} />
                               <Route path="/requests-hub" element={<RequestsHub />} />
                               <Route path="/reposicion" element={<Reposicion />} />
+                              <Route path="/reposiciones" element={<Reposiciones />} />
                               <Route path="/celesa" element={<Celesa />} />
                               <Route path="/ingreso" element={<IngresoMercancia />} />
                               <Route path="/scrap" element={<ScrapBukz />} />

@@ -35,6 +35,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/bookstore-requests", label: "Solicitud Librerías", description: "Pedidos para librerías", icon: Store, workspace: "general" },
   { path: "/requests-hub", label: "Hub Solicitudes", description: "Seguimiento centralizado de solicitudes", icon: ClipboardCheck, workspace: "operaciones" },
   { path: "/reposicion", label: "Reposición", description: "Gestión de reposición", icon: Package, workspace: "operaciones" },
+  { path: "/reposiciones", label: "Reposiciones", description: "Reposicion automatica con datos Shopify", icon: PackageSearch, workspace: "operaciones" },
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
   { path: "/workflow", label: "Workflow", description: "Ingreso de mercancía, scrap, cortes y devoluciones", icon: GitBranchPlus, workspace: "operaciones" },
   { path: "/directorio", label: "Directorio", description: "Base de datos de empleados, temporales y proveedores", icon: ContactRound, workspace: "operaciones" },
