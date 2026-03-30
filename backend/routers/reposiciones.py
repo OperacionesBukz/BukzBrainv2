@@ -4,10 +4,32 @@ Expone endpoints para locations, vendors, inventario y cache de ventas (bulk ops
 Plan 01: locations, vendors, inventory
 Plan 02: sales/refresh, sales/status, sales/data (bulk ops + cache)
 """
+import json
+import time
+import threading
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
 from services import shopify_service
+
+# ---------------------------------------------------------------------------
+# Estado del job de Bulk Operations (en memoria + persistido en Firestore)
+# ---------------------------------------------------------------------------
+
+_BULK_OP_COLLECTION = "reposiciones_meta"
+_BULK_OP_STATE_DOC = "bulk_op_state"
+_SALES_CACHE_COLLECTION = "sales_cache"
+_SALES_CACHE_DOC = "6m_global"
+_CACHE_TTL_HOURS = 24
+_JOB_STALE_SECONDS = 900  # 15 minutos — si running pero sin actualización, asumir muerto
+
+_reposiciones_job: dict = {
+    "running": False,
+    "error": None,
+    "started_at": None,
+    "operation_id": None,
+}
 
 router = APIRouter(prefix="/api/reposiciones", tags=["Reposiciones"])
 
@@ -70,3 +92,363 @@ def get_inventory(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo inventario: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Helpers: Firestore
+# ---------------------------------------------------------------------------
+
+def _get_firestore():
+    from services.firebase_service import get_firestore_db
+    return get_firestore_db()
+
+
+def _persist_job_state(operation_id: str | None, status: str):
+    """Persiste estado del job en Firestore para sobrevivir reinicios del backend."""
+    try:
+        db = _get_firestore()
+        db.collection(_BULK_OP_COLLECTION).document(_BULK_OP_STATE_DOC).set({
+            "operation_id": operation_id,
+            "status": status,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        pass  # No es fatal — el job continúa aunque no persista
+
+
+def _recover_job_state_on_startup():
+    """
+    Lee Firestore al startup para detectar jobs huérfanos.
+    Si hay un job RUNNING en Firestore, lo refleja en _reposiciones_job para
+    que /sales/status pueda informar el progreso.
+    """
+    try:
+        db = _get_firestore()
+        doc = db.collection(_BULK_OP_COLLECTION).document(_BULK_OP_STATE_DOC).get()
+        if doc.exists:
+            data = doc.to_dict()
+            if data.get("status") == "RUNNING":
+                _reposiciones_job["operation_id"] = data.get("operation_id")
+                # No marcamos running=True — el worker no está corriendo
+                # El cliente puede llamar /sales/status para ver si Shopify completó
+    except Exception:
+        pass
+
+
+def _get_sales_cache_meta() -> dict | None:
+    """Lee metadata del cache de ventas desde Firestore. None si no existe."""
+    try:
+        db = _get_firestore()
+        doc = db.collection(_SALES_CACHE_COLLECTION).document(_SALES_CACHE_DOC).get()
+        if doc.exists:
+            return doc.to_dict()
+        return None
+    except Exception:
+        return None
+
+
+def _is_cache_stale(cache_doc: dict) -> bool:
+    """Retorna True si el cache tiene más de 24 horas."""
+    last_refreshed_str = cache_doc.get("last_refreshed")
+    if not last_refreshed_str:
+        return True
+    try:
+        last_refreshed = datetime.fromisoformat(last_refreshed_str)
+        if last_refreshed.tzinfo is None:
+            last_refreshed = last_refreshed.replace(tzinfo=timezone.utc)
+        age_hours = (datetime.now(timezone.utc) - last_refreshed).total_seconds() / 3600
+        return age_hours > _CACHE_TTL_HOURS
+    except Exception:
+        return True
+
+
+def _download_and_aggregate(url: str) -> dict:
+    """
+    Descarga JSONL de Shopify Bulk Op y agrega currentQuantity por SKU + year-month.
+    IMPORTANTE: Lee createdAt del nodo order (parent) para asociar la fecha al line item.
+    Returns: {sku: {"2025-10": 5, "2025-11": 12, ...}, ...}
+    """
+    orders_by_id: dict[str, dict] = {}
+    sales_by_sku_month: dict[str, dict[str, int]] = {}
+
+    try:
+        import requests as _requests
+        response = _requests.get(url, timeout=120, stream=True)
+        if response.status_code != 200:
+            return {}
+
+        for line in response.iter_lines():
+            if not line:
+                continue
+            try:
+                data = json.loads(line.decode("utf-8") if isinstance(line, bytes) else line)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+
+            if "createdAt" in data and "id" in data:
+                # Nodo order (parent) — guardar fecha para resolver en line items
+                orders_by_id[data["id"]] = {"createdAt": data["createdAt"]}
+
+            elif "sku" in data and "currentQuantity" in data:
+                # Nodo line item (child) — per D-03: usar currentQuantity no quantity
+                sku = str(data.get("sku") or "").strip()
+                qty = int(data.get("currentQuantity") or 0)
+                if not sku or qty <= 0:
+                    continue
+
+                parent_id = data.get("__parentId", "")
+                order = orders_by_id.get(parent_id, {})
+                created_at = order.get("createdAt", "")
+                # Derivar year-month de createdAt: "2025-10-01T14:00:00Z" -> "2025-10"
+                year_month = created_at[:7] if len(created_at) >= 7 else "unknown"
+
+                if sku not in sales_by_sku_month:
+                    sales_by_sku_month[sku] = {}
+                sales_by_sku_month[sku][year_month] = (
+                    sales_by_sku_month[sku].get(year_month, 0) + qty
+                )
+    except Exception:
+        pass
+
+    return sales_by_sku_month
+
+
+def _write_sales_cache_to_firestore(sales_by_sku_month: dict, date_range_days: int = 180):
+    """
+    Escribe ventas agregadas en Firestore sales_cache/6m_global.
+    Si hay más de 8000 SKUs, escribe metadata en el doc principal y datos en subcollection chunks.
+    Per D-07, D-08, D-10.
+    """
+    db = _get_firestore()
+    now = datetime.now(timezone.utc)
+    doc_data = {
+        "last_refreshed": now.isoformat(),
+        "date_range_start": (now - timedelta(days=date_range_days)).strftime("%Y-%m-%d"),
+        "date_range_end": now.strftime("%Y-%m-%d"),
+        "sku_count": len(sales_by_sku_month),
+        "status": "ready",
+    }
+
+    if len(sales_by_sku_month) <= 8000:
+        # Cabe en el documento principal (< 1MB estimado)
+        doc_data["data"] = sales_by_sku_month
+        db.collection(_SALES_CACHE_COLLECTION).document(_SALES_CACHE_DOC).set(doc_data)
+    else:
+        # Metadata en doc principal, datos en subcollection de chunks de 500 SKUs
+        doc_data["chunked"] = True
+        db.collection(_SALES_CACHE_COLLECTION).document(_SALES_CACHE_DOC).set(doc_data)
+        skus = list(sales_by_sku_month.items())
+        for i, chunk_start in enumerate(range(0, len(skus), 500)):
+            chunk = dict(skus[chunk_start:chunk_start + 500])
+            db.collection(_SALES_CACHE_COLLECTION).document(_SALES_CACHE_DOC) \
+              .collection("chunks").document(str(i)).set({"data": chunk})
+
+
+# ---------------------------------------------------------------------------
+# Worker de background: Bulk Operation polling
+# ---------------------------------------------------------------------------
+
+def _sales_refresh_worker(date_range_days: int = 180):
+    """
+    Worker ejecutado en thread daemon.
+    1. Inicia Bulk Operation de reposiciones (con currentQuantity + createdAt)
+    2. Polling cada 5 seg hasta COMPLETED/FAILED/CANCELED (max 120 intentos = 10 min)
+    3. Descarga JSONL, agrega por SKU+mes, escribe en Firestore
+    4. Persiste estado en Firestore para sobrevivir reinicios
+    """
+    global _reposiciones_job
+    try:
+        # Iniciar bulk operation
+        operation_id, error = shopify_service.start_bulk_operation_reposiciones(date_range_days)
+        if error:
+            _reposiciones_job["error"] = error
+            _persist_job_state(None, "FAILED")
+            return
+
+        _reposiciones_job["operation_id"] = operation_id
+        _persist_job_state(operation_id, "RUNNING")
+
+        # Polling loop (max 10 min = 120 iteraciones × 5 seg)
+        for _ in range(120):
+            time.sleep(5)
+            result = shopify_service.check_bulk_operation_status()
+            status = result.get("status")
+
+            if status == "COMPLETED":
+                url = result.get("url")
+                if not url:
+                    _reposiciones_job["error"] = "Bulk Op completó pero sin URL de descarga"
+                    _persist_job_state(operation_id, "FAILED")
+                    return
+                sales_data = _download_and_aggregate(url)
+                _write_sales_cache_to_firestore(sales_data, date_range_days)
+                _persist_job_state(operation_id, "COMPLETED")
+                return
+
+            elif status in ("FAILED", "CANCELED"):
+                error_code = result.get("error_code", "")
+                _reposiciones_job["error"] = f"Bulk Op {status}: {error_code}"
+                _persist_job_state(operation_id, status)
+                return
+
+        # Timeout
+        _reposiciones_job["error"] = "Timeout: Bulk Operation no completó en 10 minutos"
+        _persist_job_state(operation_id, "FAILED")
+
+    except Exception as e:
+        _reposiciones_job["error"] = str(e)
+        _persist_job_state(None, "FAILED")
+    finally:
+        _reposiciones_job["running"] = False
+
+
+# Intentar recuperar estado huérfano al importar el módulo
+_recover_job_state_on_startup()
+
+
+# ---------------------------------------------------------------------------
+# SHOP-04, SHOP-05, SHOP-06, SHOP-07: Ventas (Bulk Operations + Cache)
+# ---------------------------------------------------------------------------
+
+@router.post("/sales/refresh")
+def sales_refresh(date_range_days: int = 180):
+    """
+    Inicia refresh de ventas históricas via Bulk Operation.
+    - Si cache vigente (<24h): devuelve status:cached sin lanzar nueva operación (SHOP-06)
+    - Si hay Bulk Op corriendo (ingreso u otro): devuelve 409 OPERATION_IN_PROGRESS (SHOP-07)
+    - Si job local en progreso (<15 min): devuelve 409 OPERATION_IN_PROGRESS
+    - En cualquier otro caso: lanza nueva Bulk Op en background
+    """
+    global _reposiciones_job
+
+    # Guard 1: job local en progreso (no stale)
+    if _reposiciones_job["running"]:
+        started = _reposiciones_job.get("started_at")
+        if started:
+            age_seconds = (datetime.now(timezone.utc) - started).total_seconds()
+            if age_seconds < _JOB_STALE_SECONDS:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"error": "OPERATION_IN_PROGRESS",
+                            "message": "Ya hay un refresh en progreso. Revisa /sales/status."},
+                )
+        # Job stale — resetear y continuar
+        _reposiciones_job["running"] = False
+
+    # Guard 2: Bulk Op corriendo en Shopify (puede ser del módulo ingreso — SHOP-07)
+    current_op = shopify_service.check_bulk_operation_status()
+    if current_op.get("status") in ("RUNNING", "CREATED"):
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "OPERATION_IN_PROGRESS",
+                    "message": "Hay una operación Bulk en curso en Shopify. "
+                               "Espera a que termine o cancela la operación actual."},
+        )
+
+    # Guard 3: Cache vigente — no necesita refresh (SHOP-06)
+    cache_doc = _get_sales_cache_meta()
+    if cache_doc and not _is_cache_stale(cache_doc):
+        return {
+            "status": "cached",
+            "message": "Cache vigente, no se necesita refresh",
+            "last_refreshed": cache_doc.get("last_refreshed"),
+            "sku_count": cache_doc.get("sku_count"),
+        }
+
+    # Lanzar worker en background
+    _reposiciones_job["running"] = True
+    _reposiciones_job["error"] = None
+    _reposiciones_job["started_at"] = datetime.now(timezone.utc)
+    _reposiciones_job["operation_id"] = None
+    thread = threading.Thread(
+        target=_sales_refresh_worker,
+        args=(date_range_days,),
+        daemon=True,
+    )
+    thread.start()
+
+    return {
+        "status": "running",
+        "message": "Bulk Operation iniciada en background. Consulta /sales/status para ver el progreso.",
+    }
+
+
+@router.get("/sales/status")
+def sales_status():
+    """
+    Devuelve el estado actual del job de refresh de ventas.
+    El frontend hace polling a este endpoint via React Query refetchInterval.
+    """
+    if _reposiciones_job["running"]:
+        # Consultar progreso real en Shopify
+        shopify_status = shopify_service.check_bulk_operation_status()
+        return {
+            "status": "running",
+            "operation_id": _reposiciones_job.get("operation_id"),
+            "object_count": shopify_status.get("object_count", 0),
+            "shopify_status": shopify_status.get("status"),
+        }
+
+    if _reposiciones_job["error"]:
+        return {
+            "status": "failed",
+            "error": _reposiciones_job["error"],
+        }
+
+    # Verificar si hay cache en Firestore (completado previamente)
+    cache_doc = _get_sales_cache_meta()
+    if cache_doc and cache_doc.get("status") == "ready":
+        return {
+            "status": "completed",
+            "last_refreshed": cache_doc.get("last_refreshed"),
+            "sku_count": cache_doc.get("sku_count"),
+            "date_range_start": cache_doc.get("date_range_start"),
+            "date_range_end": cache_doc.get("date_range_end"),
+        }
+
+    return {"status": "idle", "message": "No hay datos de ventas. Lanza un refresh."}
+
+
+@router.get("/sales/data")
+def sales_data():
+    """
+    Devuelve ventas agregadas por SKU+mes desde Firestore sales_cache.
+    Si hay chunks (>8000 SKUs), los lee y concatena.
+    Returns: {"data": {sku: {"2025-10": 5, ...}, ...}, "sku_count": int, "last_refreshed": str}
+    """
+    cache_doc = _get_sales_cache_meta()
+    if not cache_doc:
+        raise HTTPException(status_code=404, detail="No hay cache de ventas. Lanza POST /sales/refresh primero.")
+
+    if cache_doc.get("status") != "ready":
+        raise HTTPException(status_code=202, detail="Cache en proceso de generación. Espera.")
+
+    # Datos inline (caso normal: <= 8000 SKUs)
+    if "data" in cache_doc:
+        return {
+            "data": cache_doc["data"],
+            "sku_count": cache_doc.get("sku_count"),
+            "last_refreshed": cache_doc.get("last_refreshed"),
+        }
+
+    # Datos en chunks (caso >8000 SKUs)
+    if cache_doc.get("chunked"):
+        try:
+            db = _get_firestore()
+            chunks_ref = db.collection(_SALES_CACHE_COLLECTION) \
+                           .document(_SALES_CACHE_DOC) \
+                           .collection("chunks") \
+                           .stream()
+            merged = {}
+            for chunk_doc in chunks_ref:
+                chunk_data = chunk_doc.to_dict().get("data", {})
+                merged.update(chunk_data)
+            return {
+                "data": merged,
+                "sku_count": cache_doc.get("sku_count"),
+                "last_refreshed": cache_doc.get("last_refreshed"),
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error leyendo chunks: {str(e)}")
+
+    raise HTTPException(status_code=500, detail="Cache en estado inconsistente.")
