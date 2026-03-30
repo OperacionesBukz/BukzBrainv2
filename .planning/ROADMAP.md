@@ -1,76 +1,98 @@
-# Roadmap: BukzBrain v1.0
+# Roadmap: BukzBrain v2.0 — Reposiciones Automatizadas
 
 ## Overview
 
-Milestone v1.0 delivers two independent capabilities: a real-time notification system so users stay informed of task assignments and request approvals, and a centralized supplier management system that migrates 150+ hardcoded suppliers to Firestore with full CRUD and dynamic backend queries. Phase 1 builds notifications (no dependencies on existing data migration), Phase 2 builds supplier management (independent of notifications).
+Milestone v2.0 entrega un módulo completo de reposición automatizada de inventario. El punto de partida es el pipeline de datos de Shopify — sin datos reales, nada más puede funcionar. Desde ahí, el motor de cálculo Python procesa ventas históricas e inventario en tránsito para generar sugeridos por SKU. El frontend wizard permite configurar parámetros, revisar y editar sugeridos, aprobar el borrador y seleccionar proveedores para generar pedidos. Los pedidos se exportan como Excel por proveedor (descarga ZIP) y se rastrean hasta su recepción en el historial.
+
+Las fases 1–3 del milestone v1.0 están pausadas. Las fases de este milestone continúan desde el 4.
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2): Planned milestone work
-- Decimal phases (1.1, 1.2): Urgent insertions (marked with INSERTED)
+- Integer phases (4–8): Milestone v2.0 planned work (continues from v1.0's Phase 3)
+- Decimal phases (4.1, 4.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Sistema de Notificaciones** - Notificaciones en tiempo real con Firestore, badge en navbar, panel desplegable, y navegacion a recursos
-- [ ] **Phase 2: Gestion de Proveedores Centralizada** - Migrar proveedores hardcodeados a Firestore, CRUD frontend, consultas dinamicas backend, import/export Excel
-- [ ] **Phase 3: Webhook Celesa Auto-Entregado** - Webhook Shopify orders/fulfilled que auto-marca pedidos Celesa como Entregado cuando el pedido se fulfille en Shopify
+- [ ] **Phase 4: Pipeline de Datos Shopify** - Endpoints de Locations, inventario por sede y proveedor, y cache de ventas históricas (6 meses) via Bulk Operations con persistencia en Firestore
+- [ ] **Phase 5: Motor de Cálculo de Reposición** - Servicio Python que calcula cantidad sugerida por SKU con fórmula velocidad×lead_time − stock − en_tránsito, clasificación por velocidad y urgencia, y detección inteligente de inventario en tránsito desde pedidos pendientes
+- [ ] **Phase 6: Wizard Frontend — Config y Sugeridos** - Módulo React /reposiciones con wizard de configuración (sede, proveedores, lead time, rango fechas), tabla editable de sugeridos y resumen por proveedor
+- [ ] **Phase 7: Aprobación, Pedidos y Exportación** - Flujo Borrador→Aprobado con transacción Firestore, generación de pedidos por proveedor, exportación Excel+ZIP, acción "Marcar como Enviado" y KPIs
+- [ ] **Phase 8: Historial de Pedidos** - Lista de todos los pedidos con filtros, detalle por pedido, re-descarga Excel, transiciones de estado Aprobado→Enviado→Parcial→Recibido y audit trail completo
 
 ## Phase Details
 
-### Phase 1: Sistema de Notificaciones
-**Goal**: Usuarios reciben y gestionan notificaciones en tiempo real sobre eventos relevantes del sistema
-**Depends on**: Nothing (first phase)
-**Requirements**: NOTIF-01, NOTIF-02, NOTIF-03, NOTIF-04, NOTIF-05, NOTIF-06, NOTIF-07, NOTIF-08
+### Phase 4: Pipeline de Datos Shopify
+**Goal**: El backend expone datos reales de Shopify — sedes, inventario y ventas históricas cacheadas — para que el motor de cálculo pueda operar con datos precisos y rápidos
+**Depends on**: Nothing (first phase of milestone)
+**Requirements**: SHOP-01, SHOP-02, SHOP-03, SHOP-04, SHOP-05, SHOP-06, SHOP-07
 **Success Criteria** (what must be TRUE):
-  1. Cuando a un usuario se le asigna una tarea, aparece una notificacion sin recargar la pagina
-  2. El navbar muestra un badge con el conteo exacto de notificaciones no leidas, y el badge desaparece cuando todas estan leidas
-  3. Al hacer click en el icono de notificaciones se abre un panel con la lista de notificaciones ordenadas por fecha
-  4. El usuario puede marcar notificaciones como leidas (individual y masivamente) y al hacer click en una notificacion navega directamente al recurso relacionado
-  5. Admin recibe notificacion cuando se crea una solicitud de permiso; usuario recibe notificacion cuando su solicitud es aprobada o rechazada
-**Plans**: 3 plans
+  1. GET /api/reposiciones/locations devuelve la lista de sedes de Shopify con id y nombre, y el frontend puede poblar un dropdown con ellas
+  2. GET /api/reposiciones/inventory?location_id=X&vendor=Y devuelve niveles de stock reales de Shopify filtrados por sede y proveedor
+  3. POST /api/reposiciones/sales/refresh inicia una Bulk Operation y persiste ventas agregadas por SKU/mes en Firestore `sales_cache`; una segunda llamada dentro de 24h devuelve el cache sin lanzar nueva operación
+  4. Si ya hay una Bulk Operation corriendo (ya sea del módulo de ingreso u otro), el endpoint devuelve un error claro `OPERATION_IN_PROGRESS` en vez de silenciar el conflicto
+  5. Si el backend se reinicia mientras una Bulk Operation está en progreso, el estado del job se recupera desde Firestore y no queda huérfano
+**Plans**: TBD
+**UI hint**: no
 
-Plans:
-- [ ] 01-01-PLAN.md — Capa de datos: tipos, helpers CRUD, hook useNotifications, reglas Firestore
-- [ ] 01-02-PLAN.md — UI: NotificationBell con badge, popover desplegable, marcar leidas, navegacion
-- [ ] 01-03-PLAN.md — Triggers: crear notificaciones al asignar tareas y gestionar solicitudes de permiso
-
-### Phase 2: Gestion de Proveedores Centralizada
-**Goal**: Admins gestionan proveedores desde el frontend y el backend consulta proveedores dinamicamente desde Firestore en vez de datos hardcodeados
-**Depends on**: Nothing (independent of Phase 1)
-**Requirements**: PROV-01, PROV-02, PROV-03, PROV-04, PROV-05, PROV-06, PROV-07, PROV-08, PROV-09
+### Phase 5: Motor de Cálculo de Reposición
+**Goal**: El backend calcula cantidades sugeridas de reposición por SKU usando ventas reales, lead time configurable y detección precisa de inventario en tránsito desde pedidos pendientes en Firestore
+**Depends on**: Phase 4
+**Requirements**: CALC-01, CALC-02, CALC-03, CALC-04, CALC-05, CALC-06
 **Success Criteria** (what must be TRUE):
-  1. Admin ve la lista completa de proveedores en el frontend con busqueda por nombre, correo o ciudad
-  2. Admin puede crear, editar y eliminar proveedores desde el frontend con todos los campos requeridos (empresa, correo, ciudad, NIT, margen)
-  3. Los 150+ proveedores hardcodeados en el backend aparecen en Firestore despues de la migracion, y el backend de devoluciones y cortes consulta proveedores desde Firestore en vez de datos hardcodeados
-  4. Admin puede exportar la lista de proveedores a Excel y puede importar proveedores desde un archivo Excel
+  1. POST /api/reposiciones/calculate devuelve una lista de SKUs con cantidad sugerida calculada como `(velocidad_ventas × lead_time × safety_factor) − stock_actual − en_tránsito_real`
+  2. Cada SKU en el resultado tiene clasificación de velocidad (Bestseller / Regular / Slow / Long Tail) y nivel de urgencia (Urgente / Pronto / Normal / OK) basados en los umbrales definidos
+  3. Para un SKU con dos pedidos pendientes distintos, el cálculo de en_tránsito descuenta correctamente las unidades absorbidas por ventas reales de Shopify desde la fecha de cada pedido, sin contar doble
+  4. Los resultados están agrupados por proveedor con totales de SKUs, unidades y conteo de urgentes
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 6: Wizard Frontend — Config y Sugeridos
+**Goal**: El usuario puede configurar los parámetros de una corrida de reposición, lanzar el cálculo, ver la tabla de sugeridos y editar cantidades antes de aprobar — todo desde el módulo /reposiciones
+**Depends on**: Phase 4, Phase 5
+**Requirements**: CONF-01, CONF-02, CONF-03, CONF-04, CONF-05, APPR-01, APPR-02, APPR-03, APPR-04
+**Success Criteria** (what must be TRUE):
+  1. El usuario selecciona una sede desde un dropdown poblado con datos reales de Shopify, elige uno o más proveedores desde un multi-select, define lead time y rango de fechas, y puede lanzar el cálculo con esos parámetros
+  2. El sistema recuerda la última configuración del usuario y la pre-carga al abrir el módulo nuevamente
+  3. La tabla de sugeridos muestra todos los SKUs con cantidad sugerida, stock actual, velocidad de ventas, urgencia y proveedor; el usuario puede buscar por SKU/título/proveedor y filtrar por urgencia
+  4. El usuario puede editar la cantidad sugerida de cualquier línea inline y eliminar SKUs del sugerido; si recalcula, los overrides manuales no se pierden
+  5. El usuario ve un resumen por proveedor (total títulos, total unidades) antes de decidir aprobar
 **Plans**: TBD
 **UI hint**: yes
 
-Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-
-### Phase 3: Webhook Celesa Auto-Entregado
-**Goal**: Cuando un pedido de Shopify se marca como Fulfilled, los pedidos Celesa con el mismo Order Name se actualizan automaticamente a estado "Entregado" en Firestore
-**Depends on**: Nothing (independent)
-**Requirements**: CEL-01
+### Phase 7: Aprobación, Pedidos y Exportación
+**Goal**: El usuario aprueba el sugerido, selecciona proveedores para generar pedidos y descarga un ZIP con un Excel por proveedor, con KPIs visibles en todo momento
+**Depends on**: Phase 6
+**Requirements**: APPR-05, APPR-06, ORD-01, ORD-02, ORD-03, ORD-04, ORD-05
 **Success Criteria** (what must be TRUE):
-  1. Backend recibe webhook orders/fulfilled de Shopify con verificacion HMAC
-  2. El webhook busca en Firestore celesa_orders donde numeroPedido coincide con el order name del pedido fulfilled
-  3. Los pedidos Celesa que hacen match se actualizan a estado "Entregado" automaticamente
-  4. Si no hay match, el webhook responde 200 OK sin errores (no todos los pedidos son de Celesa)
-  5. El cambio de estado se refleja en tiempo real en el frontend via onSnapshot existente
+  1. Al aprobar el sugerido, el estado cambia de Borrador a Aprobado en Firestore con registro de quién aprobó y cuándo; si dos sesiones intentan aprobar simultáneamente, solo una tiene éxito y la otra recibe un error claro
+  2. El usuario selecciona un subconjunto de proveedores del sugerido aprobado y el sistema genera un pedido individual en Firestore por cada proveedor seleccionado
+  3. Al hacer click en "Descargar", el sistema genera un ZIP con un archivo Excel por proveedor (SKU, título, cantidad, stock actual) y el navegador descarga el archivo
+  4. Después de descargar, el usuario puede marcar el pedido de un proveedor como "Enviado", lo que actualiza el estado visible en pantalla
+  5. Los KPIs (total productos analizados, necesitan reposición, urgentes, agotados, proveedores con pedidos) son visibles en la pantalla sin necesidad de navegar a otra sección
 **Plans**: TBD
+**UI hint**: yes
 
-Plans:
-- [ ] 03-01: TBD
+### Phase 8: Historial de Pedidos
+**Goal**: El usuario puede consultar todos los pedidos históricos, ver su estado actual, re-descargar archivos y registrar transiciones de estado desde Aprobado hasta Recibido con trazabilidad completa
+**Depends on**: Phase 7
+**Requirements**: HIST-01, HIST-02, HIST-03, HIST-04, HIST-05
+**Success Criteria** (what must be TRUE):
+  1. El usuario ve la lista de todos los pedidos generados con filtros funcionales por proveedor, fecha de creación y estado; la lista se actualiza en tiempo real si otro usuario cambia un estado
+  2. Cada pedido muestra su estado actual y el usuario puede avanzar el estado manualmente a través de las transiciones permitidas (Aprobado → Enviado → Parcial → Recibido)
+  3. Al abrir el detalle de un pedido, el usuario ve todos los SKUs con sus cantidades pedidas en ese pedido específico
+  4. El usuario puede re-descargar el Excel de cualquier pedido histórico desde la vista de historial
+  5. Cada pedido muestra quién lo creó, quién lo aprobó y el timestamp de cada transición de estado registrada
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2
+Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Sistema de Notificaciones | 0/3 | Not started | - |
-| 2. Gestion de Proveedores Centralizada | 0/? | Not started | - |
-| 3. Webhook Celesa Auto-Entregado | 0/? | Not started | - |
+| 4. Pipeline de Datos Shopify | 0/? | Not started | - |
+| 5. Motor de Cálculo de Reposición | 0/? | Not started | - |
+| 6. Wizard Frontend — Config y Sugeridos | 0/? | Not started | - |
+| 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |
+| 8. Historial de Pedidos | 0/? | Not started | - |

@@ -87,46 +87,46 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHOP-01 | TBD | Pending |
-| SHOP-02 | TBD | Pending |
-| SHOP-03 | TBD | Pending |
-| SHOP-04 | TBD | Pending |
-| SHOP-05 | TBD | Pending |
-| SHOP-06 | TBD | Pending |
-| SHOP-07 | TBD | Pending |
-| CALC-01 | TBD | Pending |
-| CALC-02 | TBD | Pending |
-| CALC-03 | TBD | Pending |
-| CALC-04 | TBD | Pending |
-| CALC-05 | TBD | Pending |
-| CALC-06 | TBD | Pending |
-| CONF-01 | TBD | Pending |
-| CONF-02 | TBD | Pending |
-| CONF-03 | TBD | Pending |
-| CONF-04 | TBD | Pending |
-| CONF-05 | TBD | Pending |
-| APPR-01 | TBD | Pending |
-| APPR-02 | TBD | Pending |
-| APPR-03 | TBD | Pending |
-| APPR-04 | TBD | Pending |
-| APPR-05 | TBD | Pending |
-| APPR-06 | TBD | Pending |
-| ORD-01 | TBD | Pending |
-| ORD-02 | TBD | Pending |
-| ORD-03 | TBD | Pending |
-| ORD-04 | TBD | Pending |
-| ORD-05 | TBD | Pending |
-| HIST-01 | TBD | Pending |
-| HIST-02 | TBD | Pending |
-| HIST-03 | TBD | Pending |
-| HIST-04 | TBD | Pending |
-| HIST-05 | TBD | Pending |
+| SHOP-01 | Phase 4 | Pending |
+| SHOP-02 | Phase 4 | Pending |
+| SHOP-03 | Phase 4 | Pending |
+| SHOP-04 | Phase 4 | Pending |
+| SHOP-05 | Phase 4 | Pending |
+| SHOP-06 | Phase 4 | Pending |
+| SHOP-07 | Phase 4 | Pending |
+| CALC-01 | Phase 5 | Pending |
+| CALC-02 | Phase 5 | Pending |
+| CALC-03 | Phase 5 | Pending |
+| CALC-04 | Phase 5 | Pending |
+| CALC-05 | Phase 5 | Pending |
+| CALC-06 | Phase 5 | Pending |
+| CONF-01 | Phase 6 | Pending |
+| CONF-02 | Phase 6 | Pending |
+| CONF-03 | Phase 6 | Pending |
+| CONF-04 | Phase 6 | Pending |
+| CONF-05 | Phase 6 | Pending |
+| APPR-01 | Phase 6 | Pending |
+| APPR-02 | Phase 6 | Pending |
+| APPR-03 | Phase 6 | Pending |
+| APPR-04 | Phase 6 | Pending |
+| APPR-05 | Phase 7 | Pending |
+| APPR-06 | Phase 7 | Pending |
+| ORD-01 | Phase 7 | Pending |
+| ORD-02 | Phase 7 | Pending |
+| ORD-03 | Phase 7 | Pending |
+| ORD-04 | Phase 7 | Pending |
+| ORD-05 | Phase 7 | Pending |
+| HIST-01 | Phase 8 | Pending |
+| HIST-02 | Phase 8 | Pending |
+| HIST-03 | Phase 8 | Pending |
+| HIST-04 | Phase 8 | Pending |
+| HIST-05 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 34 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 34
+- Mapped to phases: 34 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-30*
-*Last updated: 2026-03-30 after initial definition*
+*Last updated: 2026-03-30 after roadmap v2.0 creation*
