@@ -10,10 +10,10 @@
 - [x] **SHOP-01**: Backend obtiene lista de Locations (sedes) de Shopify y las expone como endpoint
 - [x] **SHOP-02**: Backend obtiene niveles de inventario por Location para productos filtrados por proveedor
 - [x] **SHOP-03**: Backend obtiene lista de proveedores únicos desde productos de Shopify
-- [ ] **SHOP-04**: Backend ejecuta Bulk Operation para extraer ventas históricas (6 meses configurable) con `currentQuantity`
-- [ ] **SHOP-05**: Backend persiste ventas agregadas por SKU/mes en Firestore como cache (invalidación >24h)
-- [ ] **SHOP-06**: Backend reutiliza cache de ventas en ejecuciones posteriores (solo jala delta desde última actualización)
-- [ ] **SHOP-07**: Backend implementa guard para evitar conflicto de bulk operations simultáneas con módulo ingreso
+- [x] **SHOP-04**: Backend ejecuta Bulk Operation para extraer ventas históricas (6 meses configurable) con `currentQuantity`
+- [x] **SHOP-05**: Backend persiste ventas agregadas por SKU/mes en Firestore como cache (invalidación >24h)
+- [x] **SHOP-06**: Backend reutiliza cache de ventas en ejecuciones posteriores (solo jala delta desde última actualización)
+- [x] **SHOP-07**: Backend implementa guard para evitar conflicto de bulk operations simultáneas con módulo ingreso
 
 ### Motor de Cálculo
 
@@ -90,10 +90,10 @@
 | SHOP-01 | Phase 4 | Complete |
 | SHOP-02 | Phase 4 | Complete |
 | SHOP-03 | Phase 4 | Complete |
-| SHOP-04 | Phase 4 | Pending |
-| SHOP-05 | Phase 4 | Pending |
-| SHOP-06 | Phase 4 | Pending |
-| SHOP-07 | Phase 4 | Pending |
+| SHOP-04 | Phase 4 | Complete |
+| SHOP-05 | Phase 4 | Complete |
+| SHOP-06 | Phase 4 | Complete |
+| SHOP-07 | Phase 4 | Complete |
 | CALC-01 | Phase 5 | Pending |
 | CALC-02 | Phase 5 | Pending |
 | CALC-03 | Phase 5 | Pending |

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-30T18:54:57.423Z"
+status: verifying
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-30T19:00:25.585Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 
 Phase: 04 (pipeline-de-datos-shopify) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 | Phase 04-pipeline-de-datos-shopify P01 | 5 | 2 tasks | 3 files |
+| Phase 04-pipeline-de-datos-shopify P02 | 3 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Progress: [░░░░░░░░░░] 0%
 - Ruta del módulo: /reposiciones (registrar en PAGE_REGISTRY de pages.ts)
 - [Phase 04]: get_locations() devuelve {name: id} int, el router reposiciones convierte a [{name, id}] para la API frontend
 - [Phase 04]: Endpoint /inventory usa alias vendors[] en Query param para compatibilidad con frontend multi-select
+- [Phase 04]: Use currentQuantity (not quantity) in reposiciones bulk query to avoid order edit inflation
+- [Phase 04]: 409 guard in sales/refresh checks both local job state AND live Shopify API to prevent ingreso module conflicts
 
 ### Context from initialization
 
@@ -103,6 +106,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T18:54:57.420Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-03-30T19:00:25.582Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
