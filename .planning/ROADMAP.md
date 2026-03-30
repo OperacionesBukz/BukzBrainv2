@@ -80,7 +80,7 @@ Plans:
   5. Los KPIs (total productos analizados, necesitan reposición, urgentes, agotados, proveedores con pedidos) son visibles en la pantalla sin necesidad de navegar a otra sección
 **Plans**: 2 planes
 Plans:
-- [ ] 07-01-PLAN.md — Backend 4 endpoints (approve, orders/generate, orders/export, orders/{id}/send) + TypeScript types + API functions + React Query mutations
+- [x] 07-01-PLAN.md — Backend 4 endpoints (approve, orders/generate, orders/export, orders/{id}/send) + TypeScript types + API functions + React Query mutations
 - [ ] 07-02-PLAN.md — UI wiring: approval button + Aprobado badge, VendorSummaryPanel checkboxes + Marcar Enviado, Generar Pedidos + Descargar ZIP buttons, KPI update, Firestore rules
 **UI hint**: yes
 
