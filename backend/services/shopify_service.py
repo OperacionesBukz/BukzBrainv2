@@ -920,6 +920,69 @@ def check_bulk_operation_status() -> dict:
     return {"status": None, "url": None, "object_count": 0}
 
 
+def start_bulk_operation_reposiciones(date_range_days: int = 180) -> tuple[str | None, str | None]:
+    """
+    Inicia Bulk Operation para exportar ventas históricas de reposiciones.
+    IMPORTANTE: Distinta a start_bulk_operation() — usa currentQuantity, incluye createdAt,
+    filtra por financial_status:paid, y tiene rango de días configurable.
+    NO modificar start_bulk_operation() — la usa el módulo ingreso.
+
+    Returns: (operation_id, error_message) — uno de los dos siempre es None
+    """
+    graphql_url = settings.get_graphql_url()
+    headers = settings.get_shopify_headers()
+    date_start = (datetime.now() - timedelta(days=date_range_days)).strftime("%Y-%m-%dT00:00:00Z")
+
+    mutation = """
+    mutation {
+      bulkOperationRunQuery(
+        query: \"\"\"
+        {
+          orders(query: "created_at:>=%s AND financial_status:paid") {
+            edges {
+              node {
+                id
+                createdAt
+                lineItems {
+                  edges {
+                    node {
+                      sku
+                      currentQuantity
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        \"\"\"
+      ) {
+        bulkOperation { id status }
+        userErrors { field message }
+      }
+    }
+    """ % date_start
+
+    try:
+        response = requests.post(
+            graphql_url, json={"query": mutation}, headers=headers, timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if "errors" in data:
+                return None, f"Error GraphQL: {data['errors']}"
+            bulk_result = data.get("data", {}).get("bulkOperationRunQuery")
+            if bulk_result:
+                user_errors = bulk_result.get("userErrors", [])
+                if user_errors:
+                    return None, "; ".join(e.get("message", "") for e in user_errors)
+                if bulk_result.get("bulkOperation"):
+                    return bulk_result["bulkOperation"]["id"], None
+        return None, f"HTTP {response.status_code}"
+    except Exception as e:
+        return None, str(e)
+
+
 def download_and_process_bulk_results(url: str) -> dict:
     """Descarga JSONL de resultados y procesa ventas por SKU."""
     sales_by_sku = {}
