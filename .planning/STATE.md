@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: milestone
+status: planning
+stopped_at: Phase 4 context gathered
+last_updated: "2026-03-30T18:34:02.128Z"
+last_activity: 2026-03-30 — Roadmap v2.0 created
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+---
+
 # Project State
 
 ## Project Reference
@@ -19,6 +35,7 @@ Progress: [░░░░░░░░░░] 0%
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: -
 - Total execution time: 0 hours
@@ -34,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 | 8. Historial de Pedidos | 0/? | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: -
 - Trend: -
 
@@ -81,6 +99,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30
-Stopped at: Roadmap v2.0 creado (5 fases, 34 requirements mapeados), listo para planear Phase 4
-Resume file: None
+Last session: 2026-03-30T18:34:02.125Z
+Stopped at: Phase 4 context gathered
+Resume file: .planning/phases/04-pipeline-de-datos-shopify/04-CONTEXT.md
