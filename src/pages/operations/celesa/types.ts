@@ -31,8 +31,8 @@ export const CELESA_STATUS_CONFIG: Record<
   },
   Confirmado: {
     label: "Confirmado",
-    bg: "bg-blue-100 dark:bg-blue-900/40",
-    text: "text-blue-700 dark:text-blue-300",
+    bg: "bg-cyan-100 dark:bg-cyan-900/40",
+    text: "text-cyan-700 dark:text-cyan-300",
   },
   Entregado: {
     label: "Entregado",
