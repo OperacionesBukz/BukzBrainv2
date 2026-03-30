@@ -32,7 +32,7 @@ Las fases 1–3 del milestone v1.0 están pausadas. Las fases de este milestone 
   5. Si el backend se reinicia mientras una Bulk Operation está en progreso, el estado del job se recupera desde Firestore y no queda huérfano
 **Plans**: 2 planes
 Plans:
-- [ ] 04-01-PLAN.md — Router skeleton + endpoints locations, vendors, inventory + registro en main.py
+- [x] 04-01-PLAN.md — Router skeleton + endpoints locations, vendors, inventory + registro en main.py
 - [ ] 04-02-PLAN.md — Bulk Operations worker + endpoints sales/refresh, status, data + Firestore cache + conflict guard
 **UI hint**: no
 
@@ -94,7 +94,7 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4. Pipeline de Datos Shopify | 0/2 | Not started | - |
+| 4. Pipeline de Datos Shopify | 1/2 | In Progress|  |
 | 5. Motor de Cálculo de Reposición | 0/? | Not started | - |
 | 6. Wizard Frontend — Config y Sugeridos | 0/? | Not started | - |
 | 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |

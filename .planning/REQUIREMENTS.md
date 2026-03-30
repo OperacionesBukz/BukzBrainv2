@@ -7,9 +7,9 @@
 
 ### Shopify Data Pipeline
 
-- [ ] **SHOP-01**: Backend obtiene lista de Locations (sedes) de Shopify y las expone como endpoint
-- [ ] **SHOP-02**: Backend obtiene niveles de inventario por Location para productos filtrados por proveedor
-- [ ] **SHOP-03**: Backend obtiene lista de proveedores únicos desde productos de Shopify
+- [x] **SHOP-01**: Backend obtiene lista de Locations (sedes) de Shopify y las expone como endpoint
+- [x] **SHOP-02**: Backend obtiene niveles de inventario por Location para productos filtrados por proveedor
+- [x] **SHOP-03**: Backend obtiene lista de proveedores únicos desde productos de Shopify
 - [ ] **SHOP-04**: Backend ejecuta Bulk Operation para extraer ventas históricas (6 meses configurable) con `currentQuantity`
 - [ ] **SHOP-05**: Backend persiste ventas agregadas por SKU/mes en Firestore como cache (invalidación >24h)
 - [ ] **SHOP-06**: Backend reutiliza cache de ventas en ejecuciones posteriores (solo jala delta desde última actualización)
@@ -87,9 +87,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHOP-01 | Phase 4 | Pending |
-| SHOP-02 | Phase 4 | Pending |
-| SHOP-03 | Phase 4 | Pending |
+| SHOP-01 | Phase 4 | Complete |
+| SHOP-02 | Phase 4 | Complete |
+| SHOP-03 | Phase 4 | Complete |
 | SHOP-04 | Phase 4 | Pending |
 | SHOP-05 | Phase 4 | Pending |
 | SHOP-06 | Phase 4 | Pending |

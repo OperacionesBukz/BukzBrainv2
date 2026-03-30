@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-30T18:34:02.128Z"
-last_activity: 2026-03-30 — Roadmap v2.0 created
+status: executing
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-30T18:54:57.423Z"
+last_activity: 2026-03-30
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Centralizar y automatizar las operaciones diarias de Bukz
-**Current focus:** Milestone v2.0 - Reposiciones Automatizadas — Phase 4
+**Current focus:** Phase 04 — pipeline-de-datos-shopify
 
 ## Current Position
 
-Phase: 4 — Pipeline de Datos Shopify
-Plan: —
-Status: Roadmap defined, ready for Phase 4 planning
-Last activity: 2026-03-30 — Roadmap v2.0 created
+Phase: 04 (pipeline-de-datos-shopify) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -55,6 +55,8 @@ Progress: [░░░░░░░░░░] 0%
 - Last 5 plans: -
 - Trend: -
 
+| Phase 04-pipeline-de-datos-shopify P01 | 5 | 2 tasks | 3 files |
+
 ## Accumulated Context
 
 ### Decisions
@@ -73,6 +75,8 @@ Progress: [░░░░░░░░░░] 0%
 - Firestore transactions para todas las transiciones de estado (prevenir race conditions)
 - openpyxl write-only mode + generación secuencial por proveedor (prevenir memory explosion)
 - Ruta del módulo: /reposiciones (registrar en PAGE_REGISTRY de pages.ts)
+- [Phase 04]: get_locations() devuelve {name: id} int, el router reposiciones convierte a [{name, id}] para la API frontend
+- [Phase 04]: Endpoint /inventory usa alias vendors[] en Query param para compatibilidad con frontend multi-select
 
 ### Context from initialization
 
@@ -99,6 +103,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T18:34:02.125Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-pipeline-de-datos-shopify/04-CONTEXT.md
+Last session: 2026-03-30T18:54:57.420Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
