@@ -1,17 +1,178 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/contexts/AuthContext";
+import ConfigPanel from "./components/ConfigPanel";
+import {
+  useLocations,
+  useVendors,
+  useReplenishmentConfig,
+  saveReplenishmentConfig,
+  useCalculationFlow,
+} from "./hooks";
+import type { CalculateRequest } from "./types";
+
+// ─── Helper ────────────────────────────────────────────────────────────────
+
+function formatTimeAgo(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMinutes < 1) return "hace un momento";
+  if (diffMinutes < 60) return `hace ${diffMinutes} minuto${diffMinutes === 1 ? "" : "s"}`;
+  if (diffHours < 24) return `hace ${diffHours} hora${diffHours === 1 ? "" : "s"}`;
+  return `hace ${diffDays} dia${diffDays === 1 ? "" : "s"}`;
+}
+
+// ─── CacheProgressPlaceholder ────────────────────────────────────────────────
+
+function CacheProgressPlaceholder({ objectCount }: { objectCount?: number }) {
+  return (
+    <Card>
+      <CardContent className="pt-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Actualizando datos de ventas...</p>
+          {objectCount !== undefined && objectCount > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {objectCount.toLocaleString()} registros procesados
+            </span>
+          )}
+        </div>
+        <Progress className="w-full animate-pulse" value={undefined} />
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Default config ──────────────────────────────────────────────────────────
+
+const DEFAULT_CONFIG = {
+  location_id: "",
+  vendors: [] as string[],
+  lead_time_days: 14,
+  safety_factor: 1.5,
+  date_range_months: 6,
+};
+
+// ─── Page component ──────────────────────────────────────────────────────────
 
 export default function ReposicionesPage() {
+  const { user } = useAuth();
+
+  const locations = useLocations();
+  const vendors = useVendors();
+  const savedConfig = useReplenishmentConfig(user?.uid);
+  const { results, isPolling, isCalculating, salesStatus, startCalculation } =
+    useCalculationFlow();
+
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+
+  // Merge saved Firestore config when it loads
+  useEffect(() => {
+    if (!savedConfig.data) return;
+
+    const saved = savedConfig.data;
+    setConfig((prev) => ({
+      location_id:
+        saved.location_id ||
+        (locations.data && locations.data.length > 0
+          ? locations.data[0].id
+          : prev.location_id),
+      vendors: saved.vendors ?? [],
+      lead_time_days: saved.lead_time_days ?? DEFAULT_CONFIG.lead_time_days,
+      safety_factor: saved.safety_factor ?? DEFAULT_CONFIG.safety_factor,
+      date_range_months: saved.date_range_days
+        ? Math.round(saved.date_range_days / 30)
+        : DEFAULT_CONFIG.date_range_months,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedConfig.data]);
+
+  // When locations load and no location_id yet, default to first
+  useEffect(() => {
+    if (
+      !config.location_id &&
+      locations.data &&
+      locations.data.length > 0
+    ) {
+      setConfig((prev) => ({
+        ...prev,
+        location_id: locations.data![0].id,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locations.data]);
+
+  async function handleCalcular() {
+    if (!user?.uid || !config.location_id) return;
+
+    const request: CalculateRequest = {
+      location_id: config.location_id,
+      vendors: config.vendors.length > 0 ? config.vendors : null,
+      lead_time_days: config.lead_time_days,
+      safety_factor: config.safety_factor,
+      date_range_days: config.date_range_months * 30,
+    };
+
+    // Persist config to Firestore (fire-and-forget)
+    saveReplenishmentConfig(user.uid, {
+      location_id: config.location_id,
+      vendors: config.vendors,
+      lead_time_days: config.lead_time_days,
+      safety_factor: config.safety_factor,
+      date_range_days: config.date_range_months * 30,
+    }).catch((err) => {
+      console.error("Error saving config:", err);
+    });
+
+    await startCalculation(request);
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Reposiciones</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuracion de Reposicion</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Modulo en construccion...</p>
-        </CardContent>
-      </Card>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Reposiciones</h1>
+        {salesStatus?.last_refreshed && (
+          <span className="text-sm text-muted-foreground">
+            Datos actualizados: {formatTimeAgo(salesStatus.last_refreshed)}
+          </span>
+        )}
+      </div>
+
+      {/* Config section */}
+      <ConfigPanel
+        locations={locations.data ?? []}
+        vendors={vendors.data ?? []}
+        config={config}
+        onConfigChange={setConfig}
+        onCalcular={handleCalcular}
+        isLoading={isCalculating || isPolling}
+        isLocationsLoading={locations.isLoading}
+        isVendorsLoading={vendors.isLoading}
+      />
+
+      {/* Cache refresh progress bar */}
+      {isPolling && (
+        <CacheProgressPlaceholder objectCount={salesStatus?.object_count} />
+      )}
+
+      {/* Results section — only after successful calculation */}
+      {results && (
+        <div className="space-y-6">
+          {/* Plan 03 will add SuggestionsTable and VendorSummaryPanel here */}
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground">
+                {results.stats.total_products} productos analizados,{" "}
+                {results.stats.needs_replenishment} necesitan reposicion
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
