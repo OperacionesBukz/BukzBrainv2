@@ -17,6 +17,7 @@ from routers import corte_planeta
 from routers import corte_museo
 from routers import gift_cards
 from routers import suppliers
+from routers import reposiciones
 from routers import webhooks
 
 app = FastAPI(
@@ -46,6 +47,7 @@ app.include_router(corte_planeta.router, dependencies=_auth)
 app.include_router(corte_museo.router, dependencies=_auth)
 app.include_router(gift_cards.router, dependencies=_auth)
 app.include_router(suppliers.router, dependencies=_auth)
+app.include_router(reposiciones.router, dependencies=_auth)
 
 # Webhooks — SIN auth (Shopify envia su propia verificacion HMAC)
 app.include_router(webhooks.router)
