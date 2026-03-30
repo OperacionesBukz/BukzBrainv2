@@ -9,12 +9,20 @@ import {
   getSalesStatus,
   refreshSales,
   calculateReplenishment,
+  approveDraft,
+  generateOrders,
+  exportOrdersZip,
+  markOrderSent,
+  downloadZipFromBase64,
 } from "./api";
 import type {
   ReplenishmentConfig,
   CalculateRequest,
   CalculateResponse,
   SalesStatusResponse,
+  ApproveRequest,
+  GenerateOrdersRequest,
+  ExportOrdersRequest,
 } from "./types";
 
 export function useLocations() {
@@ -208,4 +216,47 @@ export function useCalculationFlow(): CalculationFlowState & {
     startCalculation,
     resetResults,
   };
+}
+
+// ─── Phase 7: Approval, Orders, Export mutations ───────────────────────────
+
+export function useApprove() {
+  return useMutation({
+    mutationFn: (params: ApproveRequest) => approveDraft(params),
+    onError: (err: Error) => {
+      toast.error(err.message || "Error al aprobar el sugerido");
+    },
+  });
+}
+
+export function useGenerateOrders() {
+  return useMutation({
+    mutationFn: (params: GenerateOrdersRequest) => generateOrders(params),
+    onError: (err: Error) => {
+      toast.error(err.message || "Error generando pedidos");
+    },
+  });
+}
+
+export function useExportZip() {
+  return useMutation({
+    mutationFn: (params: ExportOrdersRequest) => exportOrdersZip(params),
+    onSuccess: (data) => {
+      downloadZipFromBase64(data.zip_base64, data.filename);
+      toast.success("ZIP descargado");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Error generando el ZIP");
+    },
+  });
+}
+
+export function useMarkSent() {
+  return useMutation({
+    mutationFn: ({ orderId, sentBy }: { orderId: string; sentBy: string }) =>
+      markOrderSent(orderId, sentBy),
+    onError: (err: Error) => {
+      toast.error(err.message || "Error marcando pedido como enviado");
+    },
+  });
 }

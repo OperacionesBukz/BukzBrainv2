@@ -83,3 +83,72 @@ export interface SalesRefreshResponse {
   message: string;
   job_id?: string;
 }
+
+// ─── Phase 7: Approval, Orders, Export ────────────────────────────────────
+
+export interface EffectiveProductItem {
+  sku: string;
+  title: string;
+  vendor: string;
+  quantity: number;
+  stock: number;
+}
+
+export interface ApproveRequest {
+  draft_id: string;
+  approved_by: string;
+  effective_products: EffectiveProductItem[];
+}
+
+export interface ApproveResponse {
+  status: string;
+  approved_at: string;
+}
+
+export interface OrderItem {
+  sku: string;
+  title: string;
+  quantity: number;
+  stock: number;
+}
+
+export interface ReplenishmentOrder {
+  order_id: string;
+  vendor: string;
+  status: "aprobado" | "enviado";
+  items: OrderItem[];
+  created_by: string;
+  created_at: string;
+  sent_at?: string;
+  sent_by?: string;
+}
+
+export interface OrderCreated {
+  order_id: string;
+  vendor: string;
+  item_count: number;
+}
+
+export interface GenerateOrdersRequest {
+  draft_id: string;
+  vendors: string[];
+  created_by: string;
+}
+
+export interface GenerateOrdersResponse {
+  orders: OrderCreated[];
+}
+
+export interface ExportOrdersRequest {
+  order_ids: string[];
+}
+
+export interface ExportOrdersResponse {
+  zip_base64: string;
+  filename: string;
+}
+
+export interface MarkSentResponse {
+  status: string;
+  sent_at: string;
+}

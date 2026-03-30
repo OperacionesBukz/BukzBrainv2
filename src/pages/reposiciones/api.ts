@@ -6,6 +6,13 @@ import type {
   SalesRefreshResponse,
   CalculateRequest,
   CalculateResponse,
+  ApproveRequest,
+  ApproveResponse,
+  GenerateOrdersRequest,
+  GenerateOrdersResponse,
+  ExportOrdersRequest,
+  ExportOrdersResponse,
+  MarkSentResponse,
 } from "./types";
 
 const API_BASE =
@@ -66,4 +73,63 @@ export async function calculateReplenishment(
     body: JSON.stringify(params),
   });
   return handleResponse(res);
+}
+
+// ─── Phase 7: Approval, Orders, Export ────────────────────────────────────
+
+export async function approveDraft(params: ApproveRequest): Promise<ApproveResponse> {
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  return handleResponse<ApproveResponse>(res);
+}
+
+export async function generateOrders(
+  params: GenerateOrdersRequest
+): Promise<GenerateOrdersResponse> {
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/orders/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  return handleResponse<GenerateOrdersResponse>(res);
+}
+
+export async function exportOrdersZip(
+  params: ExportOrdersRequest
+): Promise<ExportOrdersResponse> {
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/orders/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  return handleResponse<ExportOrdersResponse>(res);
+}
+
+export async function markOrderSent(
+  orderId: string,
+  sentBy: string
+): Promise<MarkSentResponse> {
+  const res = await resilientFetch(
+    `${API_BASE}/api/reposiciones/orders/${orderId}/send?sent_by=${encodeURIComponent(sentBy)}`,
+    { method: "PATCH" }
+  );
+  return handleResponse<MarkSentResponse>(res);
+}
+
+export function downloadZipFromBase64(base64: string, filename: string): void {
+  const byteChars = atob(base64);
+  const byteArray = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteArray[i] = byteChars.charCodeAt(i);
+  }
+  const blob = new Blob([byteArray], { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
