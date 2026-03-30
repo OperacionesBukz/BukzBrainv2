@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 05-02-PLAN.md — POST /calculate endpoint + Pydantic models
-last_updated: "2026-03-30T19:41:53.529Z"
+stopped_at: Phase 6 context gathered
+last_updated: "2026-03-30T19:50:39.523Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
@@ -113,6 +113,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T19:37:39.576Z
-Stopped at: Completed 05-02-PLAN.md — POST /calculate endpoint + Pydantic models
-Resume file: None
+Last session: 2026-03-30T19:50:39.520Z
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-wizard-frontend-config-y-sugeridos/06-CONTEXT.md
