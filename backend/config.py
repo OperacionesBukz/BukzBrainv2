@@ -16,6 +16,7 @@ class Settings:
     SHOPIFY_SHOP_URL: str = os.getenv("SHOPIFY_SHOP_URL", "")
     SHOPIFY_ACCESS_TOKEN: str = os.getenv("SHOPIFY_ACCESS_TOKEN", "")
     SHOPIFY_API_VERSION: str = os.getenv("SHOPIFY_API_VERSION", "2025-01")
+    SHOPIFY_WEBHOOK_SECRET: str = os.getenv("SHOPIFY_WEBHOOK_SECRET", "")
 
     # CORS - dominios permitidos (tu GitHub Pages + localhost para dev)
     CORS_ORIGINS: list = [

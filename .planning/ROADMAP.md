@@ -12,6 +12,7 @@ Milestone v1.0 delivers two independent capabilities: a real-time notification s
 
 - [ ] **Phase 1: Sistema de Notificaciones** - Notificaciones en tiempo real con Firestore, badge en navbar, panel desplegable, y navegacion a recursos
 - [ ] **Phase 2: Gestion de Proveedores Centralizada** - Migrar proveedores hardcodeados a Firestore, CRUD frontend, consultas dinamicas backend, import/export Excel
+- [ ] **Phase 3: Webhook Celesa Auto-Entregado** - Webhook Shopify orders/fulfilled que auto-marca pedidos Celesa como Entregado cuando el pedido se fulfille en Shopify
 
 ## Phase Details
 
@@ -48,6 +49,21 @@ Plans:
 - [ ] 02-01: TBD
 - [ ] 02-02: TBD
 
+### Phase 3: Webhook Celesa Auto-Entregado
+**Goal**: Cuando un pedido de Shopify se marca como Fulfilled, los pedidos Celesa con el mismo Order Name se actualizan automaticamente a estado "Entregado" en Firestore
+**Depends on**: Nothing (independent)
+**Requirements**: CEL-01
+**Success Criteria** (what must be TRUE):
+  1. Backend recibe webhook orders/fulfilled de Shopify con verificacion HMAC
+  2. El webhook busca en Firestore celesa_orders donde numeroPedido coincide con el order name del pedido fulfilled
+  3. Los pedidos Celesa que hacen match se actualizan a estado "Entregado" automaticamente
+  4. Si no hay match, el webhook responde 200 OK sin errores (no todos los pedidos son de Celesa)
+  5. El cambio de estado se refleja en tiempo real en el frontend via onSnapshot existente
+**Plans**: TBD
+
+Plans:
+- [ ] 03-01: TBD
+
 ## Progress
 
 **Execution Order:**
@@ -57,3 +73,4 @@ Phases execute in numeric order: 1 -> 2
 |-------|----------------|--------|-----------|
 | 1. Sistema de Notificaciones | 0/3 | Not started | - |
 | 2. Gestion de Proveedores Centralizada | 0/? | Not started | - |
+| 3. Webhook Celesa Auto-Entregado | 0/? | Not started | - |
