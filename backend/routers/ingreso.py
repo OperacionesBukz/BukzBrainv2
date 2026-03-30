@@ -398,7 +398,7 @@ def _procesar_creacion_productos(src: pd.DataFrame) -> pd.DataFrame:
 
     df["Title"] = src["Titulo"].str.title()
     df["Command"] = "NEW"
-    df["Body HTML"] = src.get("Sipnosis", pd.Series(dtype=str))
+    df["Body HTML"] = src.get("Sipnosis", pd.Series(dtype=str)).fillna("")
 
     variant_sku = src["SKU"].apply(lambda x: str(x).replace(".0", ""))
 

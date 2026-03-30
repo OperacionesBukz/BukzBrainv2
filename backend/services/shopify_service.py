@@ -989,6 +989,77 @@ mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
 }
 """
 
+_PUBLISHABLE_PUBLISH_MUTATION = """
+mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+  publishablePublish(id: $id, input: $input) {
+    publishable { availablePublicationsCount { count } }
+    userErrors { field message }
+  }
+}
+"""
+
+_PUBLICATIONS_QUERY = """
+{
+  publications(first: 20) {
+    nodes {
+      id
+      name
+    }
+  }
+}
+"""
+
+# Cache de publication IDs para no consultar en cada producto
+_publication_ids_cache: list[str] = []
+_publication_ids_lock = threading.Lock()
+
+
+def _get_publication_ids(session: requests.Session) -> list[str]:
+    """Obtiene los IDs de todas las publicaciones (Sales Channels) de la tienda. Cachea el resultado."""
+    with _publication_ids_lock:
+        if _publication_ids_cache:
+            return _publication_ids_cache
+
+    graphql_url = settings.get_graphql_url()
+    try:
+        response = session.post(
+            graphql_url,
+            json={"query": _PUBLICATIONS_QUERY},
+            timeout=15,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            nodes = data.get("data", {}).get("publications", {}).get("nodes", [])
+            ids = [n["id"] for n in nodes if n.get("id")]
+            with _publication_ids_lock:
+                _publication_ids_cache.clear()
+                _publication_ids_cache.extend(ids)
+            return ids
+    except Exception:
+        pass
+    return []
+
+
+def _publish_product(session: requests.Session, product_id: str, publication_ids: list[str]) -> None:
+    """Publica un producto en todos los Sales Channels disponibles."""
+    if not publication_ids:
+        return
+    graphql_url = settings.get_graphql_url()
+    pub_input = [{"publicationId": pid} for pid in publication_ids]
+    try:
+        _throttler.wait_if_needed()
+        resp = session.post(
+            graphql_url,
+            json={
+                "query": _PUBLISHABLE_PUBLISH_MUTATION,
+                "variables": {"id": product_id, "input": pub_input},
+            },
+            timeout=15,
+        )
+        _throttler.update_from_response(resp)
+    except Exception:
+        pass  # No fallar la creación si la publicación falla
+
 _MIN_IMAGE_SIZE = 1024  # 1 KB — placeholder images are typically < 100 bytes
 
 
@@ -1065,7 +1136,7 @@ def _build_product_input(row: dict) -> tuple[dict, list]:
     product_input = {
         "title": str(row.get("Title", "")),
         "handle": str(row.get("Handle", "")),
-        "descriptionHtml": str(row.get("Body HTML", "") or ""),
+        "descriptionHtml": "" if not row.get("Body HTML") or str(row.get("Body HTML")).lower() == "nan" else str(row.get("Body HTML")),
         "vendor": str(row.get("Vendor", "")),
         "productType": str(row.get("Type", "Libro")),
         "status": "ACTIVE",
@@ -1193,6 +1264,11 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
                     time.sleep(wait_secs)
                     continue
                 break
+
+        # Paso 3: Publicar en todos los Sales Channels
+        publication_ids = _get_publication_ids(session)
+        if publication_ids:
+            _publish_product(session, product_id, publication_ids)
 
         return {
             "sku": sku,
