@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-30T20:29:11.307Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-30T20:36:00.366Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 ## Current Position
 
 Phase: 06 (wizard-frontend-config-y-sugeridos) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-03-30
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05-motor-de-c-lculo-de-reposici-n P01 | 3m23s | 2 tasks | 2 files |
 | Phase 05-motor-de-c-lculo-de-reposici-n P02 | 5 | 2 tasks | 1 files |
 | Phase 06-wizard-frontend-config-y-sugeridos P01 | 45 | 4 tasks | 9 files |
+| Phase 06-wizard-frontend-config-y-sugeridos P02 | 25 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 06-wizard-frontend-config-y-sugeridos]: Per-user config stored in replenishment_config/{uid} (not email-keyed) — consistent with agent_conversations pattern
 - [Phase 06-wizard-frontend-config-y-sugeridos]: saveReplenishmentConfig as plain async function (not hook) so it can be called inside mutation callbacks without hook rules violations
 - [Phase 06-wizard-frontend-config-y-sugeridos]: Sales status polling refetchInterval = 3000ms only when status is running or data is undefined — stops polling automatically when job finishes
+- [Phase 06-wizard-frontend-config-y-sugeridos]: pendingRequest stored as useRef (not useState) in useCalculationFlow to avoid stale closure in polling useEffect
+- [Phase 06-wizard-frontend-config-y-sugeridos]: VendorMultiSelect: empty array = Todos pattern; auto-collapses to [] when all vendors individually selected
 
 ### Context from initialization
 
@@ -117,6 +120,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T20:29:11.302Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-03-30T20:36:00.360Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
