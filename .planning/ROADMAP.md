@@ -45,7 +45,10 @@ Plans:
   2. Cada SKU en el resultado tiene clasificación de velocidad (Bestseller / Regular / Slow / Long Tail) y nivel de urgencia (Urgente / Pronto / Normal / OK) basados en los umbrales definidos
   3. Para un SKU con dos pedidos pendientes distintos, el cálculo de en_tránsito descuenta correctamente las unidades absorbidas por ventas reales de Shopify desde la fecha de cada pedido, sin contar doble
   4. Los resultados están agrupados por proveedor con totales de SKUs, unidades y conteo de urgentes
-**Plans**: TBD
+**Plans**: 2 planes
+Plans:
+- [ ] 05-01-PLAN.md — Test scaffold (CALC-01 a CALC-06) + reposicion_service.py con funciones puras de cálculo
+- [ ] 05-02-PLAN.md — POST /calculate endpoint en reposiciones.py + Pydantic models + Firestore draft persistence
 **UI hint**: no
 
 ### Phase 6: Wizard Frontend — Config y Sugeridos
@@ -95,7 +98,7 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Pipeline de Datos Shopify | 2/2 | Complete   | 2026-03-30 |
-| 5. Motor de Cálculo de Reposición | 0/? | Not started | - |
+| 5. Motor de Cálculo de Reposición | 0/2 | Not started | - |
 | 6. Wizard Frontend — Config y Sugeridos | 0/? | Not started | - |
 | 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |
 | 8. Historial de Pedidos | 0/? | Not started | - |
