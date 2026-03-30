@@ -78,7 +78,10 @@ Plans:
   3. Al hacer click en "Descargar", el sistema genera un ZIP con un archivo Excel por proveedor (SKU, título, cantidad, stock actual) y el navegador descarga el archivo
   4. Después de descargar, el usuario puede marcar el pedido de un proveedor como "Enviado", lo que actualiza el estado visible en pantalla
   5. Los KPIs (total productos analizados, necesitan reposición, urgentes, agotados, proveedores con pedidos) son visibles en la pantalla sin necesidad de navegar a otra sección
-**Plans**: TBD
+**Plans**: 2 planes
+Plans:
+- [ ] 07-01-PLAN.md — Backend 4 endpoints (approve, orders/generate, orders/export, orders/{id}/send) + TypeScript types + API functions + React Query mutations
+- [ ] 07-02-PLAN.md — UI wiring: approval button + Aprobado badge, VendorSummaryPanel checkboxes + Marcar Enviado, Generar Pedidos + Descargar ZIP buttons, KPI update, Firestore rules
 **UI hint**: yes
 
 ### Phase 8: Historial de Pedidos
@@ -104,5 +107,5 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 | 4. Pipeline de Datos Shopify | 2/2 | Complete   | 2026-03-30 |
 | 5. Motor de Cálculo de Reposición | 2/2 | Complete   | 2026-03-30 |
 | 6. Wizard Frontend — Config y Sugeridos | 3/3 | Complete   | 2026-03-30 |
-| 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |
+| 7. Aprobación, Pedidos y Exportación | 0/2 | Not started | - |
 | 8. Historial de Pedidos | 0/? | Not started | - |
