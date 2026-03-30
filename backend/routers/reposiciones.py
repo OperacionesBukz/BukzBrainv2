@@ -601,3 +601,105 @@ def _persist_draft(db, result: dict, request_params: dict) -> str:
         "stats": result["stats"],
     })
     return doc_ref.id
+
+
+# ---------------------------------------------------------------------------
+# CALC-01 a CALC-06: Motor de Cálculo de Reposición
+# ---------------------------------------------------------------------------
+
+@router.post("/calculate", response_model=CalculateResponse)
+def calculate_replenishment_endpoint(body: CalculateRequest):
+    """
+    Calcula cantidades sugeridas de reposición por SKU.
+
+    Flujo:
+    1. Cargar inventario real desde Shopify (get_inventory_by_location)
+    2. Cargar cache de ventas desde Firestore (sales_cache/6m_global) — 424 si no existe
+    3. Cargar pedidos pendientes desde Firestore (replenishment_orders donde status in [aprobado, enviado])
+    4. Calcular sugeridos con calculate_replenishment() del servicio
+    5. Persistir resultado como borrador en Firestore replenishment_orders
+    6. Devolver resultado completo con draft_id
+
+    CALC-01: formula suggested_qty = max(0, ceil((daily*lt*sf) - stock - transit))
+    CALC-02: clasificación por velocidad de ventas
+    CALC-03: urgencia por días de inventario
+    CALC-04+CALC-05: en_tránsito real via absorción de ventas desde fecha pedido
+    CALC-06: agregación por proveedor
+    """
+    from services.reposicion_service import calculate_replenishment
+
+    db = _get_firestore()
+
+    # Step 1: Inventario real de Shopify (D-15: TODOS los productos de la sede)
+    try:
+        inventory_items = shopify_service.get_inventory_by_location(
+            location_gid=body.location_id,
+            vendor_filter=body.vendors if body.vendors else None,  # D-16
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error obteniendo inventario de Shopify: {str(e)}")
+
+    if not inventory_items:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No se encontró inventario para location_id={body.location_id}"
+                   + (f" con vendors={body.vendors}" if body.vendors else "")
+        )
+
+    # Step 2: Cache de ventas desde Firestore (424 si no existe — Pitfall 4)
+    sales_data, cache_meta = _load_sales_cache_data(db)
+
+    # Open Question 2: respetar date_range_days del request vs cobertura del cache
+    # date_range_end = hoy; date_range_start = max(cache_start, hoy - date_range_days)
+    from datetime import date as date_type
+    today = datetime.now(timezone.utc).date()
+    requested_start = today - timedelta(days=body.date_range_days)
+    cache_start_str = cache_meta.get("date_range_start", "")
+    try:
+        cache_start = date_type.fromisoformat(cache_start_str)
+    except (ValueError, TypeError):
+        cache_start = requested_start
+    effective_start = max(requested_start, cache_start)
+
+    # Step 3: Pedidos pendientes para detección de en-tránsito (D-04)
+    pending_orders_map = _load_pending_orders_map(db)
+
+    # Step 4: Cálculo
+    params = {
+        "lead_time_days": body.lead_time_days,
+        "safety_factor": body.safety_factor,
+        "date_range_days": body.date_range_days,
+        "date_range_start": effective_start,
+        "date_range_end": today,
+    }
+
+    try:
+        result = calculate_replenishment(
+            inventory_items=inventory_items,
+            sales_cache=sales_data,
+            pending_orders_map=pending_orders_map,
+            params=params,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en cálculo de reposición: {str(e)}")
+
+    # Step 5: Persistir borrador en Firestore (D-13)
+    request_params = {
+        "location_id": body.location_id,
+        "vendors": body.vendors,
+        "lead_time_days": body.lead_time_days,
+        "safety_factor": body.safety_factor,
+        "date_range_days": body.date_range_days,
+    }
+    try:
+        draft_id = _persist_draft(db, result, request_params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error guardando borrador en Firestore: {str(e)}")
+
+    # Step 6: Respuesta (D-14: structure mirrors TypeScript ReplenishmentResult)
+    return CalculateResponse(
+        products=[ProductAnalysis(**p) for p in result["products"]],
+        vendor_summary=[VendorSummary(**v) for v in result["vendor_summary"]],
+        stats=ReplenishmentStats(**result["stats"]),
+        draft_id=draft_id,
+    )
