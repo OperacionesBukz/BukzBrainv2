@@ -63,7 +63,7 @@ Plans:
   5. El usuario ve un resumen por proveedor (total títulos, total unidades) antes de decidir aprobar
 **Plans**: 3 planes
 Plans:
-- [ ] 06-01-PLAN.md — Types, API layer, React Query hooks, Firestore config hook, page/route registration
+- [x] 06-01-PLAN.md — Types, API layer, React Query hooks, Firestore config hook, page/route registration
 - [ ] 06-02-PLAN.md — ConfigPanel + VendorMultiSelect components, main page with config persistence and calculate trigger
 - [ ] 06-03-PLAN.md — SuggestionsTable (editable) + VendorSummaryPanel + full page wiring + visual verification
 **UI hint**: yes
@@ -103,6 +103,6 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 4. Pipeline de Datos Shopify | 2/2 | Complete   | 2026-03-30 |
 | 5. Motor de Cálculo de Reposición | 2/2 | Complete   | 2026-03-30 |
-| 6. Wizard Frontend — Config y Sugeridos | 0/3 | Planned | - |
+| 6. Wizard Frontend — Config y Sugeridos | 1/3 | In Progress|  |
 | 7. Aprobación, Pedidos y Exportación | 0/? | Not started | - |
 | 8. Historial de Pedidos | 0/? | Not started | - |

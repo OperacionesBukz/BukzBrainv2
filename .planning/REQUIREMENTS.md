@@ -26,18 +26,18 @@
 
 ### Configuración
 
-- [ ] **CONF-01**: Usuario selecciona sede (Location) desde dropdown poblado por Shopify
-- [ ] **CONF-02**: Usuario filtra proveedores con multi-select (todos o selección específica)
-- [ ] **CONF-03**: Usuario configura lead time en días (default 14, rango 1-90)
-- [ ] **CONF-04**: Usuario configura rango de ventas para análisis (default 6 meses)
-- [ ] **CONF-05**: Sistema persiste última configuración usada por usuario
+- [x] **CONF-01**: Usuario selecciona sede (Location) desde dropdown poblado por Shopify
+- [x] **CONF-02**: Usuario filtra proveedores con multi-select (todos o selección específica)
+- [x] **CONF-03**: Usuario configura lead time en días (default 14, rango 1-90)
+- [x] **CONF-04**: Usuario configura rango de ventas para análisis (default 6 meses)
+- [x] **CONF-05**: Sistema persiste última configuración usada por usuario
 
 ### Sugerido y Aprobación
 
-- [ ] **APPR-01**: Al generar sugerido, se crea un borrador en Firestore con todos los SKUs, cantidades sugeridas y métricas
-- [ ] **APPR-02**: Usuario ve tabla de sugerido con búsqueda por SKU/título/proveedor y filtro por urgencia
-- [ ] **APPR-03**: Usuario puede editar cantidades sugeridas por línea (inline edit) y eliminar SKUs del sugerido
-- [ ] **APPR-04**: Usuario ve resumen por proveedor (total títulos, total unidades) antes de aprobar
+- [x] **APPR-01**: Al generar sugerido, se crea un borrador en Firestore con todos los SKUs, cantidades sugeridas y métricas
+- [x] **APPR-02**: Usuario ve tabla de sugerido con búsqueda por SKU/título/proveedor y filtro por urgencia
+- [x] **APPR-03**: Usuario puede editar cantidades sugeridas por línea (inline edit) y eliminar SKUs del sugerido
+- [x] **APPR-04**: Usuario ve resumen por proveedor (total títulos, total unidades) antes de aprobar
 - [ ] **APPR-05**: Usuario aprueba el sugerido (Borrador → Aprobado) con registro de quién aprobó y cuándo
 - [ ] **APPR-06**: Usuario selecciona a qué proveedores generar pedidos del sugerido aprobado
 
@@ -100,15 +100,15 @@
 | CALC-04 | Phase 5 | Complete |
 | CALC-05 | Phase 5 | Complete |
 | CALC-06 | Phase 5 | Complete |
-| CONF-01 | Phase 6 | Pending |
-| CONF-02 | Phase 6 | Pending |
-| CONF-03 | Phase 6 | Pending |
-| CONF-04 | Phase 6 | Pending |
-| CONF-05 | Phase 6 | Pending |
-| APPR-01 | Phase 6 | Pending |
-| APPR-02 | Phase 6 | Pending |
-| APPR-03 | Phase 6 | Pending |
-| APPR-04 | Phase 6 | Pending |
+| CONF-01 | Phase 6 | Complete |
+| CONF-02 | Phase 6 | Complete |
+| CONF-03 | Phase 6 | Complete |
+| CONF-04 | Phase 6 | Complete |
+| CONF-05 | Phase 6 | Complete |
+| APPR-01 | Phase 6 | Complete |
+| APPR-02 | Phase 6 | Complete |
+| APPR-03 | Phase 6 | Complete |
+| APPR-04 | Phase 6 | Complete |
 | APPR-05 | Phase 7 | Pending |
 | APPR-06 | Phase 7 | Pending |
 | ORD-01 | Phase 7 | Pending |

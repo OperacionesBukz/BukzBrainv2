@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 6 planned — 3 plans, 3 waves, verification passed
-last_updated: "2026-03-30T20:19:38.511Z"
+status: executing
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-30T20:29:11.307Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Centralizar y automatizar las operaciones diarias de Bukz
-**Current focus:** Phase 05 — motor-de-c-lculo-de-reposici-n
+**Current focus:** Phase 06 — wizard-frontend-config-y-sugeridos
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 06 (wizard-frontend-config-y-sugeridos) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04-pipeline-de-datos-shopify P02 | 3 | 2 tasks | 2 files |
 | Phase 05-motor-de-c-lculo-de-reposici-n P01 | 3m23s | 2 tasks | 2 files |
 | Phase 05-motor-de-c-lculo-de-reposici-n P02 | 5 | 2 tasks | 1 files |
+| Phase 06-wizard-frontend-config-y-sugeridos P01 | 45 | 4 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 05-motor-de-c-lculo-de-reposici-n]: 424 status for missing/not-ready sales cache (not 404 or 500) — signals dependency failure
 - [Phase 05-motor-de-c-lculo-de-reposici-n]: Effective date range = max(requested_start, cache_start) to respect cache coverage boundaries
 - [Phase 05-motor-de-c-lculo-de-reposici-n]: Draft borrador persisted to replenishment_orders with full products/vendor_summary/stats for Phase 6 approval flow
+- [Phase 06-wizard-frontend-config-y-sugeridos]: Per-user config stored in replenishment_config/{uid} (not email-keyed) — consistent with agent_conversations pattern
+- [Phase 06-wizard-frontend-config-y-sugeridos]: saveReplenishmentConfig as plain async function (not hook) so it can be called inside mutation callbacks without hook rules violations
+- [Phase 06-wizard-frontend-config-y-sugeridos]: Sales status polling refetchInterval = 3000ms only when status is running or data is undefined — stops polling automatically when job finishes
 
 ### Context from initialization
 
@@ -113,6 +117,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T20:19:38.508Z
-Stopped at: Phase 6 planned — 3 plans, 3 waves, verification passed
-Resume file: .planning/phases/06-wizard-frontend-config-y-sugeridos/06-01-PLAN.md
+Last session: 2026-03-30T20:29:11.302Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
