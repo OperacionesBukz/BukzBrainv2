@@ -189,6 +189,8 @@ async def enviar_pedido_sede(
         raise HTTPException(404, detail=f"Sede '{sede}' no encontrada")
 
     proveedores = await asyncio.to_thread(_get_proveedores_from_directory)
+    if not proveedores:
+        raise HTTPException(503, detail="No se pudo cargar la lista de proveedores. Intente de nuevo.")
     if proveedor not in proveedores:
         raise HTTPException(404, detail=f"Proveedor '{proveedor}' no encontrado")
 
@@ -246,6 +248,8 @@ async def enviar_pedido_ciudad(
         raise HTTPException(400, detail=f"Ciudad '{ciudad}' no válida. Opciones: {', '.join(CIUDADES)}")
 
     proveedores = await asyncio.to_thread(_get_proveedores_from_directory)
+    if not proveedores:
+        raise HTTPException(503, detail="No se pudo cargar la lista de proveedores. Intente de nuevo.")
     if proveedor not in proveedores:
         raise HTTPException(404, detail=f"Proveedor '{proveedor}' no encontrado")
 

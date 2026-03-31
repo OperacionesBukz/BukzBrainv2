@@ -15,7 +15,7 @@ export function usePedidosConfig() {
   return useQuery({
     queryKey: ["pedidos", "config"],
     queryFn: getConfig,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
     retry: 2,
   });
 }
