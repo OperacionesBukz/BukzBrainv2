@@ -85,15 +85,21 @@ export async function refreshSales(
   return handleResponse(res);
 }
 
-export async function calculateReplenishment(
+export async function startCalculation(
   params: CalculateRequest
-): Promise<CalculateResponse> {
+): Promise<{ job_id: string; status: string }> {
   const res = await resilientFetch(`${API_BASE}/api/reposiciones/calculate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    timeout: 120_000,
     body: JSON.stringify(params),
   });
+  return handleResponse(res);
+}
+
+export async function getCalculationStatus(
+  jobId: string
+): Promise<CalculateResponse | { status: string; step: string; progress: number }> {
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/calculate/${jobId}`);
   return handleResponse(res);
 }
 

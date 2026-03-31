@@ -8,7 +8,8 @@ import {
   getVendors,
   getSalesStatus,
   refreshSales,
-  calculateReplenishment,
+  startCalculation as apiStartCalculation,
+  getCalculationStatus,
   approveDraft,
   generateOrders,
   exportOrdersZip,
@@ -75,7 +76,7 @@ export function useSalesStatusPolling(enabled: boolean) {
 
 export function useCalculate() {
   return useMutation({
-    mutationFn: (params: CalculateRequest) => calculateReplenishment(params),
+    mutationFn: (params: CalculateRequest) => apiStartCalculation(params),
   });
 }
 
@@ -108,6 +109,8 @@ export async function saveReplenishmentConfig(
 interface CalculationFlowState {
   isPolling: boolean;
   isCalculating: boolean;
+  calcStep: string;
+  calcProgress: number;
   salesStatus: SalesStatusResponse | null;
   results: CalculateResponse | null;
   error: string | null;
@@ -127,13 +130,15 @@ export function useCalculationFlow(): CalculationFlowState & {
 } {
   const [isPolling, setIsPolling] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [calcStep, setCalcStep] = useState("starting");
+  const [calcProgress, setCalcProgress] = useState(0);
   const [results, setResults] = useState<CalculateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Use ref to avoid stale closure in polling effect
   const pendingRequestRef = useRef<CalculateRequest | null>(null);
+  const calcJobIdRef = useRef<string | null>(null);
+  const calcPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const pollingQuery = useSalesStatusPolling(isPolling);
-  const calculateMutation = useCalculate();
 
   // Watch polling status — when completed, trigger calculation
   useEffect(() => {
@@ -146,22 +151,60 @@ export function useCalculationFlow(): CalculationFlowState & {
       const request = pendingRequestRef.current;
       pendingRequestRef.current = null;
       setIsPolling(false);
-      setIsCalculating(true);
-      calculateMutation.mutate(request, {
-        onSuccess: (res) => {
-          setResults(res);
-          setIsCalculating(false);
-          toast.success("Calculo completado");
-        },
-        onError: (err: Error) => {
-          setError(err.message);
-          setIsCalculating(false);
-          toast.error(err.message);
-        },
-      });
+      _launchCalcJob(request);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollingQuery.data, isPolling]);
+
+  // Cleanup poll on unmount
+  useEffect(() => {
+    return () => {
+      if (calcPollRef.current) clearInterval(calcPollRef.current);
+    };
+  }, []);
+
+  async function _launchCalcJob(request: CalculateRequest) {
+    setIsCalculating(true);
+    setCalcStep("starting");
+    setCalcProgress(0);
+    try {
+      const { job_id } = await apiStartCalculation(request);
+      calcJobIdRef.current = job_id;
+      // Poll every 2 seconds
+      calcPollRef.current = setInterval(async () => {
+        try {
+          const res = await getCalculationStatus(job_id);
+          if ("status" in res && res.status === "running") {
+            setCalcStep((res as { step: string }).step || "starting");
+            setCalcProgress((res as { progress: number }).progress || 0);
+          } else {
+            // Completed — res is CalculateResponse
+            if (calcPollRef.current) clearInterval(calcPollRef.current);
+            calcPollRef.current = null;
+            calcJobIdRef.current = null;
+            setResults(res as CalculateResponse);
+            setIsCalculating(false);
+            setCalcStep("done");
+            setCalcProgress(100);
+            toast.success("Calculo completado");
+          }
+        } catch (err) {
+          if (calcPollRef.current) clearInterval(calcPollRef.current);
+          calcPollRef.current = null;
+          calcJobIdRef.current = null;
+          const msg = err instanceof Error ? err.message : "Error en cálculo";
+          setError(msg);
+          setIsCalculating(false);
+          toast.error(msg);
+        }
+      }, 2000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error iniciando cálculo";
+      setError(msg);
+      setIsCalculating(false);
+      toast.error(msg);
+    }
+  }
 
   async function startCalculation(request: CalculateRequest): Promise<void> {
     setError(null);
@@ -177,21 +220,9 @@ export function useCalculationFlow(): CalculationFlowState & {
       return;
     }
 
-    // 2. If cache is fresh, calculate directly
+    // 2. If cache is fresh, calculate directly (async job)
     if (status.status === "completed" && isCacheFresh(status.last_refreshed)) {
-      setIsCalculating(true);
-      calculateMutation.mutate(request, {
-        onSuccess: (res) => {
-          setResults(res);
-          setIsCalculating(false);
-          toast.success("Calculo completado");
-        },
-        onError: (err: Error) => {
-          setError(err.message);
-          setIsCalculating(false);
-          toast.error(err.message);
-        },
-      });
+      await _launchCalcJob(request);
       return;
     }
 
@@ -204,7 +235,6 @@ export function useCalculationFlow(): CalculationFlowState & {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "Error al actualizar ventas";
 
-      // D-06: 409 OPERATION_IN_PROGRESS specific message
       if (errMsg.includes("Bulk") || errMsg.includes("operacion") || errMsg.includes("OPERATION_IN_PROGRESS")) {
         toast.error("Hay una operacion Bulk en curso en Shopify. Intenta en unos minutos.");
         setError("Hay una operacion Bulk en curso en Shopify. Intenta en unos minutos.");
@@ -220,12 +250,19 @@ export function useCalculationFlow(): CalculationFlowState & {
     setError(null);
     setIsPolling(false);
     setIsCalculating(false);
+    setCalcStep("starting");
+    setCalcProgress(0);
+    if (calcPollRef.current) clearInterval(calcPollRef.current);
+    calcPollRef.current = null;
+    calcJobIdRef.current = null;
     pendingRequestRef.current = null;
   }
 
   return {
     isPolling,
     isCalculating,
+    calcStep,
+    calcProgress,
     salesStatus: pollingQuery.data ?? null,
     results,
     error,

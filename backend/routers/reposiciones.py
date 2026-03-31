@@ -519,6 +519,124 @@ def sales_data():
 
 _REPLENISHMENT_ORDERS_COLLECTION = "replenishment_orders"
 
+# ---------------------------------------------------------------------------
+# Calculation Job State (async calculation)
+# ---------------------------------------------------------------------------
+import uuid
+
+_calc_jobs: dict[str, dict] = {}
+_calc_jobs_lock = threading.Lock()
+
+
+def _run_calculation_job(job_id: str, body_dict: dict):
+    """Background thread for async calculation."""
+    from services.reposicion_service import calculate_replenishment as _calc_repl
+    from datetime import date as date_type
+
+    def _update(step: str, progress: int | None = None):
+        with _calc_jobs_lock:
+            _calc_jobs[job_id]["step"] = step
+            if progress is not None:
+                _calc_jobs[job_id]["progress"] = progress
+
+    try:
+        db = _get_firestore()
+        location_id = body_dict["location_id"]
+        vendors = body_dict.get("vendors")
+        lead_time_days = body_dict.get("lead_time_days", 14)
+        safety_factor = body_dict.get("safety_factor", 1.5)
+        date_range_days = body_dict.get("date_range_days", 180)
+
+        # Step 1: Inventory
+        _update("inventory", 10)
+        try:
+            inventory_items = shopify_service.get_inventory_by_location(
+                location_gid=location_id,
+                vendor_filter=vendors if vendors else None,
+            )
+        except Exception as e:
+            raise Exception(f"Error obteniendo inventario de Shopify: {str(e)}")
+
+        if not inventory_items:
+            with _calc_jobs_lock:
+                _calc_jobs[job_id].update({
+                    "status": "completed",
+                    "step": "done",
+                    "progress": 100,
+                    "result": {
+                        "products": [],
+                        "vendor_summary": [],
+                        "stats": {
+                            "total_products": 0,
+                            "needs_replenishment": 0,
+                            "urgent": 0,
+                            "out_of_stock": 0,
+                            "vendors_with_orders": 0,
+                        },
+                        "draft_id": f"empty_{int(time.time())}",
+                    },
+                })
+            return
+
+        _update("sales_cache", 40)
+        # Step 2: Sales cache
+        sales_data, cache_meta = _load_sales_cache_data(db)
+
+        today = datetime.now(timezone.utc).date()
+        requested_start = today - timedelta(days=date_range_days)
+        cache_start_str = cache_meta.get("date_range_start", "")
+        try:
+            cache_start = date_type.fromisoformat(cache_start_str)
+        except (ValueError, TypeError):
+            cache_start = requested_start
+        effective_start = max(requested_start, cache_start)
+
+        # Step 3: Pending orders
+        _update("pending_orders", 60)
+        pending_orders_map = _load_pending_orders_map(db)
+
+        # Step 4: Calculate
+        _update("calculating", 75)
+        params = {
+            "lead_time_days": lead_time_days,
+            "safety_factor": safety_factor,
+            "date_range_days": date_range_days,
+            "date_range_start": effective_start,
+            "date_range_end": today,
+        }
+        result = _calc_repl(
+            inventory_items=inventory_items,
+            sales_cache=sales_data,
+            pending_orders_map=pending_orders_map,
+            params=params,
+        )
+
+        # Step 5: Persist draft
+        _update("saving", 90)
+        request_params = {
+            "location_id": location_id,
+            "vendors": vendors,
+            "lead_time_days": lead_time_days,
+            "safety_factor": safety_factor,
+            "date_range_days": date_range_days,
+        }
+        draft_id = _persist_draft(db, result, request_params)
+        result["draft_id"] = draft_id
+
+        with _calc_jobs_lock:
+            _calc_jobs[job_id].update({
+                "status": "completed",
+                "step": "done",
+                "progress": 100,
+                "result": result,
+            })
+    except Exception as e:
+        with _calc_jobs_lock:
+            _calc_jobs[job_id].update({
+                "status": "failed",
+                "error": str(e),
+            })
+
 
 # ---------------------------------------------------------------------------
 # Modelos Pydantic — POST /calculate (CALC-01 a CALC-06)
@@ -665,111 +783,63 @@ def _persist_draft(db, result: dict, request_params: dict) -> str:
 # CALC-01 a CALC-06: Motor de Cálculo de Reposición
 # ---------------------------------------------------------------------------
 
-@router.post("/calculate", response_model=CalculateResponse)
+@router.post("/calculate")
 def calculate_replenishment_endpoint(body: CalculateRequest):
     """
-    Calcula cantidades sugeridas de reposición por SKU.
-
-    Flujo:
-    1. Cargar inventario real desde Shopify (get_inventory_by_location)
-    2. Cargar cache de ventas desde Firestore (sales_cache/6m_global) — 424 si no existe
-    3. Cargar pedidos pendientes desde Firestore (replenishment_orders donde status in [aprobado, enviado])
-    4. Calcular sugeridos con calculate_replenishment() del servicio
-    5. Persistir resultado como borrador en Firestore replenishment_orders
-    6. Devolver resultado completo con draft_id
-
-    CALC-01: formula suggested_qty = max(0, ceil((daily*lt*sf) - stock - transit))
-    CALC-02: clasificación por velocidad de ventas
-    CALC-03: urgencia por días de inventario
-    CALC-04+CALC-05: en_tránsito real via absorción de ventas desde fecha pedido
-    CALC-06: agregación por proveedor
+    Lanza cálculo de reposición como job asíncrono.
+    Devuelve job_id para consultar progreso via GET /calculate/{job_id}.
     """
-    from services.reposicion_service import calculate_replenishment
-
-    db = _get_firestore()
-
-    # Step 1: Inventario real de Shopify (D-15: TODOS los productos de la sede)
-    try:
-        inventory_items = shopify_service.get_inventory_by_location(
-            location_gid=body.location_id,
-            vendor_filter=body.vendors if body.vendors else None,  # D-16
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Error obteniendo inventario de Shopify: {str(e)}")
-
-    if not inventory_items:
-        # No inventory found — return empty result instead of error
-        empty_draft_id = f"empty_{int(time.time())}"
-        return CalculateResponse(
-            products=[],
-            vendor_summary=[],
-            stats=ReplenishmentStats(
-                total_products=0,
-                needs_replenishment=0,
-                urgent=0,
-                out_of_stock=0,
-                vendors_with_orders=0,
-            ),
-            draft_id=empty_draft_id,
-        )
-
-    # Step 2: Cache de ventas desde Firestore (424 si no existe — Pitfall 4)
-    sales_data, cache_meta = _load_sales_cache_data(db)
-
-    # Open Question 2: respetar date_range_days del request vs cobertura del cache
-    # date_range_end = hoy; date_range_start = max(cache_start, hoy - date_range_days)
-    from datetime import date as date_type
-    today = datetime.now(timezone.utc).date()
-    requested_start = today - timedelta(days=body.date_range_days)
-    cache_start_str = cache_meta.get("date_range_start", "")
-    try:
-        cache_start = date_type.fromisoformat(cache_start_str)
-    except (ValueError, TypeError):
-        cache_start = requested_start
-    effective_start = max(requested_start, cache_start)
-
-    # Step 3: Pedidos pendientes para detección de en-tránsito (D-04)
-    pending_orders_map = _load_pending_orders_map(db)
-
-    # Step 4: Cálculo
-    params = {
-        "lead_time_days": body.lead_time_days,
-        "safety_factor": body.safety_factor,
-        "date_range_days": body.date_range_days,
-        "date_range_start": effective_start,
-        "date_range_end": today,
-    }
-
-    try:
-        result = calculate_replenishment(
-            inventory_items=inventory_items,
-            sales_cache=sales_data,
-            pending_orders_map=pending_orders_map,
-            params=params,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en cálculo de reposición: {str(e)}")
-
-    # Step 5: Persistir borrador en Firestore (D-13)
-    request_params = {
-        "location_id": body.location_id,
-        "vendors": body.vendors,
-        "lead_time_days": body.lead_time_days,
-        "safety_factor": body.safety_factor,
-        "date_range_days": body.date_range_days,
-    }
-    try:
-        draft_id = _persist_draft(db, result, request_params)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error guardando borrador en Firestore: {str(e)}")
-
-    # Step 6: Respuesta (D-14: structure mirrors TypeScript ReplenishmentResult)
-    return CalculateResponse(
-        products=[ProductAnalysis(**p) for p in result["products"]],
-        vendor_summary=[VendorSummary(**v) for v in result["vendor_summary"]],
-        stats=ReplenishmentStats(**result["stats"]),
-        draft_id=draft_id,
+    job_id = str(uuid.uuid4())[:8]
+    with _calc_jobs_lock:
+        _calc_jobs[job_id] = {
+            "status": "running",
+            "step": "starting",
+            "progress": 0,
+            "error": None,
+            "result": None,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+        }
+    thread = threading.Thread(
+        target=_run_calculation_job,
+        args=(job_id, body.model_dump()),
+        daemon=True,
     )
+    thread.start()
+    return {"job_id": job_id, "status": "running"}
+
+
+@router.get("/calculate/{job_id}")
+def get_calculation_status(job_id: str):
+    """Consulta progreso/resultado de un cálculo asíncrono."""
+    with _calc_jobs_lock:
+        job = _calc_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+
+    if job["status"] == "completed":
+        result = job["result"]
+        # Clean up job from memory
+        with _calc_jobs_lock:
+            _calc_jobs.pop(job_id, None)
+        return CalculateResponse(
+            products=[ProductAnalysis(**p) for p in result["products"]],
+            vendor_summary=[VendorSummary(**v) for v in result["vendor_summary"]],
+            stats=ReplenishmentStats(**result["stats"]),
+            draft_id=result["draft_id"],
+        )
+
+    if job["status"] == "failed":
+        error = job.get("error", "Error desconocido")
+        with _calc_jobs_lock:
+            _calc_jobs.pop(job_id, None)
+        raise HTTPException(status_code=500, detail=error)
+
+    # Still running
+    return {
+        "status": "running",
+        "step": job.get("step", "starting"),
+        "progress": job.get("progress", 0),
+    }
 
 
 # ─── Pydantic models — Phase 7: Aprobación y Pedidos ──────────────────────

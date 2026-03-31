@@ -70,47 +70,60 @@ function formatTimeAgo(isoString: string): string {
 
 // ─── CalculationProgress ─────────────────────────────────────────────────────
 
-const STEPS = [
+const CALC_STEPS = [
   { key: "ventas", label: "Actualizando datos de ventas" },
-  { key: "calculo", label: "Calculando reposición" },
+  { key: "inventory", label: "Obteniendo inventario de Shopify" },
+  { key: "sales_cache", label: "Cargando datos de ventas" },
+  { key: "pending_orders", label: "Revisando pedidos pendientes" },
+  { key: "calculating", label: "Calculando reposición" },
+  { key: "saving", label: "Guardando borrador" },
 ] as const;
+
+function getStepIndex(isPolling: boolean, calcStep: string): number {
+  if (isPolling) return 0;
+  const idx = CALC_STEPS.findIndex((s) => s.key === calcStep);
+  return idx >= 0 ? idx : 1; // default to inventory if unknown
+}
 
 function CalculationProgress({
   isPolling,
   isCalculating,
+  calcStep,
+  calcProgress,
   objectCount,
 }: {
   isPolling: boolean;
   isCalculating: boolean;
+  calcStep: string;
+  calcProgress: number;
   objectCount?: number;
 }) {
   const elapsed = useElapsedSeconds(isPolling || isCalculating);
-  const currentStep = isPolling ? 0 : isCalculating ? 1 : -1;
-  if (currentStep === -1) return null;
+  const currentStep = getStepIndex(isPolling, calcStep);
 
   return (
     <Card>
       <CardContent className="pt-6 space-y-4">
         {/* Steps */}
-        <div className="space-y-3">
-          {STEPS.map((step, i) => {
+        <div className="space-y-2.5">
+          {CALC_STEPS.map((step, i) => {
             const isActive = i === currentStep;
             const isDone = i < currentStep;
             return (
               <div key={step.key} className="flex items-center gap-3">
                 {isDone ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                 ) : isActive ? (
-                  <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
+                  <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
                 ) : (
-                  <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/20 shrink-0" />
                 )}
                 <span
                   className={cn(
                     "text-sm",
                     isActive && "font-medium text-foreground",
-                    isDone && "text-muted-foreground line-through",
-                    !isActive && !isDone && "text-muted-foreground"
+                    isDone && "text-muted-foreground",
+                    !isActive && !isDone && "text-muted-foreground/60"
                   )}
                 >
                   {step.label}
@@ -126,7 +139,7 @@ function CalculationProgress({
         </div>
 
         {/* Progress bar */}
-        <Progress className="w-full" value={undefined} />
+        <Progress className="w-full" value={calcProgress > 0 ? calcProgress : undefined} />
 
         {/* Elapsed time */}
         <p className="text-xs text-muted-foreground text-center">
@@ -184,7 +197,7 @@ export default function ReposicionesPage() {
   const locations = useLocations();
   const vendors = useVendors();
   const savedConfig = useReplenishmentConfig(user?.uid);
-  const { results, isPolling, isCalculating, salesStatus, startCalculation } =
+  const { results, isPolling, isCalculating, calcStep, calcProgress, salesStatus, startCalculation } =
     useCalculationFlow();
 
   const [config, setConfig] = useState(DEFAULT_CONFIG);
@@ -425,6 +438,8 @@ export default function ReposicionesPage() {
             <CalculationProgress
               isPolling={isPolling}
               isCalculating={isCalculating}
+              calcStep={calcStep}
+              calcProgress={calcProgress}
               objectCount={salesStatus?.object_count}
             />
           )}
