@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useEffect, useRef, useMemo } from "react";
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from "firebase/firestore";
+import { useState, useEffect, useRef } from "react";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import {
@@ -18,6 +18,7 @@ import {
   transitionOrderStatus,
   exportSingleOrder,
   downloadExcelFromBase64,
+  getOrderList,
 } from "./api";
 import type {
   ReplenishmentConfig,
@@ -278,73 +279,23 @@ export function useMarkSent() {
 // ─── Phase 8: Order History hooks ────────────────────────────────────────
 
 export function useOrderHistory(filters: OrderHistoryFilters) {
-  const [orders, setOrders] = useState<OrderListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["reposiciones", "order-history", filters.vendor, filters.status, filters.dateFrom, filters.dateTo],
+    queryFn: () =>
+      getOrderList({
+        vendor: filters.vendor || undefined,
+        status: filters.status || undefined,
+        date_from: filters.dateFrom || undefined,
+        date_to: filters.dateTo || undefined,
+      }),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    setIsLoading(true);
-    // Base query: all non-borrador orders
-    const q = query(
-      collection(db, "replenishment_orders"),
-      where("status", "in", ["aprobado", "enviado", "parcial", "recibido"])
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const docs = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            order_id: d.id,
-            vendor: data.vendor ?? "",
-            status: data.status,
-            item_count: Array.isArray(data.items) ? data.items.length : 0,
-            created_by: data.created_by ?? "",
-            created_at: data.created_at ?? "",
-            status_history: data.status_history ?? [],
-          } as OrderListItem;
-        });
-
-        // Store ALL non-borrador orders — filtering happens in useMemo below
-        setOrders(docs);
-        setIsLoading(false);
-        setError(null);
-      },
-      (err) => {
-        setError(err.message);
-        setIsLoading(false);
-      }
-    );
-
-    return () => unsub();
-    // Firestore query never changes — client-side filters applied in useMemo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Apply filters and sort via useMemo to avoid re-creating the Firestore listener
-  const filteredOrders = useMemo(() => {
-    let result = orders;
-    if (filters.vendor) {
-      result = result.filter((o) => o.vendor === filters.vendor);
-    }
-    if (filters.status) {
-      result = result.filter((o) => o.status === filters.status);
-    }
-    if (filters.dateFrom) {
-      result = result.filter((o) => o.created_at >= filters.dateFrom);
-    }
-    if (filters.dateTo) {
-      const toDate = new Date(filters.dateTo);
-      toDate.setDate(toDate.getDate() + 1);
-      result = result.filter((o) => o.created_at < toDate.toISOString());
-    }
-    // Default sort: created_at descending (per D-05)
-    result.sort((a, b) => (b.created_at > a.created_at ? 1 : -1));
-    return result;
-  }, [orders, filters.vendor, filters.status, filters.dateFrom, filters.dateTo]);
-
-  return { orders: filteredOrders, isLoading, error };
+  return {
+    orders: data?.orders ?? [],
+    isLoading,
+    error: error ? (error as Error).message : null,
+  };
 }
 
 export function useOrderDetail(orderId: string | null) {
