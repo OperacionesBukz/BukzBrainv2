@@ -1,7 +1,9 @@
-import { Palmtree, Briefcase, Cake, FileText, History, CheckCircle2, XCircle, Clock4, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Palmtree, Briefcase, Cake, FileText, History, CheckCircle2, XCircle, Clock4, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import StatusDropdown, { StatusOption } from "@/components/StatusDropdown";
+import EditPermissionDialog from "@/pages/requests-hub/EditPermissionDialog";
 import { LeaveRequest, requestTypeConfig, DisplayStatus, getDisplayStatus } from "./types";
 
 type LeaveStatus = "pending" | "approved" | "rejected";
@@ -57,6 +59,10 @@ interface RequestsTrackingProps {
   getStatusIcon: (status: string) => React.ReactNode;
   getStatusBadge: (status: string) => React.ReactNode;
   updateRequestStatus: (requestId: string, newStatus: LeaveStatus) => Promise<void>;
+  updateLeaveRequest?: (
+    requestId: string,
+    updates: Partial<Pick<LeaveRequest, "fullName" | "idDocument" | "reason" | "startDate" | "endDate" | "customTypeLabel">>
+  ) => Promise<void>;
   deleteRequest: (requestId: string) => Promise<void>;
 }
 
@@ -67,8 +73,11 @@ const RequestsTracking = ({
   getStatusIcon,
   getStatusBadge,
   updateRequestStatus,
+  updateLeaveRequest,
   deleteRequest,
 }: RequestsTrackingProps) => {
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -153,14 +162,26 @@ const RequestsTracking = ({
                   </td>
                   {isOperations && (
                     <td className="px-4 md:px-6 py-3 md:py-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteRequest(request.id)}
-                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        {updateLeaveRequest && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingRequest(request)}
+                            className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteRequest(request.id)}
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -242,14 +263,26 @@ const RequestsTracking = ({
                       Enviado: {request.createdAt?.toDate ? request.createdAt.toDate().toLocaleDateString() : "Reciente"}
                     </span>
                     {isOperations && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteRequest(request.id)}
-                        className="h-9 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        {updateLeaveRequest && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingRequest(request)}
+                            className="h-9 px-3 text-muted-foreground hover:text-foreground hover:bg-muted"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteRequest(request.id)}
+                          className="h-9 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -258,6 +291,15 @@ const RequestsTracking = ({
           </div>
         )}
       </div>
+
+      {updateLeaveRequest && (
+        <EditPermissionDialog
+          open={editingRequest !== null}
+          onOpenChange={(open) => !open && setEditingRequest(null)}
+          request={editingRequest}
+          onSave={updateLeaveRequest}
+        />
+      )}
     </div>
   );
 };

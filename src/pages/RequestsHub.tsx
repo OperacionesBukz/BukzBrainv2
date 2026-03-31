@@ -91,6 +91,7 @@ const RequestsHub = () => {
     leaveRequests,
     bookstoreOrders,
     updateRequestStatus,
+    updateLeaveRequest,
     deleteRequest,
     handleDeleteOrder,
     handleStatusChangeOrder,
@@ -154,6 +155,7 @@ const RequestsHub = () => {
               getStatusIcon={getStatusIcon}
               getStatusBadge={getStatusBadge}
               updateRequestStatus={updateRequestStatus}
+              updateLeaveRequest={updateLeaveRequest}
               deleteRequest={deleteRequest}
             />
           ) : (

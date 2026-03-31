@@ -86,6 +86,18 @@ export function useRequestsHubData() {
     }
   };
 
+  const updateLeaveRequest = async (
+    requestId: string,
+    updates: Partial<Pick<LeaveRequest, "fullName" | "idDocument" | "reason" | "startDate" | "endDate" | "customTypeLabel">>
+  ) => {
+    try {
+      await updateDoc(doc(db, "leave_requests", requestId), updates);
+      toast.success("Permiso actualizado correctamente");
+    } catch (error) {
+      toast.error("Error al actualizar: " + (error instanceof Error ? error.message : "Error desconocido"));
+    }
+  };
+
   const deleteRequest = async (requestId: string) => {
     try {
       await deleteDoc(doc(db, "leave_requests", requestId));
@@ -136,6 +148,7 @@ export function useRequestsHubData() {
     leaveRequests,
     bookstoreOrders,
     updateRequestStatus,
+    updateLeaveRequest,
     deleteRequest,
     handleDeleteOrder,
     handleStatusChangeOrder,
