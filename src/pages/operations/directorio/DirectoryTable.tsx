@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ArrowRightLeft, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -26,14 +26,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { STATUS_CONFIG, DIRECTORY_STATUSES, isPerson } from "./types";
+import {
+  STATUS_CONFIG,
+  DIRECTORY_STATUSES,
+  CLASIFICACION_CONFIG,
+  PERSON_CLASIFICACIONES,
+  isPerson,
+  getClasificacion,
+} from "./types";
 import type {
   DirectoryEntry,
   DirectoryType,
   DirectoryStatus,
-  PersonEntry,
+  PersonClasificacion,
   SupplierEntry,
 } from "./types";
 
@@ -46,7 +52,7 @@ interface DirectoryTableProps {
   onUpdate: (
     id: string,
     updates: Partial<Omit<DirectoryEntry, "id" | "createdAt" | "createdBy">>
-  ) => Promise<void>;
+  ) => Promise<boolean | void>;
   onDelete: (id: string) => Promise<void>;
   isAdmin: boolean;
 }
@@ -65,6 +71,7 @@ const emptyPerson = {
   cedula: "",
   celular: "",
   correo: "",
+  clasificacion: "" as PersonClasificacion | "",
   estado: "Activo" as DirectoryStatus,
 };
 
@@ -93,7 +100,6 @@ export default function DirectoryTable({
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [transferEntry, setTransferEntry] = useState<PersonEntry | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const splitFullName = (full: string) => {
@@ -108,13 +114,16 @@ export default function DirectoryTable({
       const p = newRow as typeof emptyPerson;
       if (!p.nombreCompleto.trim()) return;
       const { nombre, apellido } = splitFullName(p.nombreCompleto);
+      const clasificacion: PersonClasificacion = p.clasificacion || (type === "empleado" ? "Empleado" : "Temporal");
+      const derivedType = clasificacion === "Temporal" ? "temporal" : "empleado";
       await onAdd({
-        type,
+        type: derivedType,
         nombre,
         apellido,
         cedula: p.cedula.trim(),
         celular: p.celular.trim(),
         correo: p.correo.trim(),
+        clasificacion,
         estado: p.estado,
       } as Omit<PersonEntry, "id" | "createdBy" | "createdAt" | "updatedAt">);
       setNewRow({ ...emptyPerson });
@@ -264,7 +273,52 @@ export default function DirectoryTable({
     );
   };
 
-  const colCount = isPersonType ? 6 : 7;
+  const renderClasificacionSelect = (entry: DirectoryEntry) => {
+    if (!isPerson(entry)) return null;
+    const clasificacion = getClasificacion(entry);
+    const config = CLASIFICACION_CONFIG[clasificacion];
+
+    if (!isAdmin) {
+      return (
+        <span
+          className={cn(
+            "rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+            config.bg,
+            config.text
+          )}
+        >
+          {clasificacion}
+        </span>
+      );
+    }
+
+    return (
+      <select
+        value={clasificacion}
+        onChange={(e) => {
+          const newClasificacion = e.target.value as PersonClasificacion;
+          const newType = newClasificacion === "Temporal" ? "temporal" : "empleado";
+          onUpdate(entry.id, {
+            clasificacion: newClasificacion,
+            type: newType,
+          });
+        }}
+        className={cn(
+          "rounded-full px-2.5 py-0.5 text-xs font-medium border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none",
+          config.bg,
+          config.text
+        )}
+      >
+        {PERSON_CLASIFICACIONES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
+  const colCount = isPersonType ? 7 : 7;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -278,6 +332,7 @@ export default function DirectoryTable({
                   <TableHead className="w-auto whitespace-nowrap">Cédula</TableHead>
                   <TableHead className="w-[130px]">Celular</TableHead>
                   <TableHead>Correo</TableHead>
+                  <TableHead className="w-[150px]">Tipo</TableHead>
                 </>
               ) : (
                 <>
@@ -339,6 +394,27 @@ export default function DirectoryTable({
                         onKeyDown={(e) => e.key === "Enter" && handleAddRow()}
                         className="h-7 text-xs"
                       />
+                    </TableHead>
+                    <TableHead className="p-1">
+                      <select
+                        value={(newRow as typeof emptyPerson).clasificacion}
+                        onChange={(e) =>
+                          setNewRow((r) => ({
+                            ...r,
+                            clasificacion: e.target.value as PersonClasificacion,
+                          }))
+                        }
+                        className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="">
+                          {type === "empleado" ? "Empleado" : "Temporal"}
+                        </option>
+                        {PERSON_CLASIFICACIONES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
                     </TableHead>
                   </>
                 ) : (
@@ -451,6 +527,7 @@ export default function DirectoryTable({
                     <TableCell className="text-sm">
                       {renderEditableCell(entry, "correo", entry.correo)}
                     </TableCell>
+                    <TableCell>{renderClasificacionSelect(entry)}</TableCell>
                   </>
                 ) : (
                   <>
@@ -494,17 +571,6 @@ export default function DirectoryTable({
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      {isPerson(entry) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          onClick={() => setTransferEntry(entry)}
-                          title={entry.type === "empleado" ? "Pasar a Temporales" : "Pasar a Empleados"}
-                        >
-                          <ArrowRightLeft className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -550,51 +616,6 @@ export default function DirectoryTable({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={transferEntry !== null}
-        onOpenChange={(open) => !open && setTransferEntry(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Transferir registro</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Mover a{" "}
-              <span className="font-semibold text-foreground">
-                {transferEntry
-                  ? `${transferEntry.nombre} ${transferEntry.apellido}`.trim()
-                  : ""}
-              </span>{" "}
-              a{" "}
-              <span className="font-semibold text-foreground">
-                {transferEntry?.type === "empleado"
-                  ? "Temporales"
-                  : "Empleados"}
-              </span>
-              ?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (transferEntry) {
-                  const targetType =
-                    transferEntry.type === "empleado" ? "temporal" : "empleado";
-                  const ok = await onUpdate(transferEntry.id, { type: targetType });
-                  if (ok) {
-                    toast.success(
-                      `Registro movido a ${targetType === "empleado" ? "Empleados" : "Temporales"}`
-                    );
-                  }
-                }
-                setTransferEntry(null);
-              }}
-            >
-              Transferir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </TooltipProvider>
   );
 }

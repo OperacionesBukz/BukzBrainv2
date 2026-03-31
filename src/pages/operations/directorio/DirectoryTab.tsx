@@ -7,7 +7,7 @@ import { exportDirectory } from "./excel-utils";
 import DirectoryToolbar from "./DirectoryToolbar";
 import DirectoryTable from "./DirectoryTable";
 import DirectoryImportDialog from "./DirectoryImportDialog";
-import { TAB_LABELS, isPerson } from "./types";
+import { TAB_LABELS, isPerson, matchesTab } from "./types";
 import type { DirectoryType, DirectoryStatus } from "./types";
 import type { ParsedPersonRow, ParsedSupplierRow } from "./excel-utils";
 
@@ -36,7 +36,9 @@ export default function DirectoryTab({
   const [importOpen, setImportOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    let result = entries.filter((e) => e.type === type);
+    let result = type === "proveedor"
+      ? entries.filter((e) => e.type === "proveedor")
+      : entries.filter((e) => isPerson(e) && matchesTab(e, type));
 
     if (filterStatus !== "Todos") {
       result = result.filter((e) => e.estado === filterStatus);
