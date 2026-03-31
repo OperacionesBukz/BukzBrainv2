@@ -173,6 +173,7 @@ export interface StatusHistoryEntry {
 export interface OrderListItem {
   order_id: string;
   vendor: string;
+  location_name: string;
   status: "aprobado" | "enviado" | "parcial" | "recibido";
   item_count: number;
   created_by: string;

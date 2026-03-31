@@ -70,6 +70,9 @@ export default function ExpandableOrderRow({
           {/* Proveedor */}
           <TableCell className="font-medium">{order.vendor}</TableCell>
 
+          {/* Sede */}
+          <TableCell className="text-sm">{order.location_name || "—"}</TableCell>
+
           {/* Fecha Creacion */}
           <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
             {formatDate(order.created_at)}
@@ -130,7 +133,7 @@ export default function ExpandableOrderRow({
         {/* Expanded detail row */}
         <CollapsibleContent asChild>
           <TableRow className="bg-muted/20 hover:bg-muted/20">
-            <TableCell colSpan={6} className="py-4">
+            <TableCell colSpan={7} className="py-4">
               <div className="space-y-4 px-2">
                 {/* SKU detail table */}
                 <div>

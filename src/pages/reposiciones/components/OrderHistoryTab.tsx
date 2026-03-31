@@ -263,6 +263,7 @@ export default function OrderHistoryTab() {
                     Proveedor <SortIcon field="vendor" />
                   </span>
                 </TableHead>
+                <TableHead>Sede</TableHead>
                 <TableHead
                   className="cursor-pointer select-none"
                   onClick={() => toggleSort("created_at")}
@@ -287,13 +288,13 @@ export default function OrderHistoryTab() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : sortedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No hay pedidos
                   </TableCell>
                 </TableRow>

@@ -995,14 +995,19 @@ def generate_orders(body: GenerateOrdersRequest):
             continue
 
         order_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document()
-        order_ref.set({
+        order_data = {
             "draft_id": body.draft_id,
             "vendor": vendor,
             "status": "aprobado",
             "items": items,
             "created_by": body.created_by,
             "created_at": now_str,
-        })
+        }
+        # Copy location from draft params
+        draft_params = draft_data.get("params", {})
+        if draft_params.get("location_id"):
+            order_data["location_id"] = draft_params["location_id"]
+        order_ref.set(order_data)
         created_orders.append({"order_id": order_ref.id, "vendor": vendor, "item_count": len(items)})
 
     return GenerateOrdersResponse(orders=[OrderCreated(**o) for o in created_orders])
@@ -1097,6 +1102,7 @@ def delete_order(order_id: str):
 class OrderListItem(BaseModel):
     order_id: str
     vendor: str
+    location_name: str = ""
     status: str
     item_count: int
     created_by: str
@@ -1179,6 +1185,13 @@ def list_orders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error consultando pedidos: {str(e)}")
 
+    # Resolve location GIDs to names
+    try:
+        locations_dict = shopify_service.get_locations()  # {name: gid}
+        gid_to_name = {gid: name for name, gid in locations_dict.items()}
+    except Exception:
+        gid_to_name = {}
+
     orders: list[OrderListItem] = []
     for doc in docs:
         data = doc.to_dict()
@@ -1200,9 +1213,13 @@ def list_orders(
             except ValueError:
                 pass
 
+        location_gid = data.get("location_id", "")
+        location_name = gid_to_name.get(location_gid, "")
+
         orders.append(OrderListItem(
             order_id=doc.id,
             vendor=data.get("vendor", ""),
+            location_name=location_name,
             status=data.get("status", ""),
             item_count=len(data.get("items", [])),
             created_by=data.get("created_by", ""),
