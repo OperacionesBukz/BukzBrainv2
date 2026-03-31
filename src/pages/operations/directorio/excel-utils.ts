@@ -80,14 +80,33 @@ export interface ParseResult<T> {
   errors: ParseError[];
 }
 
-const PERSON_COLUMN_MAP: Record<string, keyof ParsedPersonRow> = {
+// Special key for "nombre completo" columns that need splitting
+const NOMBRE_COMPLETO_KEY = "_nombreCompleto" as const;
+
+const PERSON_COLUMN_MAP: Record<string, keyof ParsedPersonRow | typeof NOMBRE_COMPLETO_KEY> = {
   nombre: "nombre",
   apellido: "apellido",
   cedula: "cedula",
   celular: "celular",
   correo: "correo",
   email: "correo",
+  "nombre completo": NOMBRE_COMPLETO_KEY,
+  "nombre completo del empleado": NOMBRE_COMPLETO_KEY,
+  "numero de documento de identidad": "cedula",
+  "documento": "cedula",
+  "correo electronico": "correo",
 };
+
+/** Split a full name into nombre + apellido (heuristic: half words each) */
+function splitFullName(fullName: string): { nombre: string; apellido: string } {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return { nombre: parts[0] || "", apellido: "" };
+  const mid = Math.ceil(parts.length / 2);
+  return {
+    nombre: parts.slice(0, mid).join(" "),
+    apellido: parts.slice(mid).join(" "),
+  };
+}
 
 const SUPPLIER_COLUMN_MAP: Record<string, keyof ParsedSupplierRow> = {
   empresa: "empresa",
@@ -127,25 +146,26 @@ export async function parsePersonExcel(
   }
 
   const rawHeaders = Object.keys(raw[0]);
-  const headerMap: Record<string, keyof ParsedPersonRow> = {};
+  const headerMap: Record<string, keyof ParsedPersonRow | typeof NOMBRE_COMPLETO_KEY> = {};
+  let hasNombreCompleto = false;
   for (const h of rawHeaders) {
     const normalized = normalizeHeader(h);
     if (normalized in PERSON_COLUMN_MAP) {
-      headerMap[h] = PERSON_COLUMN_MAP[normalized];
+      const mapped = PERSON_COLUMN_MAP[normalized];
+      headerMap[h] = mapped;
+      if (mapped === NOMBRE_COMPLETO_KEY) hasNombreCompleto = true;
     }
   }
 
-  const requiredFields: (keyof ParsedPersonRow)[] = ["nombre", "apellido"];
-  const missing = requiredFields.filter(
-    (f) => !Object.values(headerMap).includes(f)
-  );
-  if (missing.length > 0) {
+  // "nombre completo" satisfies both nombre + apellido
+  const hasNombre = hasNombreCompleto || Object.values(headerMap).includes("nombre");
+  if (!hasNombre) {
     return {
       valid: [],
       errors: [
         {
           row: 0,
-          message: `Columnas faltantes: ${missing.join(", ")}. Se esperan al menos: Nombre, Apellido`,
+          message: `Columnas faltantes: nombre. Se esperan al menos: Nombre y Apellido, o Nombre Completo`,
         },
       ],
     };
@@ -161,18 +181,21 @@ export async function parsePersonExcel(
       mapped[field] = String(row[rawKey] ?? "").trim();
     }
 
+    // If we have "nombre completo", split it into nombre + apellido
+    if (hasNombreCompleto && mapped[NOMBRE_COMPLETO_KEY]) {
+      const { nombre, apellido } = splitFullName(mapped[NOMBRE_COMPLETO_KEY]);
+      if (!mapped.nombre) mapped.nombre = nombre;
+      if (!mapped.apellido) mapped.apellido = apellido;
+    }
+
     if (!mapped.nombre) {
       errors.push({ row: rowNum, message: "Nombre vacío" });
-      return;
-    }
-    if (!mapped.apellido) {
-      errors.push({ row: rowNum, message: "Apellido vacío" });
       return;
     }
 
     valid.push({
       nombre: mapped.nombre,
-      apellido: mapped.apellido,
+      apellido: mapped.apellido || "",
       cedula: mapped.cedula || "",
       celular: mapped.celular || "",
       correo: mapped.correo || "",
