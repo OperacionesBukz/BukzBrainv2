@@ -222,7 +222,7 @@ const Tasks = () => {
           title: "Nueva tarea asignada",
           message: `${user.email?.split("@")[0] ?? "Alguien"} te asignó la tarea "${assignTitle.trim()}"`,
           resourcePath: "/tasks",
-        }).catch((err) => console.warn("[notifications] Error:", err));
+        }).catch((err) => console.error("[notifications] Failed to create notification:", err));
       }
 
       setAssignTitle("");

@@ -45,7 +45,7 @@ export function useNotifications() {
         setLoading(false);
       },
       (error) => {
-        console.warn("[notifications] Error:", error.message);
+        console.error("[notifications] Listener error — possible missing Firestore index:", error.message, error);
         setLoading(false);
       }
     );
