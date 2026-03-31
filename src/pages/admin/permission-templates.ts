@@ -3,15 +3,21 @@ import {
   LayoutGrid,
   Truck,
   Home,
+  Users,
+  Landmark,
+  Store,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { PAGE_REGISTRY } from "@/lib/pages";
 import { WORKSPACE_IDS } from "@/lib/workspaces";
 import {
+  AGENT_MODULES,
   buildFullAgentPermissions,
   buildDefaultAgentPermissions,
   buildDisabledAgentPermissions,
   type AgentPermissions,
+  type AgentModuleMap,
 } from "@/lib/agent-modules";
 import type { PageMap, WorkspaceMap } from "./usePermissionsData";
 
@@ -52,6 +58,18 @@ const minimalPages = (): PageMap =>
     PAGE_REGISTRY.map((p) => [p.path, p.path === "/dashboard"])
   );
 
+const pickPages = (allowed: string[]): PageMap =>
+  Object.fromEntries(
+    PAGE_REGISTRY.map((p) => [p.path, allowed.includes(p.path)])
+  );
+
+const pickAgentModules = (allowed: string[]): AgentPermissions => ({
+  enabled: true,
+  modules: Object.fromEntries(
+    AGENT_MODULES.map((m) => [m.id, allowed.includes(m.id)])
+  ) as AgentModuleMap,
+});
+
 export const PERMISSION_TEMPLATES: PermissionTemplate[] = [
   {
     id: "full-access",
@@ -88,5 +106,72 @@ export const PERMISSION_TEMPLATES: PermissionTemplate[] = [
     pages: minimalPages(),
     workspaces: { general: true, operaciones: false },
     agent: buildDisabledAgentPermissions(),
+  },
+  /* ── Departamentos ─────────────────────────────────── */
+  {
+    id: "dept-rrhh",
+    label: "Recursos Humanos",
+    description: "Solicitudes, directorio, tareas y guías",
+    icon: Users,
+    pages: pickPages([
+      "/dashboard",
+      "/operations",
+      "/tasks",
+      "/instructions",
+      "/requests",
+      "/directorio",
+    ]),
+    workspaces: { general: true, operaciones: true },
+    agent: pickAgentModules(["tasks", "requests", "dashboard"]),
+  },
+  {
+    id: "dept-contabilidad",
+    label: "Contabilidad",
+    description: "Dashboard, calculadora, tareas y guías",
+    icon: Landmark,
+    pages: pickPages([
+      "/dashboard",
+      "/operations",
+      "/tasks",
+      "/instructions",
+      "/requests",
+      "/calculator",
+    ]),
+    workspaces: { general: true, operaciones: false },
+    agent: pickAgentModules(["tasks", "dashboard"]),
+  },
+  {
+    id: "dept-tiendas",
+    label: "Tiendas",
+    description: "Solicitud librerías, tareas y guías",
+    icon: Store,
+    pages: pickPages([
+      "/dashboard",
+      "/operations",
+      "/tasks",
+      "/instructions",
+      "/requests",
+      "/bookstore-requests",
+    ]),
+    workspaces: { general: true, operaciones: false },
+    agent: pickAgentModules(["tasks", "bookstore", "dashboard"]),
+  },
+  {
+    id: "dept-bodega",
+    label: "Bodega",
+    description: "Pedidos, workflow, directorio y tareas",
+    icon: Warehouse,
+    pages: pickPages([
+      "/dashboard",
+      "/operations",
+      "/tasks",
+      "/instructions",
+      "/requests",
+      "/reposiciones-menu",
+      "/workflow",
+      "/directorio",
+    ]),
+    workspaces: { general: true, operaciones: true },
+    agent: pickAgentModules(["tasks", "products", "dashboard"]),
   },
 ];

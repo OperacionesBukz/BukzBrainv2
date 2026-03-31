@@ -41,16 +41,9 @@ export default function UserManagement() {
 
   const handleApplyTemplate = useCallback(
     async (email: string, template: PermissionTemplate) => {
-      await saveUserConfig(email, template.pages, template.workspaces);
-      if (template.agent) {
-        await toggleUserAgentEnabled(email, template.agent.enabled);
-        // Also set module permissions from template
-        for (const [moduleId, value] of Object.entries(template.agent.modules)) {
-          await toggleUserAgentModule(email, moduleId, value);
-        }
-      }
+      await saveUserConfig(email, template.pages, template.workspaces, template.agent);
     },
-    [saveUserConfig, toggleUserAgentEnabled, toggleUserAgentModule]
+    [saveUserConfig]
   );
 
   if (!user || roleLoading || !isAdmin) return null;

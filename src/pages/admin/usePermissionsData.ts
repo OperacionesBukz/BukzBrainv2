@@ -182,11 +182,12 @@ export function usePermissionsData() {
     });
   }, [defaultPages, saveDefault]);
 
-  const saveUserConfig = useCallback(async (email: string, pages: PageMap, workspaces?: WorkspaceMap) => {
+  const saveUserConfig = useCallback(async (email: string, pages: PageMap, workspaces?: WorkspaceMap, agent?: AgentPermissions) => {
     setSaving(email);
     try {
       const data: Record<string, unknown> = { pages };
       if (workspaces) data.workspaces = workspaces;
+      if (agent) data.agent = agent;
       await setDoc(doc(db, "navigation_permissions", email), data);
       toast.success(`Permisos de ${email} guardados`);
     } catch {

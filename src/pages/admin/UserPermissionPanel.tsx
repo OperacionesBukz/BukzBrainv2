@@ -5,6 +5,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -213,8 +215,30 @@ export function UserPermissionPanel({
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {PERMISSION_TEMPLATES.map((t) => (
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                General
+              </DropdownMenuLabel>
+              {PERMISSION_TEMPLATES.filter((t) => !t.id.startsWith("dept-")).map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  onClick={() => onApplyTemplate(user.email, t)}
+                  className="gap-2"
+                >
+                  <t.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">{t.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.description}
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Departamentos
+              </DropdownMenuLabel>
+              {PERMISSION_TEMPLATES.filter((t) => t.id.startsWith("dept-")).map((t) => (
                 <DropdownMenuItem
                   key={t.id}
                   onClick={() => onApplyTemplate(user.email, t)}
