@@ -28,10 +28,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     const detail = body?.detail;
-    const msg =
-      typeof detail === "string"
-        ? detail
-        : detail?.message ?? detail?.error ?? `Error del servidor (${response.status})`;
+    let msg: string;
+    if (typeof detail === "string") {
+      msg = detail;
+    } else if (Array.isArray(detail)) {
+      // FastAPI 422 validation errors: [{loc: [...], msg: "...", type: "..."}]
+      msg = detail.map((e: { msg?: string; loc?: string[] }) =>
+        `${e.loc?.slice(1).join(".") ?? "campo"}: ${e.msg ?? "invalido"}`
+      ).join("; ");
+    } else {
+      msg = detail?.message ?? detail?.error ?? `Error del servidor (${response.status})`;
+    }
     throw new Error(msg);
   }
   return response.json();

@@ -206,9 +206,11 @@ export default function ReposicionesPage() {
   async function handleCalcular() {
     if (!user?.uid || !config.location_id) return;
 
+    // Send null when all vendors selected (backend treats null as "all")
+    const allSelected = vendors.data && config.vendors.length >= vendors.data.length;
     const request: CalculateRequest = {
       location_id: config.location_id,
-      vendors: config.vendors.length > 0 ? config.vendors : null,
+      vendors: allSelected || config.vendors.length === 0 ? null : config.vendors,
       lead_time_days: config.lead_time_days,
       safety_factor: config.safety_factor,
       date_range_days: config.date_range_months * 30,
