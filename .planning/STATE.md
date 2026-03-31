@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-31T00:05:53.159Z"
+stopped_at: Completed 08-01-PLAN.md — order history data layer
+last_updated: "2026-03-31T00:37:57.722Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Centralizar y automatizar las operaciones diarias de Bukz
-**Current focus:** Phase 07 — aprobaci-n-pedidos-y-exportaci-n
+**Current focus:** Phase 08 — historial-de-pedidos
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Executing Phase 07
+Phase: 08 (historial-de-pedidos) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-03-31
 
 Progress: [░░░░░░░░░░] 0%
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06-wizard-frontend-config-y-sugeridos P01 | 45 | 4 tasks | 9 files |
 | Phase 06-wizard-frontend-config-y-sugeridos P02 | 25 | 3 tasks | 4 files |
 | Phase 06-wizard-frontend-config-y-sugeridos P03 | 3min | 2 tasks | 3 files |
+| Phase 08-historial-de-pedidos P01 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 06-wizard-frontend-config-y-sugeridos]: VendorMultiSelect: empty array = Todos pattern; auto-collapses to [] when all vendors individually selected
 - [Phase 06-wizard-frontend-config-y-sugeridos]: VendorSummaryPanel recomputes from effectiveProducts (NOT from backend vendor_summary) — ensures edits and deletions are reflected without a round-trip
 - [Phase 06-wizard-frontend-config-y-sugeridos]: overridesMap and deletedSkus NOT reset when results change — preserves manual work across recalculations (D-09)
+- [Phase 08-historial-de-pedidos]: _array_union() lazy import helper for Firestore ArrayUnion — avoids module-level google.cloud import failure in local dev without firebase-admin
+- [Phase 08-historial-de-pedidos]: Fixed Firestore onSnapshot query in useOrderHistory with client-side useMemo filters — avoids listener teardown on every filter change
 
 ### Context from initialization
 
@@ -123,6 +126,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-31T00:05:53.155Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-historial-de-pedidos/08-CONTEXT.md
+Last session: 2026-03-31T00:37:57.718Z
+Stopped at: Completed 08-01-PLAN.md — order history data layer
+Resume file: None

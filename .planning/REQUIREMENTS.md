@@ -51,11 +51,11 @@
 
 ### Historial de Pedidos
 
-- [ ] **HIST-01**: Usuario ve lista de todos los pedidos generados con filtros por proveedor, fecha y estado
-- [ ] **HIST-02**: Cada pedido muestra estado actual con transiciones explícitas (Aprobado → Enviado → Parcial → Recibido)
-- [ ] **HIST-03**: Usuario puede ver detalle de un pedido con todos sus SKUs y cantidades
-- [ ] **HIST-04**: Usuario puede re-descargar el Excel de un pedido desde el historial
-- [ ] **HIST-05**: Audit trail: quién creó, quién aprobó, timestamps de cada transición de estado
+- [x] **HIST-01**: Usuario ve lista de todos los pedidos generados con filtros por proveedor, fecha y estado
+- [x] **HIST-02**: Cada pedido muestra estado actual con transiciones explícitas (Aprobado → Enviado → Parcial → Recibido)
+- [x] **HIST-03**: Usuario puede ver detalle de un pedido con todos sus SKUs y cantidades
+- [x] **HIST-04**: Usuario puede re-descargar el Excel de un pedido desde el historial
+- [x] **HIST-05**: Audit trail: quién creó, quién aprobó, timestamps de cada transición de estado
 
 ## v2 Requirements (Deferred)
 
@@ -116,11 +116,11 @@
 | ORD-03 | Phase 7 | Pending |
 | ORD-04 | Phase 7 | Pending |
 | ORD-05 | Phase 7 | Pending |
-| HIST-01 | Phase 8 | Pending |
-| HIST-02 | Phase 8 | Pending |
-| HIST-03 | Phase 8 | Pending |
-| HIST-04 | Phase 8 | Pending |
-| HIST-05 | Phase 8 | Pending |
+| HIST-01 | Phase 8 | Complete |
+| HIST-02 | Phase 8 | Complete |
+| HIST-03 | Phase 8 | Complete |
+| HIST-04 | Phase 8 | Complete |
+| HIST-05 | Phase 8 | Complete |
 
 **Coverage:**
 - v1 requirements: 34 total
