@@ -117,7 +117,7 @@ export default function VendorSummaryPanel({
                 </TableHeader>
                 <TableBody>
                   {effectiveVendorSummary.map((v) => (
-                    <TableRow key={v.vendor}>
+                    <TableRow key={v.vendor} className="hover:bg-blue-50 dark:hover:bg-blue-950/30">
                       {isApproved && (
                         <TableCell className="w-8 pr-0">
                           <Checkbox
