@@ -91,6 +91,7 @@ export async function calculateReplenishment(
   const res = await resilientFetch(`${API_BASE}/api/reposiciones/calculate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    timeout: 120_000,
     body: JSON.stringify(params),
   });
   return handleResponse(res);

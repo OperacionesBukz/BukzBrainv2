@@ -698,10 +698,19 @@ def calculate_replenishment_endpoint(body: CalculateRequest):
         raise HTTPException(status_code=502, detail=f"Error obteniendo inventario de Shopify: {str(e)}")
 
     if not inventory_items:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No se encontró inventario para location_id={body.location_id}"
-                   + (f" con vendors={body.vendors}" if body.vendors else "")
+        # No inventory found — return empty result instead of error
+        empty_draft_id = f"empty_{int(time.time())}"
+        return CalculateResponse(
+            products=[],
+            vendor_summary=[],
+            stats=ReplenishmentStats(
+                total_products=0,
+                needs_replenishment=0,
+                urgent=0,
+                out_of_stock=0,
+                vendors_with_orders=0,
+            ),
+            draft_id=empty_draft_id,
         )
 
     # Step 2: Cache de ventas desde Firestore (424 si no existe — Pitfall 4)
