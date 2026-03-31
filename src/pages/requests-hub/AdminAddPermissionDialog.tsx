@@ -35,6 +35,7 @@ const AdminAddPermissionDialog = ({
   onOpenChange,
 }: AdminAddPermissionDialogProps) => {
   const [employeeName, setEmployeeName] = useState("");
+  const [idDocument, setIdDocument] = useState("");
   const [customTypeLabel, setCustomTypeLabel] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -44,6 +45,7 @@ const AdminAddPermissionDialog = ({
 
   const resetForm = () => {
     setEmployeeName("");
+    setIdDocument("");
     setCustomTypeLabel("");
     setStartDate("");
     setEndDate("");
@@ -67,6 +69,7 @@ const AdminAddPermissionDialog = ({
         reason: reason.trim(),
         status,
         fullName: employeeName.trim(),
+        idDocument: idDocument.trim(),
         createdAt: serverTimestamp(),
       });
 
@@ -103,6 +106,16 @@ const AdminAddPermissionDialog = ({
               value={employeeName}
               onChange={(e) => setEmployeeName(e.target.value)}
               placeholder="Nombre del empleado"
+              className="h-11"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Cédula</label>
+            <Input
+              value={idDocument}
+              onChange={(e) => setIdDocument(e.target.value)}
+              placeholder="Número de cédula del empleado"
               className="h-11"
             />
           </div>
