@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -67,24 +68,100 @@ function formatTimeAgo(isoString: string): string {
   return `hace ${diffDays} dia${diffDays === 1 ? "" : "s"}`;
 }
 
-// ─── CacheProgressPlaceholder ────────────────────────────────────────────────
+// ─── CalculationProgress ─────────────────────────────────────────────────────
 
-function CacheProgressPlaceholder({ objectCount }: { objectCount?: number }) {
+const STEPS = [
+  { key: "ventas", label: "Actualizando datos de ventas" },
+  { key: "calculo", label: "Calculando reposición" },
+] as const;
+
+function CalculationProgress({
+  isPolling,
+  isCalculating,
+  objectCount,
+}: {
+  isPolling: boolean;
+  isCalculating: boolean;
+  objectCount?: number;
+}) {
+  const elapsed = useElapsedSeconds(isPolling || isCalculating);
+  const currentStep = isPolling ? 0 : isCalculating ? 1 : -1;
+  if (currentStep === -1) return null;
+
   return (
     <Card>
-      <CardContent className="pt-6 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Actualizando datos de ventas...</p>
-          {objectCount !== undefined && objectCount > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {objectCount.toLocaleString()} registros procesados
-            </span>
-          )}
+      <CardContent className="pt-6 space-y-4">
+        {/* Steps */}
+        <div className="space-y-3">
+          {STEPS.map((step, i) => {
+            const isActive = i === currentStep;
+            const isDone = i < currentStep;
+            return (
+              <div key={step.key} className="flex items-center gap-3">
+                {isDone ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                ) : isActive ? (
+                  <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
+                ) : (
+                  <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                )}
+                <span
+                  className={cn(
+                    "text-sm",
+                    isActive && "font-medium text-foreground",
+                    isDone && "text-muted-foreground line-through",
+                    !isActive && !isDone && "text-muted-foreground"
+                  )}
+                >
+                  {step.label}
+                </span>
+                {isActive && objectCount !== undefined && objectCount > 0 && i === 0 && (
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {objectCount.toLocaleString()} registros
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <Progress className="w-full animate-pulse" value={undefined} />
+
+        {/* Progress bar */}
+        <Progress className="w-full" value={undefined} />
+
+        {/* Elapsed time */}
+        <p className="text-xs text-muted-foreground text-center">
+          Tiempo transcurrido: {formatElapsed(elapsed)}
+        </p>
       </CardContent>
     </Card>
   );
+}
+
+function useElapsedSeconds(active: boolean): number {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (!active) {
+      setElapsed(0);
+      startRef.current = Date.now();
+      return;
+    }
+    startRef.current = Date.now();
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  return elapsed;
+}
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
 }
 
 // ─── Default config ──────────────────────────────────────────────────────────
@@ -343,9 +420,13 @@ export default function ReposicionesPage() {
             />
           </div>
 
-          {/* Cache refresh progress bar */}
-          {isPolling && (
-            <CacheProgressPlaceholder objectCount={salesStatus?.object_count} />
+          {/* Calculation progress indicator */}
+          {(isPolling || isCalculating) && (
+            <CalculationProgress
+              isPolling={isPolling}
+              isCalculating={isCalculating}
+              objectCount={salesStatus?.object_count}
+            />
           )}
 
           {/* Results section — only after successful calculation */}
