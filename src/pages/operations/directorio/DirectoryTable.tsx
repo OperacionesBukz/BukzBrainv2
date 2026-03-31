@@ -245,11 +245,12 @@ export default function DirectoryTable({
   const renderEditableCell = (
     entry: DirectoryEntry,
     field: EditableField,
-    displayValue: string
+    displayValue: string,
+    formattedOverride?: string
   ) => {
     const isEditing =
       editingCell?.entryId === entry.id && editingCell?.field === field;
-    const formatted = field === "cedula" && displayValue ? `C.C. ${displayValue}` : displayValue;
+    const formatted = formattedOverride ?? (field === "cedula" && displayValue ? `C.C. ${displayValue}` : displayValue);
 
     if (isEditing) {
       return (
@@ -624,7 +625,8 @@ export default function DirectoryTable({
                           {renderEditableCell(
                             entry,
                             "margen",
-                            String(entry.margen)
+                            String(entry.margen),
+                            entry.margen != null ? `${entry.margen}%` : "—"
                           )}
                         </TableCell>
                         <TableCell className="text-sm">
