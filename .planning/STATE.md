@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 08-01-PLAN.md — order history data layer
-last_updated: "2026-03-31T00:37:57.722Z"
+status: verifying
+stopped_at: Completed 08-02-PLAN.md — order history UI
+last_updated: "2026-03-31T00:44:49.103Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 
 Phase: 08 (historial-de-pedidos) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-31
 
 Progress: [░░░░░░░░░░] 0%
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06-wizard-frontend-config-y-sugeridos P02 | 25 | 3 tasks | 4 files |
 | Phase 06-wizard-frontend-config-y-sugeridos P03 | 3min | 2 tasks | 3 files |
 | Phase 08-historial-de-pedidos P01 | 5min | 2 tasks | 4 files |
+| Phase 08-historial-de-pedidos P02 | 3m27s | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Progress: [░░░░░░░░░░] 0%
 - [Phase 06-wizard-frontend-config-y-sugeridos]: overridesMap and deletedSkus NOT reset when results change — preserves manual work across recalculations (D-09)
 - [Phase 08-historial-de-pedidos]: _array_union() lazy import helper for Firestore ArrayUnion — avoids module-level google.cloud import failure in local dev without firebase-admin
 - [Phase 08-historial-de-pedidos]: Fixed Firestore onSnapshot query in useOrderHistory with client-side useMemo filters — avoids listener teardown on every filter change
+- [Phase 08-historial-de-pedidos]: Two-tab layout wraps existing Nuevo Sugerido content in TabsContent — zero changes to existing logic
+- [Phase 08-historial-de-pedidos]: ExpandableOrderRow uses Collapsible asChild pattern to render as TableRow — avoids invalid DOM nesting
+- [Phase 08-historial-de-pedidos]: Sort via useMemo on top of hook-filtered orders to avoid Firestore listener teardown on sort change
 
 ### Context from initialization
 
@@ -126,6 +130,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-31T00:37:57.718Z
-Stopped at: Completed 08-01-PLAN.md — order history data layer
+Last session: 2026-03-31T00:44:49.098Z
+Stopped at: Completed 08-02-PLAN.md — order history UI
 Resume file: None

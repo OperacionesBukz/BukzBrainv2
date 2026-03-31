@@ -16,7 +16,7 @@ Las fases 1–3 del milestone v1.0 están pausadas. Las fases de este milestone 
 - [x] **Phase 5: Motor de Cálculo de Reposición** - Servicio Python que calcula cantidad sugerida por SKU con fórmula velocidad×lead_time − stock − en_tránsito, clasificación por velocidad y urgencia, y detección inteligente de inventario en tránsito desde pedidos pendientes (completed 2026-03-30)
 - [x] **Phase 6: Wizard Frontend — Config y Sugeridos** - Módulo React /reposiciones con wizard de configuración (sede, proveedores, lead time, rango fechas), tabla editable de sugeridos y resumen por proveedor (completed 2026-03-30)
 - [ ] **Phase 7: Aprobación, Pedidos y Exportación** - Flujo Borrador→Aprobado con transacción Firestore, generación de pedidos por proveedor, exportación Excel+ZIP, acción "Marcar como Enviado" y KPIs
-- [ ] **Phase 8: Historial de Pedidos** - Lista de todos los pedidos con filtros, detalle por pedido, re-descarga Excel, transiciones de estado Aprobado→Enviado→Parcial→Recibido y audit trail completo
+- [x] **Phase 8: Historial de Pedidos** - Lista de todos los pedidos con filtros, detalle por pedido, re-descarga Excel, transiciones de estado Aprobado→Enviado→Parcial→Recibido y audit trail completo (completed 2026-03-31)
 
 ## Phase Details
 
@@ -97,7 +97,7 @@ Plans:
 **Plans**: 2 planes
 Plans:
 - [x] 08-01-PLAN.md — Backend endpoints (list, detail, status transition, individual export) + TypeScript types + API functions + React hooks
-- [ ] 08-02-PLAN.md — UI: Tab navigation, OrderHistoryTab, ExpandableOrderRow, visual verification
+- [x] 08-02-PLAN.md — UI: Tab navigation, OrderHistoryTab, ExpandableOrderRow, visual verification
 **UI hint**: yes
 
 ## Progress
@@ -111,4 +111,4 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 | 5. Motor de Cálculo de Reposición | 2/2 | Complete   | 2026-03-30 |
 | 6. Wizard Frontend — Config y Sugeridos | 3/3 | Complete   | 2026-03-30 |
 | 7. Aprobación, Pedidos y Exportación | 0/2 | Not started | - |
-| 8. Historial de Pedidos | 1/2 | In Progress|  |
+| 8. Historial de Pedidos | 2/2 | Complete   | 2026-03-31 |
