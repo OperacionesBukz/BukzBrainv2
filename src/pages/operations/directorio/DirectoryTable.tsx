@@ -382,7 +382,7 @@ export default function DirectoryTable({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="overflow-x-auto rounded-lg border">
-        <Table>
+        <Table className={!isPersonType ? "table-fixed w-full" : undefined}>
           <TableHeader>
             <TableRow className="bg-muted/30">
               {isPersonType && <TableHead className="w-[40px]" />}
@@ -396,16 +396,16 @@ export default function DirectoryTable({
                 </>
               ) : (
                 <>
-                  <SortableHead label="Empresa" sortField="empresa" />
-                  <SortableHead label="Razón Social" sortField="razonSocial" className="whitespace-nowrap" />
-                  <SortableHead label="NIT" sortField="nit" className="w-[150px]" />
-                  <SortableHead label="Margen %" sortField="margen" className="w-[100px]" />
-                  <SortableHead label="Correo" sortField="correo" />
-                  <SortableHead label="Observaciones" sortField="observaciones" />
+                  <SortableHead label="Empresa" sortField="empresa" className="w-[16%]" />
+                  <SortableHead label="Razón Social" sortField="razonSocial" className="w-[16%] whitespace-nowrap" />
+                  <SortableHead label="NIT" sortField="nit" className="w-[10%]" />
+                  <SortableHead label="Margen %" sortField="margen" className="w-[7%]" />
+                  <SortableHead label="Correo" sortField="correo" className="w-[18%]" />
+                  <SortableHead label="Observaciones" sortField="observaciones" className="w-[18%]" />
                 </>
               )}
-              <SortableHead label="Estado" sortField="estado" className="w-[100px]" />
-              {isAdmin && <TableHead className="w-[70px]" />}
+              <SortableHead label="Estado" sortField="estado" className={isPersonType ? "w-[100px]" : "w-[8%]"} />
+              {isAdmin && <TableHead className={isPersonType ? "w-[70px]" : "w-[5%]"} />}
             </TableRow>
 
             {isAdmin && (
