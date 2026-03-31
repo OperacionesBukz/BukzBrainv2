@@ -33,7 +33,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/requests", label: "Solicitudes", description: "Permisos y vacaciones", icon: CalendarDays, workspace: "general" },
   { path: "/bookstore-requests", label: "Solicitud Librerías", description: "Pedidos para librerías", icon: Store, workspace: "general" },
   { path: "/requests-hub", label: "Hub Solicitudes", description: "Seguimiento centralizado de solicitudes", icon: ClipboardCheck, workspace: "operaciones" },
-  { path: "/reposiciones-menu", label: "Reposiciones", description: "Gestión de reposición de inventario", icon: PackageSearch, workspace: "operaciones" },
+  { path: "/reposiciones-menu", label: "Pedidos", description: "Gestión de pedidos y reposición de inventario", icon: PackageSearch, workspace: "operaciones" },
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
   { path: "/workflow", label: "Workflow", description: "Ingreso de mercancía, scrap, cortes y devoluciones", icon: GitBranchPlus, workspace: "operaciones" },
   { path: "/directorio", label: "Directorio", description: "Base de datos de empleados, temporales y proveedores", icon: ContactRound, workspace: "operaciones" },

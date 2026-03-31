@@ -20,6 +20,8 @@ import {
   Undo2,
   Gift,
   Package,
+  ClipboardCheck,
+  AlertCircle,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -100,8 +102,10 @@ const workflowSubItems = workflowSubCategories.flatMap((c) => c.items);
 const WORKFLOW_PATHS = workflowSubItems.map((s) => s.path);
 
 const reposicionesSubItems = [
+  { title: "Pedidos", path: "/pedidos", icon: ClipboardCheck },
   { title: "Reposiciones", path: "/reposiciones", icon: PackageSearch },
   { title: "Reposiciones Manuales", path: "/reposicion", icon: Package },
+  { title: "Novedades", path: "/novedades", icon: AlertCircle },
 ];
 const REPOSICIONES_PATHS = reposicionesSubItems.map((s) => s.path);
 
@@ -183,7 +187,7 @@ export function Layout({ children }: { children: ReactNode }) {
     : activeSubMenu === "workflow"
     ? { title: "Workflow", items: visibleWorkflowItems, categories: visibleWorkflowCategories }
     : activeSubMenu === "reposiciones"
-    ? { title: "Reposiciones", items: visibleReposicionesItems, categories: null as typeof visibleWorkflowCategories | null }
+    ? { title: "Pedidos", items: visibleReposicionesItems, categories: null as typeof visibleWorkflowCategories | null }
     : null;
 
   // Measure sub-sidebar width for main content margin
