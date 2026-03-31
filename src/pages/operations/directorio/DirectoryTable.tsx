@@ -142,7 +142,7 @@ export default function DirectoryTable({
 
   const SortableHead = ({ label, sortField, className }: { label: string; sortField: SortKey; className?: string }) => (
     <TableHead
-      className={cn("cursor-pointer select-none hover:bg-muted/50 transition-colors", className)}
+      className={cn("group/sort cursor-pointer select-none hover:bg-muted/50 transition-colors", className)}
       onClick={() => toggleSort(sortField)}
     >
       <span className="inline-flex items-center gap-1">
@@ -150,7 +150,7 @@ export default function DirectoryTable({
         {sortKey === sortField ? (
           sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
         ) : (
-          <ArrowUpDown className="h-3 w-3 opacity-30" />
+          <ArrowUpDown className="h-3 w-3 opacity-0 group-hover/sort:opacity-30 transition-opacity" />
         )}
       </span>
     </TableHead>
