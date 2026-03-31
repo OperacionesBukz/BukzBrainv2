@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -196,7 +196,7 @@ export default function ReposicionesPage() {
   const locations = useLocations();
   const vendors = useVendors();
   const savedConfig = useReplenishmentConfig(user?.uid);
-  const { results, isPolling, isCalculating, calcStep, calcProgress, salesStatus, startCalculation } =
+  const { results, isPolling, isCalculating, calcStep, calcProgress, salesStatus, startCalculation, resetResults } =
     useCalculationFlow();
 
   const [config, setConfig] = useState(DEFAULT_CONFIG);
@@ -399,6 +399,17 @@ export default function ReposicionesPage() {
     );
   }
 
+  function handleNuevoCalculo() {
+    resetResults();
+    setOverridesMap({});
+    setDeletedSkus(new Set());
+    setDraftId(null);
+    setApprovalState({ status: "none", approved_by: "", approved_at: "" });
+    setGeneratedOrders({});
+    setSelectedVendors(new Set());
+    setSentVendors(new Set());
+  }
+
   return (
     <div className="space-y-6">
       {/* Header — stays outside tabs, visible on both */}
@@ -449,6 +460,14 @@ export default function ReposicionesPage() {
           {/* Results section — only after successful calculation */}
           {results && (
             <div className="space-y-6">
+              {/* Nuevo Cálculo button */}
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={handleNuevoCalculo}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Nuevo Cálculo
+                </Button>
+              </div>
+
               {/* Stats summary bar — APPR-01 */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <StatCard label="Total Productos" value={results.stats.total_products} />

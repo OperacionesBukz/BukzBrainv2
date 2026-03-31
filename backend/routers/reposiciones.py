@@ -1246,6 +1246,10 @@ def list_orders(
         data = doc.to_dict()
         created_at = data.get("created_at", "")
 
+        # Excluir borradores/drafts aprobados (no tienen campo 'vendor', son documentos padre)
+        if not data.get("vendor"):
+            continue
+
         # Filtros aplicados en Python para evitar índices compuestos
         if vendor and data.get("vendor", "") != vendor:
             continue
