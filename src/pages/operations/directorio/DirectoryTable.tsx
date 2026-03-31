@@ -394,7 +394,7 @@ export default function DirectoryTable({
               ) : (
                 <>
                   <SortableHead label="Empresa" sortField="empresa" />
-                  <SortableHead label="Razón Social" sortField="razonSocial" />
+                  <SortableHead label="Razón Social" sortField="razonSocial" className="whitespace-nowrap" />
                   <SortableHead label="NIT" sortField="nit" className="w-[150px]" />
                   <SortableHead label="Margen %" sortField="margen" className="w-[100px]" />
                   <SortableHead label="Correo" sortField="correo" />

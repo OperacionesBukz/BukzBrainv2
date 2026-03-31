@@ -90,23 +90,50 @@ export default function DirectoryTab({
   };
 
   const handleBulkImportSuppliers = async (rows: ParsedSupplierRow[]) => {
-    let count = 0;
-    for (const row of rows) {
-      await addEntry({
-        type: "proveedor",
-        empresa: row.empresa,
-        razonSocial: row.razonSocial,
-        nit: row.nit,
-        margen: row.margen,
-        correo: row.correo,
-        correos_cc: row.correos_cc || [],
-        estado: "Activo",
-      });
-      count++;
+    // Build a lookup of existing suppliers by normalized empresa name
+    const existingSuppliers = entries.filter((e) => e.type === "proveedor");
+    const supplierMap = new Map<string, typeof existingSuppliers[0]>();
+    for (const s of existingSuppliers) {
+      if ("empresa" in s) {
+        supplierMap.set(s.empresa.trim().toLowerCase(), s);
+      }
     }
-    toast.success(
-      `${count} registro${count !== 1 ? "s" : ""} importado${count !== 1 ? "s" : ""}`
-    );
+
+    let created = 0;
+    let updated = 0;
+    for (const row of rows) {
+      const key = row.empresa.trim().toLowerCase();
+      const existing = supplierMap.get(key);
+      if (existing) {
+        // Update only fields that have values in the import
+        const updates: Record<string, unknown> = {};
+        if (row.margen != null) updates.margen = row.margen;
+        if (row.razonSocial) updates.razonSocial = row.razonSocial;
+        if (row.nit) updates.nit = row.nit;
+        if (row.correo) updates.correo = row.correo;
+        if (row.correos_cc?.length) updates.correos_cc = row.correos_cc;
+        if (Object.keys(updates).length > 0) {
+          await updateEntry(existing.id, updates);
+          updated++;
+        }
+      } else {
+        await addEntry({
+          type: "proveedor",
+          empresa: row.empresa,
+          razonSocial: row.razonSocial,
+          nit: row.nit,
+          margen: row.margen,
+          correo: row.correo,
+          correos_cc: row.correos_cc || [],
+          estado: "Activo",
+        });
+        created++;
+      }
+    }
+    const parts: string[] = [];
+    if (updated > 0) parts.push(`${updated} actualizado${updated !== 1 ? "s" : ""}`);
+    if (created > 0) parts.push(`${created} creado${created !== 1 ? "s" : ""}`);
+    toast.success(parts.join(", ") || "Sin cambios");
   };
 
   return (
@@ -141,6 +168,7 @@ export default function DirectoryTab({
           open={importOpen}
           onOpenChange={setImportOpen}
           type={type}
+          existingEntries={entries}
           onImportPersons={handleBulkImportPersons}
           onImportSuppliers={handleBulkImportSuppliers}
         />

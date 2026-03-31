@@ -109,10 +109,13 @@ function splitFullName(fullName: string): { nombre: string; apellido: string } {
 
 const SUPPLIER_COLUMN_MAP: Record<string, keyof ParsedSupplierRow> = {
   empresa: "empresa",
+  vendor: "empresa",
+  proveedor: "empresa",
   "razon social": "razonSocial",
   nit: "nit",
   margen: "margen",
   "margen %": "margen",
+  final: "margen",
   correo: "correo",
   email: "correo",
   "correos cc": "correos_cc",
@@ -123,6 +126,7 @@ function normalizeHeader(header: string): string {
     .toString()
     .trim()
     .toLowerCase()
+    .replace(/\s+/g, " ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }

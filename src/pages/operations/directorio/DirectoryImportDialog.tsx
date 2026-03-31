@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import {
   Upload,
   FileSpreadsheet,
@@ -20,12 +20,13 @@ import {
   type ParsedSupplierRow,
   type ParseError,
 } from "./excel-utils";
-import type { DirectoryType } from "./types";
+import type { DirectoryType, DirectoryEntry } from "./types";
 
 interface DirectoryImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: DirectoryType;
+  existingEntries?: DirectoryEntry[];
   onImportPersons: (rows: ParsedPersonRow[]) => Promise<void>;
   onImportSuppliers: (rows: ParsedSupplierRow[]) => Promise<void>;
 }
@@ -36,6 +37,7 @@ export default function DirectoryImportDialog({
   open,
   onOpenChange,
   type,
+  existingEntries = [],
   onImportPersons,
   onImportSuppliers,
 }: DirectoryImportDialogProps) {
@@ -50,6 +52,26 @@ export default function DirectoryImportDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const validCount = isPersonType ? personRows.length : supplierRows.length;
+
+  // For suppliers, compute how many will be updated vs created
+  const mergeStats = useMemo(() => {
+    if (isPersonType || supplierRows.length === 0) return null;
+    const existingNames = new Set(
+      existingEntries
+        .filter((e) => e.type === "proveedor" && "empresa" in e)
+        .map((e) => (e as { empresa: string }).empresa.trim().toLowerCase())
+    );
+    let toUpdate = 0;
+    let toCreate = 0;
+    for (const row of supplierRows) {
+      if (existingNames.has(row.empresa.trim().toLowerCase())) {
+        toUpdate++;
+      } else {
+        toCreate++;
+      }
+    }
+    return { toUpdate, toCreate };
+  }, [isPersonType, supplierRows, existingEntries]);
 
   const reset = useCallback(() => {
     setStep("upload");
@@ -205,6 +227,21 @@ export default function DirectoryImportDialog({
                 <p className="text-sm text-muted-foreground">
                   {validCount} registro{validCount !== 1 ? "s" : ""} listo
                   {validCount !== 1 ? "s" : ""} para importar
+                  {mergeStats && (mergeStats.toUpdate > 0 || mergeStats.toCreate > 0) && (
+                    <span className="ml-1">
+                      ({mergeStats.toUpdate > 0 && (
+                        <span className="text-blue-600 dark:text-blue-400 font-medium">
+                          {mergeStats.toUpdate} a actualizar
+                        </span>
+                      )}
+                      {mergeStats.toUpdate > 0 && mergeStats.toCreate > 0 && ", "}
+                      {mergeStats.toCreate > 0 && (
+                        <span className="text-green-600 dark:text-green-400 font-medium">
+                          {mergeStats.toCreate} nuevo{mergeStats.toCreate !== 1 ? "s" : ""}
+                        </span>
+                      )})
+                    </span>
+                  )}
                 </p>
                 <div className="overflow-auto border rounded-md max-h-[40vh]">
                   <table className="w-full text-sm">
