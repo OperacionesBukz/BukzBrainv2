@@ -63,46 +63,62 @@ def get_locations():
 # SHOP-03: Vendors (proveedores)
 # ---------------------------------------------------------------------------
 
-@router.get("/vendors")
-def get_vendors():
-    """
-    Devuelve lista de proveedores únicos desde productos de Shopify con conteo.
-    Usa cache en Firestore (TTL 12h) para evitar paginar miles de productos en cada request.
-    Returns: [{"name": str, "product_count": int}, ...]
-    """
-    db = _get_firestore()
+_vendors_refresh_lock = threading.Lock()
+_vendors_refreshing = False
 
-    # Check Firestore cache first
-    try:
-        cache_ref = db.collection(_BULK_OP_COLLECTION).document(_VENDORS_CACHE_DOC)
-        cache_snap = cache_ref.get()
-        if cache_snap.exists:
-            cache_data = cache_snap.to_dict()
-            cached_at = cache_data.get("cached_at", "")
-            if cached_at:
-                cache_time = datetime.fromisoformat(cached_at)
-                if datetime.now(timezone.utc) - cache_time < timedelta(hours=_VENDORS_CACHE_TTL_HOURS):
-                    return cache_data.get("vendors", [])
-    except Exception:
-        pass  # Cache miss — fall through to Shopify
 
-    # Fetch from Shopify
+def _refresh_vendors_background():
+    """Background thread that fetches vendors from Shopify and caches in Firestore."""
+    global _vendors_refreshing
     try:
         vendors = shopify_service.get_vendors_from_shopify()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error obteniendo proveedores: {str(e)}")
-
-    # Save to cache (fire-and-forget)
-    try:
-        cache_ref.set({
+        db = _get_firestore()
+        db.collection(_BULK_OP_COLLECTION).document(_VENDORS_CACHE_DOC).set({
             "vendors": vendors,
             "cached_at": datetime.now(timezone.utc).isoformat(),
             "count": len(vendors),
         })
-    except Exception:
-        pass  # Non-critical
+    except Exception as e:
+        print(f"[vendors] Error en refresh background: {e}")
+    finally:
+        with _vendors_refresh_lock:
+            _vendors_refreshing = False
 
-    return vendors
+
+@router.get("/vendors")
+def get_vendors():
+    """
+    Devuelve lista de proveedores desde cache en Firestore.
+    Si no hay cache o esta vencido, lanza refresh en background y retorna lo que haya
+    (o lista vacia si es la primera vez). Nunca bloquea.
+    """
+    global _vendors_refreshing
+    db = _get_firestore()
+    cache_ref = db.collection(_BULK_OP_COLLECTION).document(_VENDORS_CACHE_DOC)
+
+    # Read cache
+    cached_vendors = []
+    cache_fresh = False
+    try:
+        cache_snap = cache_ref.get()
+        if cache_snap.exists:
+            cache_data = cache_snap.to_dict()
+            cached_vendors = cache_data.get("vendors", [])
+            cached_at = cache_data.get("cached_at", "")
+            if cached_at:
+                cache_time = datetime.fromisoformat(cached_at)
+                cache_fresh = datetime.now(timezone.utc) - cache_time < timedelta(hours=_VENDORS_CACHE_TTL_HOURS)
+    except Exception:
+        pass
+
+    # If cache is stale or empty, trigger background refresh (non-blocking)
+    if not cache_fresh:
+        with _vendors_refresh_lock:
+            if not _vendors_refreshing:
+                _vendors_refreshing = True
+                threading.Thread(target=_refresh_vendors_background, daemon=True).start()
+
+    return cached_vendors
 
 
 # ---------------------------------------------------------------------------

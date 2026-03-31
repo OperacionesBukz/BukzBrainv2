@@ -43,10 +43,7 @@ export async function getLocations(): Promise<LocationItem[]> {
 }
 
 export async function getVendors(): Promise<VendorItem[]> {
-  const res = await resilientFetch(`${API_BASE}/api/reposiciones/vendors`, {
-    timeout: 90_000,
-    retryDelays: [3000, 5000],
-  });
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/vendors`);
   return handleResponse(res);
 }
 

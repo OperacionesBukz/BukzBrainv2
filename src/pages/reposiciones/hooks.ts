@@ -48,6 +48,12 @@ export function useVendors() {
     queryFn: getVendors,
     staleTime: 10 * 60 * 1000,
     retry: 2,
+    // If backend returns empty (cache building), poll every 5s until vendors arrive
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (Array.isArray(data) && data.length === 0) return 5000;
+      return false;
+    },
   });
 }
 
