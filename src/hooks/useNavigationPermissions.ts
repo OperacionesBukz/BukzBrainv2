@@ -14,6 +14,9 @@ type NavOrderMap = Record<string, string[]>;
 // Sub-rutas agrupadas bajo /workflow que aún existen como permisos individuales en Firestore
 const WORKFLOW_SUB_PATHS = ["/ingreso", "/crear-productos", "/actualizar-productos", "/scrap", "/cortes", "/envio-cortes", "/devoluciones", "/gift-cards"];
 
+// Sub-rutas agrupadas bajo /reposiciones-menu
+const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion"];
+
 export function useNavigationPermissions() {
   const { user } = useAuth();
   const [allowedPages, setAllowedPages] = useState<Set<string>>(
@@ -40,11 +43,13 @@ export function useNavigationPermissions() {
     let defaultWorkspaces: WorkspaceMap | null = null;
     let userNavOrder: NavOrderMap = {};
 
+    const ALL_SUB_PATHS = [...WORKFLOW_SUB_PATHS, ...REPOSICIONES_SUB_PATHS];
+
     const compute = () => {
       // Pages: user-specific config takes priority; fall back to default; fall back to show all
       const pages = userPages ?? defaultPages;
       if (!pages) {
-        setAllowedPages(new Set([...ALL_PAGE_PATHS, ...WORKFLOW_SUB_PATHS]));
+        setAllowedPages(new Set([...ALL_PAGE_PATHS, ...ALL_SUB_PATHS]));
       } else {
         const allowed = new Set(ALL_PAGE_PATHS.filter((p) => pages[p] !== false));
         // Incluir sub-rutas de workflow que el usuario tenga permitidas
@@ -56,6 +61,15 @@ export function useNavigationPermissions() {
           allowed.add("/workflow");
         } else {
           allowed.delete("/workflow");
+        }
+        // Incluir sub-rutas de reposiciones
+        for (const sub of REPOSICIONES_SUB_PATHS) {
+          if (pages[sub] !== false) allowed.add(sub);
+        }
+        if (REPOSICIONES_SUB_PATHS.some((p) => allowed.has(p))) {
+          allowed.add("/reposiciones-menu");
+        } else {
+          allowed.delete("/reposiciones-menu");
         }
         setAllowedPages(allowed);
       }
@@ -95,7 +109,7 @@ export function useNavigationPermissions() {
       },
       (error) => {
         console.warn("[nav-permissions] Error en listener usuario:", error.message);
-        setAllowedPages(new Set([...ALL_PAGE_PATHS, ...WORKFLOW_SUB_PATHS]));
+        setAllowedPages(new Set([...ALL_PAGE_PATHS, ...ALL_SUB_PATHS]));
         setAllowedWorkspaces(new Set<WorkspaceId>(["general", "operaciones"]));
         setLoaded(true);
       },

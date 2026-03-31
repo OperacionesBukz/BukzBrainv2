@@ -19,6 +19,7 @@ import {
   Mail,
   Undo2,
   Gift,
+  Package,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -98,6 +99,12 @@ const workflowSubCategories = [
 const workflowSubItems = workflowSubCategories.flatMap((c) => c.items);
 const WORKFLOW_PATHS = workflowSubItems.map((s) => s.path);
 
+const reposicionesSubItems = [
+  { title: "Reposiciones", path: "/reposiciones", icon: PackageSearch },
+  { title: "Reposiciones Manuales", path: "/reposicion", icon: Package },
+];
+const REPOSICIONES_PATHS = reposicionesSubItems.map((s) => s.path);
+
 export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -105,6 +112,7 @@ export function Layout({ children }: { children: ReactNode }) {
     const p = window.location.pathname;
     if (p.startsWith("/user-admin")) return "admin";
     if (WORKFLOW_PATHS.includes(p)) return "workflow";
+    if (REPOSICIONES_PATHS.includes(p)) return "reposiciones";
     return null;
   });
   const isMobile = useIsMobile();
@@ -166,10 +174,16 @@ export function Layout({ children }: { children: ReactNode }) {
     }))
     .filter((cat) => cat.items.length > 0);
 
+  const visibleReposicionesItems = reposicionesSubItems.filter(
+    (sub) => allowedPages.has(sub.path)
+  );
+
   const subMenuData = activeSubMenu === "admin"
     ? { title: "Administración", items: adminSubItems, categories: null as typeof visibleWorkflowCategories | null }
     : activeSubMenu === "workflow"
     ? { title: "Workflow", items: visibleWorkflowItems, categories: visibleWorkflowCategories }
+    : activeSubMenu === "reposiciones"
+    ? { title: "Reposiciones", items: visibleReposicionesItems, categories: null as typeof visibleWorkflowCategories | null }
     : null;
 
   // Measure sub-sidebar width for main content margin
@@ -188,7 +202,7 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading || !user) return;
     const currentPath = location.pathname;
-    const isInWorkspace = workspace.paths.includes(currentPath) || WORKFLOW_PATHS.includes(currentPath);
+    const isInWorkspace = workspace.paths.includes(currentPath) || WORKFLOW_PATHS.includes(currentPath) || REPOSICIONES_PATHS.includes(currentPath);
     const isAdminPath = currentPath.startsWith("/user-admin");
     if (!isInWorkspace && !isAdminPath) {
       const firstAvailable = visibleNavItems[0]?.path ?? workspace.paths[0];
@@ -267,9 +281,15 @@ export function Layout({ children }: { children: ReactNode }) {
               {(droppableProvided) => (
                 <div ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
                   {visibleNavItems.map((item, index) => {
-                    const isSubMenuTrigger = item.path === "/workflow";
+                    const subMenuKey = item.path === "/workflow" ? "workflow"
+                      : item.path === "/reposiciones-menu" ? "reposiciones"
+                      : null;
+                    const subMenuPaths = subMenuKey === "workflow" ? WORKFLOW_PATHS
+                      : subMenuKey === "reposiciones" ? REPOSICIONES_PATHS
+                      : [];
+                    const isSubMenuTrigger = subMenuKey !== null;
                     const isActive = isSubMenuTrigger
-                      ? activeSubMenu === "workflow" || WORKFLOW_PATHS.includes(location.pathname)
+                      ? activeSubMenu === subMenuKey || subMenuPaths.includes(location.pathname)
                       : location.pathname === item.path;
                     const hasSubItems = !!item.subItems && !collapsed;
                     const isExpanded = expandedPaths.has(item.path);
@@ -291,7 +311,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                     role="button"
                                     tabIndex={0}
                                     onClick={() => {
-                                      setActiveSubMenu((prev) => (prev === "workflow" ? null : "workflow"));
+                                      setActiveSubMenu((prev) => (prev === subMenuKey ? null : subMenuKey));
                                     }}
                                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
                                     className={cn(
@@ -592,13 +612,20 @@ export function Layout({ children }: { children: ReactNode }) {
                     {(droppableProvided) => (
                       <div ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
                         {visibleNavItems.map((item, index) => {
-                          const isSubMenuTrigger = item.path === "/workflow";
+                          const mobileSubMenuKey = item.path === "/workflow" ? "workflow"
+                            : item.path === "/reposiciones-menu" ? "reposiciones"
+                            : null;
+                          const mobileSubMenuPaths = mobileSubMenuKey === "workflow" ? WORKFLOW_PATHS
+                            : mobileSubMenuKey === "reposiciones" ? REPOSICIONES_PATHS
+                            : [];
+                          const mobileSubMenuItems = mobileSubMenuKey === "reposiciones" ? visibleReposicionesItems : null;
+                          const isSubMenuTrigger = mobileSubMenuKey !== null;
                           const isActive = isSubMenuTrigger
-                            ? WORKFLOW_PATHS.includes(location.pathname)
+                            ? mobileSubMenuPaths.includes(location.pathname)
                             : location.pathname === item.path;
                           const hasSubItems = !!item.subItems;
                           const isExpanded = expandedPaths.has(item.path);
-                          const isMobileWorkflowExpanded = expandedPaths.has("/workflow");
+                          const isMobileExpanded = expandedPaths.has(item.path);
 
                           return (
                             <Draggable key={item.path} draggableId={`mobile-${item.path}`} index={index} isDragDisabled={!isAdmin}>
@@ -609,7 +636,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                   {...draggableProvided.dragHandleProps}
                                   className={cn("space-y-1", snapshot.isDragging && "opacity-80 rounded-lg bg-sidebar shadow-lg")}
                                 >
-                                  {isSubMenuTrigger ? (
+                                  {isSubMenuTrigger && mobileSubMenuKey === "workflow" ? (
                                     <>
                                       <button
                                         onClick={() => {
@@ -630,10 +657,10 @@ export function Layout({ children }: { children: ReactNode }) {
                                         <span className="flex-1 text-left">{item.title}</span>
                                         <ChevronDown className={cn(
                                           "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                                          isMobileWorkflowExpanded && "rotate-180"
+                                          isMobileExpanded && "rotate-180"
                                         )} />
                                       </button>
-                                      {isMobileWorkflowExpanded && (
+                                      {isMobileExpanded && (
                                         <div className="ml-9 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
                                           {visibleWorkflowCategories.map((cat) => (
                                             <div key={cat.category}>
@@ -659,6 +686,51 @@ export function Layout({ children }: { children: ReactNode }) {
                                                 ))}
                                               </div>
                                             </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : isSubMenuTrigger && mobileSubMenuItems ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setExpandedPaths((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(item.path)) { next.delete(item.path); } else { next.add(item.path); }
+                                            return next;
+                                          });
+                                        }}
+                                        className={cn(
+                                          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                                          isActive
+                                            ? "bg-primary/15 text-foreground"
+                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        )}
+                                      >
+                                        <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                                        <span className="flex-1 text-left">{item.title}</span>
+                                        <ChevronDown className={cn(
+                                          "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                                          isMobileExpanded && "rotate-180"
+                                        )} />
+                                      </button>
+                                      {isMobileExpanded && (
+                                        <div className="ml-9 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                          {mobileSubMenuItems.map((sub) => (
+                                            <NavLink
+                                              key={sub.path}
+                                              to={sub.path}
+                                              onClick={() => setMobileMenuOpen(false)}
+                                              className={cn(
+                                                "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-out",
+                                                location.pathname === sub.path
+                                                  ? "text-foreground"
+                                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-0.5"
+                                              )}
+                                            >
+                                              <sub.icon className="h-3.5 w-3.5 transition-transform duration-200" />
+                                              <span>{sub.title}</span>
+                                            </NavLink>
                                           ))}
                                         </div>
                                       )}
