@@ -3,10 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import ConfigPanel from "./components/ConfigPanel";
+import OrderHistoryTab from "./components/OrderHistoryTab";
 import SuggestionsTable from "./components/SuggestionsTable";
 import VendorSummaryPanel from "./components/VendorSummaryPanel";
 import {
@@ -99,6 +101,8 @@ const DEFAULT_CONFIG = {
 
 export default function ReposicionesPage() {
   const { user } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<"sugerido" | "historial">("sugerido");
 
   const locations = useLocations();
   const vendors = useVendors();
@@ -292,7 +296,7 @@ export default function ReposicionesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header — stays outside tabs, visible on both */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Reposiciones</h1>
         {salesStatus?.last_refreshed && (
@@ -302,140 +306,165 @@ export default function ReposicionesPage() {
         )}
       </div>
 
-      {/* Config section — disabled after approval */}
-      <div className={approvalState.status === "aprobado" ? "opacity-50 pointer-events-none" : ""}>
-        <ConfigPanel
-          locations={locations.data ?? []}
-          vendors={vendors.data ?? []}
-          config={config}
-          onConfigChange={setConfig}
-          onCalcular={handleCalcular}
-          isLoading={isCalculating || isPolling}
-          isLocationsLoading={locations.isLoading}
-          isVendorsLoading={vendors.isLoading}
-        />
-      </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sugerido" | "historial")}>
+        <TabsList>
+          <TabsTrigger value="sugerido">Nuevo Sugerido</TabsTrigger>
+          <TabsTrigger value="historial">Historial de Pedidos</TabsTrigger>
+        </TabsList>
 
-      {/* Cache refresh progress bar */}
-      {isPolling && (
-        <CacheProgressPlaceholder objectCount={salesStatus?.object_count} />
-      )}
-
-      {/* Results section — only after successful calculation */}
-      {results && (
-        <div className="space-y-6">
-          {/* Stats summary bar — APPR-01 */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatCard label="Total Productos" value={results.stats.total_products} />
-            <StatCard
-              label="Necesitan Reposicion"
-              value={results.stats.needs_replenishment}
-            />
-            <StatCard
-              label="Urgentes"
-              value={results.stats.urgent}
-              variant="destructive"
-            />
-            <StatCard
-              label="Agotados"
-              value={results.stats.out_of_stock}
-              variant="warning"
-            />
-            <StatCard
-              label="Proveedores con pedidos"
-              value={Object.keys(generatedOrders).length || results.stats.vendors_with_orders}
+        <TabsContent value="sugerido" className="space-y-6">
+          {/* Config section — disabled after approval */}
+          <div className={approvalState.status === "aprobado" ? "opacity-50 pointer-events-none" : ""}>
+            <ConfigPanel
+              locations={locations.data ?? []}
+              vendors={vendors.data ?? []}
+              config={config}
+              onConfigChange={setConfig}
+              onCalcular={handleCalcular}
+              isLoading={isCalculating || isPolling}
+              isLocationsLoading={locations.isLoading}
+              isVendorsLoading={vendors.isLoading}
             />
           </div>
 
-          {/* Editable suggestions table — APPR-02, APPR-03 */}
-          <SuggestionsTable
-            products={results.products}
-            overridesMap={overridesMap}
-            onOverrideChange={(sku, qty) =>
-              setOverridesMap((prev) => ({ ...prev, [sku]: qty }))
-            }
-            deletedSkus={deletedSkus}
-            onDeleteSku={(sku) =>
-              setDeletedSkus((prev) => new Set(prev).add(sku))
-            }
-          />
+          {/* Cache refresh progress bar */}
+          {isPolling && (
+            <CacheProgressPlaceholder objectCount={salesStatus?.object_count} />
+          )}
 
-          {/* Approval section — APPR-05 */}
-          {draftId && approvalState.status === "none" && (
-            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-              <div>
-                <p className="font-medium">Aprobar Sugerido</p>
-                <p className="text-sm text-muted-foreground">
-                  {effectiveProducts.length} productos ·{" "}
-                  {new Set(effectiveProducts.map((p) => p.vendor)).size} proveedores
-                </p>
+          {/* Results section — only after successful calculation */}
+          {results && (
+            <div className="space-y-6">
+              {/* Stats summary bar — APPR-01 */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <StatCard label="Total Productos" value={results.stats.total_products} />
+                <StatCard
+                  label="Necesitan Reposicion"
+                  value={results.stats.needs_replenishment}
+                />
+                <StatCard
+                  label="Urgentes"
+                  value={results.stats.urgent}
+                  variant="destructive"
+                />
+                <StatCard
+                  label="Agotados"
+                  value={results.stats.out_of_stock}
+                  variant="warning"
+                />
+                <StatCard
+                  label="Proveedores con pedidos"
+                  value={Object.keys(generatedOrders).length || results.stats.vendors_with_orders}
+                />
               </div>
-              <Button
-                onClick={handleAprobar}
-                disabled={approveMutation.isPending || effectiveProducts.length === 0}
-              >
-                {approveMutation.isPending ? "Aprobando..." : "Aprobar Sugerido"}
-              </Button>
+
+              {/* Editable suggestions table — APPR-02, APPR-03 */}
+              <SuggestionsTable
+                products={results.products}
+                overridesMap={overridesMap}
+                onOverrideChange={(sku, qty) =>
+                  setOverridesMap((prev) => ({ ...prev, [sku]: qty }))
+                }
+                deletedSkus={deletedSkus}
+                onDeleteSku={(sku) =>
+                  setDeletedSkus((prev) => new Set(prev).add(sku))
+                }
+              />
+
+              {/* Approval section — APPR-05 */}
+              {draftId && approvalState.status === "none" && (
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                  <div>
+                    <p className="font-medium">Aprobar Sugerido</p>
+                    <p className="text-sm text-muted-foreground">
+                      {effectiveProducts.length} productos ·{" "}
+                      {new Set(effectiveProducts.map((p) => p.vendor)).size} proveedores
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleAprobar}
+                    disabled={approveMutation.isPending || effectiveProducts.length === 0}
+                  >
+                    {approveMutation.isPending ? "Aprobando..." : "Aprobar Sugerido"}
+                  </Button>
+                </div>
+              )}
+
+              {approvalState.status === "aprobado" && (
+                <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
+                  <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-0">
+                    Aprobado
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    por {approvalState.approved_by} ·{" "}
+                    {new Date(approvalState.approved_at).toLocaleString("es-CO", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+              )}
+
+              {/* Vendor summary with checkboxes — APPR-04, APPR-06 */}
+              <VendorSummaryPanel
+                products={results.products}
+                overridesMap={overridesMap}
+                deletedSkus={deletedSkus}
+                isApproved={approvalState.status === "aprobado"}
+                selectedVendors={selectedVendors}
+                onVendorToggle={handleVendorToggle}
+                ordersByVendor={Object.keys(generatedOrders).length > 0 ? generatedOrders : undefined}
+                sentVendors={sentVendors}
+                onMarkSent={handleMarkSent}
+                isMarkingSent={markingSentVendor}
+              />
+
+              {/* Generate orders — APPR-06 + ORD-01 */}
+              {approvalState.status === "aprobado" && Object.keys(generatedOrders).length === 0 && (
+                <div className="flex justify-end gap-3">
+                  <Button
+                    onClick={handleGenerarPedidos}
+                    disabled={generateMutation.isPending || selectedVendors.size === 0}
+                  >
+                    {generateMutation.isPending
+                      ? "Generando..."
+                      : `Generar Pedidos (${selectedVendors.size} proveedor${selectedVendors.size === 1 ? "" : "es"})`}
+                  </Button>
+                </div>
+              )}
+
+              {/* ZIP download — ORD-02, ORD-03 */}
+              {Object.keys(generatedOrders).length > 0 && (
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleDescargarZip}
+                    disabled={exportMutation.isPending}
+                  >
+                    {exportMutation.isPending ? "Generando ZIP..." : "Descargar ZIP"}
+                  </Button>
+                </div>
+              )}
+
+              {/* D-02: After orders generated, show link to history tab */}
+              {Object.keys(generatedOrders).length > 0 && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="link"
+                    onClick={() => setActiveTab("historial")}
+                  >
+                    Ver pedidos generados →
+                  </Button>
+                </div>
+              )}
             </div>
           )}
+        </TabsContent>
 
-          {approvalState.status === "aprobado" && (
-            <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
-              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-0">
-                Aprobado
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                por {approvalState.approved_by} ·{" "}
-                {new Date(approvalState.approved_at).toLocaleString("es-CO", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-              </span>
-            </div>
-          )}
-
-          {/* Vendor summary with checkboxes — APPR-04, APPR-06 */}
-          <VendorSummaryPanel
-            products={results.products}
-            overridesMap={overridesMap}
-            deletedSkus={deletedSkus}
-            isApproved={approvalState.status === "aprobado"}
-            selectedVendors={selectedVendors}
-            onVendorToggle={handleVendorToggle}
-            ordersByVendor={Object.keys(generatedOrders).length > 0 ? generatedOrders : undefined}
-            sentVendors={sentVendors}
-            onMarkSent={handleMarkSent}
-            isMarkingSent={markingSentVendor}
-          />
-
-          {/* Generate orders — APPR-06 + ORD-01 */}
-          {approvalState.status === "aprobado" && Object.keys(generatedOrders).length === 0 && (
-            <div className="flex justify-end gap-3">
-              <Button
-                onClick={handleGenerarPedidos}
-                disabled={generateMutation.isPending || selectedVendors.size === 0}
-              >
-                {generateMutation.isPending
-                  ? "Generando..."
-                  : `Generar Pedidos (${selectedVendors.size} proveedor${selectedVendors.size === 1 ? "" : "es"})`}
-              </Button>
-            </div>
-          )}
-
-          {/* ZIP download — ORD-02, ORD-03 */}
-          {Object.keys(generatedOrders).length > 0 && (
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={handleDescargarZip}
-                disabled={exportMutation.isPending}
-              >
-                {exportMutation.isPending ? "Generando ZIP..." : "Descargar ZIP"}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+        <TabsContent value="historial">
+          <OrderHistoryTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
