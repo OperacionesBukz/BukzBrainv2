@@ -204,16 +204,19 @@ export default function ReposicionesPage() {
   }, [results, overridesMap, deletedSkus]);
 
   async function handleCalcular() {
-    if (!user?.uid || !config.location_id) return;
+    if (!user?.uid || !config.location_id || typeof config.location_id !== "string") {
+      toast.error("Selecciona una sede antes de calcular");
+      return;
+    }
 
     // Send null when all vendors selected (backend treats null as "all")
     const allSelected = vendors.data && config.vendors.length >= vendors.data.length;
     const request: CalculateRequest = {
-      location_id: config.location_id,
+      location_id: String(config.location_id),
       vendors: allSelected || config.vendors.length === 0 ? null : config.vendors,
-      lead_time_days: config.lead_time_days,
-      safety_factor: config.safety_factor,
-      date_range_days: config.date_range_months * 30,
+      lead_time_days: Number(config.lead_time_days) || 14,
+      safety_factor: Number(config.safety_factor) || 1.5,
+      date_range_days: (Number(config.date_range_months) || 6) * 30,
     };
 
     // Persist config to Firestore (fire-and-forget)
