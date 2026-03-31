@@ -19,7 +19,7 @@ import type { VendorItem } from "../types";
 
 interface VendorMultiSelectProps {
   vendors: VendorItem[];
-  value: string[]; // empty array = "Todos" (all selected)
+  value: string[];
   onChange: (selected: string[]) => void;
   disabled?: boolean;
 }
@@ -32,48 +32,31 @@ export default function VendorMultiSelect({
 }: VendorMultiSelectProps) {
   const [open, setOpen] = useState(false);
 
-  const isTodos = value.length === 0;
-  const isAllExplicit = value.length === vendors.length && vendors.length > 0;
+  const allNames = vendors.map((v) => v.name);
+  const isAllSelected = value.length === vendors.length && vendors.length > 0;
+  const isNoneSelected = value.length === 0;
 
-  const triggerLabel =
-    isTodos || isAllExplicit
+  const triggerLabel = isNoneSelected
+    ? "Seleccionar proveedores..."
+    : isAllSelected
       ? `Todos (${vendors.length})`
-      : `${value.length} proveedor${value.length === 1 ? "" : "es"} seleccionado${value.length === 1 ? "" : "s"}`;
+      : `${value.length} proveedor${value.length === 1 ? "" : "es"}`;
 
   function toggleVendor(vendorName: string) {
-    if (isTodos) {
-      // Switch from "Todos" to single vendor selected
-      onChange([vendorName]);
+    const isSelected = value.includes(vendorName);
+    if (isSelected) {
+      onChange(value.filter((v) => v !== vendorName));
     } else {
-      const isSelected = value.includes(vendorName);
-      let next: string[];
-      if (isSelected) {
-        next = value.filter((v) => v !== vendorName);
-      } else {
-        next = [...value, vendorName];
-      }
-      // If all vendors individually selected, collapse back to "Todos"
-      if (next.length === vendors.length) {
-        onChange([]);
-      } else {
-        onChange(next);
-      }
+      onChange([...value, vendorName]);
     }
   }
 
   function toggleAll() {
-    if (isTodos) {
-      // "Deseleccionar Todos": switch from implicit all (=[]) to explicit all
-      // so the user can then deselect individual vendors
-      onChange(vendors.map((v) => v.name));
-    } else {
-      // Some selected → select all (= Todos)
+    if (isAllSelected) {
       onChange([]);
+    } else {
+      onChange(allNames);
     }
-  }
-
-  function isChecked(vendorName: string): boolean {
-    return isTodos || value.includes(vendorName);
   }
 
   return (
@@ -101,28 +84,27 @@ export default function VendorMultiSelect({
           <CommandInput placeholder="Buscar proveedor..." />
           <CommandList>
             <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
-            {/* "Seleccionar Todos" / "Deseleccionar Todos" toggle */}
             <CommandItem
               onSelect={toggleAll}
               className="border-b dark:border-border cursor-pointer"
             >
               <div className="flex items-center gap-2 w-full">
                 <Checkbox
-                  checked={isTodos}
+                  checked={isAllSelected}
                   aria-label="Seleccionar todos los proveedores"
                   tabIndex={-1}
                   className="pointer-events-none"
                 />
                 <span className="font-medium">
-                  {isTodos ? "Deseleccionar Todos" : "Seleccionar Todos"}
+                  {isAllSelected ? "Deseleccionar Todos" : "Seleccionar Todos"}
                 </span>
-                {isTodos && (
+                {isAllSelected && (
                   <Check className="ml-auto h-4 w-4 text-primary" />
                 )}
               </div>
             </CommandItem>
             {vendors.map((vendor) => {
-              const checked = isChecked(vendor.name);
+              const checked = value.includes(vendor.name);
               return (
                 <CommandItem
                   key={vendor.name}

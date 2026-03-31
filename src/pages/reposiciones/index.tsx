@@ -167,6 +167,17 @@ export default function ReposicionesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations.data]);
 
+  // When vendors load and none selected yet, default to all selected
+  useEffect(() => {
+    if (vendors.data && vendors.data.length > 0 && config.vendors.length === 0) {
+      setConfig((prev) => ({
+        ...prev,
+        vendors: vendors.data!.map((v) => v.name),
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendors.data]);
+
   // When results come back, store draft_id (overridesMap and deletedSkus are NOT reset)
   useEffect(() => {
     if (results?.draft_id) {
