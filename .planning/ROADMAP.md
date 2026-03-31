@@ -94,7 +94,10 @@ Plans:
   3. Al abrir el detalle de un pedido, el usuario ve todos los SKUs con sus cantidades pedidas en ese pedido específico
   4. El usuario puede re-descargar el Excel de cualquier pedido histórico desde la vista de historial
   5. Cada pedido muestra quién lo creó, quién lo aprobó y el timestamp de cada transición de estado registrada
-**Plans**: TBD
+**Plans**: 2 planes
+Plans:
+- [ ] 08-01-PLAN.md — Backend endpoints (list, detail, status transition, individual export) + TypeScript types + API functions + React hooks
+- [ ] 08-02-PLAN.md — UI: Tab navigation, OrderHistoryTab, ExpandableOrderRow, visual verification
 **UI hint**: yes
 
 ## Progress
@@ -108,4 +111,4 @@ Phases execute in numeric order: 4 → 5 → 6 → 7 → 8
 | 5. Motor de Cálculo de Reposición | 2/2 | Complete   | 2026-03-30 |
 | 6. Wizard Frontend — Config y Sugeridos | 3/3 | Complete   | 2026-03-30 |
 | 7. Aprobación, Pedidos y Exportación | 0/2 | Not started | - |
-| 8. Historial de Pedidos | 0/? | Not started | - |
+| 8. Historial de Pedidos | 0/2 | Not started | - |
