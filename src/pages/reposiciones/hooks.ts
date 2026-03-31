@@ -329,13 +329,14 @@ export function useMarkSent() {
 
 export function useOrderHistory(filters: OrderHistoryFilters) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["reposiciones", "order-history", filters.vendor, filters.status, filters.dateFrom, filters.dateTo],
+    queryKey: ["reposiciones", "order-history", filters],
     queryFn: () =>
       getOrderList({
         vendor: filters.vendor || undefined,
         status: filters.status || undefined,
         date_from: filters.dateFrom || undefined,
         date_to: filters.dateTo || undefined,
+        sku: filters.sku || undefined,
       }),
     staleTime: 30_000,
   });

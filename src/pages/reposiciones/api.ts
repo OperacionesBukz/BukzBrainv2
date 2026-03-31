@@ -170,12 +170,14 @@ export async function getOrderList(params?: {
   status?: string;
   date_from?: string;
   date_to?: string;
+  sku?: string;
 }): Promise<{ orders: OrderListItem[] }> {
   const searchParams = new URLSearchParams();
   if (params?.vendor) searchParams.set("vendor", params.vendor);
   if (params?.status) searchParams.set("status", params.status);
   if (params?.date_from) searchParams.set("date_from", params.date_from);
   if (params?.date_to) searchParams.set("date_to", params.date_to);
+  if (params?.sku) searchParams.set("sku", params.sku);
   const qs = searchParams.toString();
   const url = `${API_BASE}/api/reposiciones/orders${qs ? `?${qs}` : ""}`;
   const res = await resilientFetch(url);

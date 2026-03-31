@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderHistory, useStatusTransition, useVendors, useDeleteOrder } from "../hooks";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import ExpandableOrderRow from "./ExpandableOrderRow";
 import type { OrderHistoryFilters, OrderListItem } from "../types";
@@ -81,12 +82,25 @@ type SortField = "created_at" | "vendor" | "status";
 export default function OrderHistoryTab() {
   const { user } = useAuth();
 
+  const [skuInput, setSkuInput] = useState("");
+  const skuDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
   const [filters, setFilters] = useState<OrderHistoryFilters>({
     vendor: "",
     status: "",
     dateFrom: "",
     dateTo: "",
+    sku: "",
   });
+
+  // Debounce SKU search (300ms)
+  useEffect(() => {
+    clearTimeout(skuDebounceRef.current);
+    skuDebounceRef.current = setTimeout(() => {
+      setFilters((prev) => ({ ...prev, sku: skuInput.trim() }));
+    }, 300);
+    return () => clearTimeout(skuDebounceRef.current);
+  }, [skuInput]);
 
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -156,7 +170,8 @@ export default function OrderHistoryTab() {
   // ─── Filter helpers ─────────────────────────────────────────────────────────
 
   function clearFilters() {
-    setFilters({ vendor: "", status: "", dateFrom: "", dateTo: "" });
+    setSkuInput("");
+    setFilters({ vendor: "", status: "", dateFrom: "", dateTo: "", sku: "" });
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -165,6 +180,20 @@ export default function OrderHistoryTab() {
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex flex-wrap items-end gap-3">
+        {/* ISBN/SKU search */}
+        <div className="flex flex-col gap-1 min-w-[200px]">
+          <span className="text-xs text-muted-foreground">Buscar ISBN/SKU</span>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por ISBN/SKU..."
+              value={skuInput}
+              onChange={(e) => setSkuInput(e.target.value)}
+              className="h-9 text-sm pl-8"
+            />
+          </div>
+        </div>
+
         {/* Vendor filter */}
         <div className="flex flex-col gap-1 min-w-[180px]">
           <span className="text-xs text-muted-foreground">Proveedor</span>

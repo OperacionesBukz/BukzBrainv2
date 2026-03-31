@@ -186,6 +186,7 @@ export interface OrderHistoryFilters {
   status: string;
   dateFrom: string;
   dateTo: string;
+  sku: string;
 }
 
 export interface StatusTransitionRequest {

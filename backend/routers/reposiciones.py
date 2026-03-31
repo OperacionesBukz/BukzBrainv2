@@ -1212,6 +1212,7 @@ def list_orders(
     status: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    sku: Optional[str] = None,
 ):
     """
     Devuelve historial de pedidos (excluyendo borradores).
@@ -1265,6 +1266,15 @@ def list_orders(
                     continue
             except ValueError:
                 pass
+
+        # Filtro por SKU/ISBN: busca en los items del pedido
+        if sku:
+            sku_lower = sku.strip().lower()
+            items_list = data.get("items") or []
+            if not isinstance(items_list, list):
+                items_list = []
+            if not any(sku_lower in (item.get("sku", "")).lower() for item in items_list):
+                continue
 
         location_gid = data.get("location_id", "")
         location_name = gid_to_name.get(location_gid, "")
