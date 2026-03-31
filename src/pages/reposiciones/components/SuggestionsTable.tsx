@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProductResult, UrgencyLevel } from "../types";
 
@@ -36,6 +36,18 @@ interface SuggestionsTableProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 25;
+
+type SortKey = "sku" | "title" | "vendor" | "stock" | "sales_per_month" | "urgency" | "suggested_qty" | "in_transit_real" | "classification";
+type SortDir = "asc" | "desc";
+
+const NUMERIC_KEYS: Set<SortKey> = new Set(["stock", "sales_per_month", "suggested_qty", "in_transit_real"]);
+
+const URGENCY_ORDER: Record<UrgencyLevel, number> = {
+  URGENTE: 0,
+  PRONTO: 1,
+  NORMAL: 2,
+  OK: 3,
+};
 
 const urgencyBadgeClass: Record<UrgencyLevel, string> = {
   URGENTE: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
@@ -58,8 +70,42 @@ export default function SuggestionsTable({
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const toggleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+    setCurrentPage(1);
+  }, [sortKey]);
+
+  const resetSort = useCallback(() => {
+    setSortKey(null);
+    setSortDir("asc");
+    setCurrentPage(1);
+  }, []);
+
+  const SortableHead = ({ label, sortField, className }: { label: string; sortField: SortKey; className?: string }) => (
+    <TableHead
+      className={cn("group/sort cursor-pointer select-none hover:bg-muted/50 transition-colors", className)}
+      onClick={() => toggleSort(sortField)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === sortField ? (
+          sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-0 group-hover/sort:opacity-30 transition-opacity" />
+        )}
+      </span>
+    </TableHead>
+  );
 
   // Auto-focus input when editing starts
   useEffect(() => {
@@ -80,10 +126,10 @@ export default function SuggestionsTable({
     [products, deletedSkus, overridesMap]
   );
 
-  // Filtered products: apply search and urgency filter
+  // Filtered + sorted products
   const filteredProducts = useMemo(() => {
     const q = searchTerm.toLowerCase();
-    return effectiveProducts.filter((p) => {
+    const filtered = effectiveProducts.filter((p) => {
       if (urgencyFilter !== "ALL" && p.urgency !== urgencyFilter) return false;
       if (q) {
         return (
@@ -94,7 +140,31 @@ export default function SuggestionsTable({
       }
       return true;
     });
-  }, [effectiveProducts, searchTerm, urgencyFilter]);
+
+    // Default sort: urgency first, then sales descending
+    if (!sortKey) {
+      return filtered.sort((a, b) => {
+        const urgDiff = URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency];
+        if (urgDiff !== 0) return urgDiff;
+        return b.total_sold - a.total_sold;
+      });
+    }
+
+    // Custom column sort
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "urgency") {
+        cmp = URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency];
+      } else if (sortKey === "classification") {
+        cmp = a.classification_label.localeCompare(b.classification_label);
+      } else if (NUMERIC_KEYS.has(sortKey)) {
+        cmp = (a[sortKey] as number) - (b[sortKey] as number);
+      } else {
+        cmp = String(a[sortKey]).localeCompare(String(b[sortKey]));
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [effectiveProducts, searchTerm, urgencyFilter, sortKey, sortDir]);
 
   // Paginated products
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
@@ -177,6 +247,13 @@ export default function SuggestionsTable({
                 <SelectItem value="OK">OK</SelectItem>
               </SelectContent>
             </Select>
+            {/* Reset sort button */}
+            {sortKey !== null && (
+              <Button variant="outline" size="sm" onClick={resetSort} className="gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reiniciar orden
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -187,15 +264,15 @@ export default function SuggestionsTable({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Titulo</TableHead>
-                  <TableHead>Proveedor</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="text-right">Ventas/mes</TableHead>
-                  <TableHead className="text-center">Urgencia</TableHead>
-                  <TableHead className="text-right">Sugerido</TableHead>
-                  <TableHead className="text-right">En Transito</TableHead>
-                  <TableHead className="text-center">Clasificacion</TableHead>
+                  <SortableHead label="SKU" sortField="sku" />
+                  <SortableHead label="Titulo" sortField="title" />
+                  <SortableHead label="Proveedor" sortField="vendor" />
+                  <SortableHead label="Stock" sortField="stock" className="text-right" />
+                  <SortableHead label="Ventas/mes" sortField="sales_per_month" className="text-right" />
+                  <SortableHead label="Urgencia" sortField="urgency" className="text-center" />
+                  <SortableHead label="Sugerido" sortField="suggested_qty" className="text-right" />
+                  <SortableHead label="En Transito" sortField="in_transit_real" className="text-right" />
+                  <SortableHead label="Clasificacion" sortField="classification" className="text-center" />
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
