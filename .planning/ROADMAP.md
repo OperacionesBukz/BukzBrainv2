@@ -81,7 +81,7 @@ Plans:
 **Plans**: 2 planes
 Plans:
 - [x] 07-01-PLAN.md — Backend 4 endpoints (approve, orders/generate, orders/export, orders/{id}/send) + TypeScript types + API functions + React Query mutations
-- [ ] 07-02-PLAN.md — UI wiring: approval button + Aprobado badge, VendorSummaryPanel checkboxes + Marcar Enviado, Generar Pedidos + Descargar ZIP buttons, KPI update, Firestore rules
+- [x] 07-02-PLAN.md — UI wiring: approval button + Aprobado badge, VendorSummaryPanel checkboxes + Marcar Enviado, Generar Pedidos + Descargar ZIP buttons, KPI update, Firestore rules
 **UI hint**: yes
 
 ### Phase 8: Historial de Pedidos
