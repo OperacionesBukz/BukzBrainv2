@@ -4,6 +4,7 @@ import type {
   DirectoryType,
   PersonEntry,
   SupplierEntry,
+  ContactoComercial,
 } from "./types";
 import { isPerson } from "./types";
 
@@ -41,6 +42,7 @@ export function exportDirectory(
       Correo: e.correo || "",
       "Correos CC": (e.correos_cc || []).join("; "),
       Observaciones: e.observaciones || "",
+      Contactos: (e.contactos || []).map((c) => `${c.nombre}|${c.correo}|${c.ciudad}`).join("; "),
       Estado: e.estado,
     }));
   }
@@ -69,6 +71,7 @@ export interface ParsedSupplierRow {
   correo: string;
   correos_cc: string[];
   observaciones: string;
+  contactos: ContactoComercial[];
 }
 
 export interface ParseError {
@@ -122,6 +125,7 @@ const SUPPLIER_COLUMN_MAP: Record<string, keyof ParsedSupplierRow> = {
   email: "correo",
   "correos cc": "correos_cc",
   observaciones: "observaciones",
+  contactos: "contactos",
 };
 
 function normalizeHeader(header: string): string {
@@ -274,6 +278,17 @@ export async function parseSupplierExcel(
       margen = Math.round(margen * 100);
     }
 
+    // Parse contactos: "Nombre|correo|ciudad; Nombre2|correo2|ciudad2"
+    const contactos: ContactoComercial[] = (mapped.contactos || "")
+      .split(";")
+      .map((s: string) => s.trim())
+      .filter(Boolean)
+      .map((s: string) => {
+        const [nombre = "", correo = "", ciudad = ""] = s.split("|").map((v) => v.trim());
+        return { nombre, correo, ciudad };
+      })
+      .filter((c: ContactoComercial) => c.correo);
+
     valid.push({
       empresa: mapped.empresa,
       razonSocial: mapped.razonSocial || "",
@@ -285,6 +300,7 @@ export async function parseSupplierExcel(
         .map((s: string) => s.trim())
         .filter(Boolean),
       observaciones: mapped.observaciones || "",
+      contactos,
     });
   });
 

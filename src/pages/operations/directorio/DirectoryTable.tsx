@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, Fragment } from "react";
-import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, ChevronDown, Plus, X } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -42,6 +42,7 @@ import type {
   DirectoryStatus,
   PersonClasificacion,
   SupplierEntry,
+  ContactoComercial,
 } from "./types";
 
 interface DirectoryTableProps {
@@ -377,7 +378,22 @@ export default function DirectoryTable({
     );
   };
 
-  const colCount = isPersonType ? 8 : 8;
+  // ── Contactos comerciales state ──
+  const [newContacto, setNewContacto] = useState<ContactoComercial>({ nombre: "", correo: "", ciudad: "" });
+
+  const handleAddContacto = async (entry: SupplierEntry) => {
+    if (!newContacto.nombre.trim() && !newContacto.correo.trim()) return;
+    const contactos = [...(entry.contactos || []), { ...newContacto }];
+    await onUpdate(entry.id, { contactos });
+    setNewContacto({ nombre: "", correo: "", ciudad: "" });
+  };
+
+  const handleRemoveContacto = async (entry: SupplierEntry, index: number) => {
+    const contactos = (entry.contactos || []).filter((_, i) => i !== index);
+    await onUpdate(entry.id, { contactos });
+  };
+
+  const colCount = isPersonType ? 8 : 9;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -385,7 +401,7 @@ export default function DirectoryTable({
         <Table className={!isPersonType ? "table-fixed w-full" : undefined}>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              {isPersonType && <TableHead className="w-[40px]" />}
+              <TableHead className="w-[40px]" />
               {isPersonType ? (
                 <>
                   <SortableHead label="Nombre" sortField="nombre" />
@@ -410,7 +426,7 @@ export default function DirectoryTable({
 
             {isAdmin && (
               <TableRow className="bg-primary/5">
-                {isPersonType && <TableHead className="p-1" />}
+                <TableHead className="p-1" />
                 {isPersonType ? (
                   <>
                     <TableHead className="p-1">
@@ -594,20 +610,17 @@ export default function DirectoryTable({
                 <Fragment key={entry.id}>
                   <TableRow
                     className={cn(
-                      "group",
-                      personEntry && "cursor-pointer hover:bg-muted/30",
+                      "group cursor-pointer hover:bg-muted/30",
                       isInactive && "opacity-50"
                     )}
-                    onClick={personEntry ? () => setExpandedId(isExpanded ? null : entry.id) : undefined}
+                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                   >
-                    {personEntry && (
-                      <TableCell className="w-[40px] px-2">
-                        {isExpanded
-                          ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        }
-                      </TableCell>
-                    )}
+                    <TableCell className="w-[40px] px-2">
+                      {isExpanded
+                        ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      }
+                    </TableCell>
                     {personEntry ? (
                       <>
                         <TableCell className={cn("text-sm font-medium", isInactive && "line-through")} onClick={(e) => isAdmin && e.stopPropagation()}>
@@ -626,16 +639,16 @@ export default function DirectoryTable({
                       </>
                     ) : (
                       <>
-                        <TableCell className={cn("text-sm font-medium", isInactive && "line-through")}>
+                        <TableCell className={cn("text-sm font-medium", isInactive && "line-through")} onClick={(e) => isAdmin && e.stopPropagation()}>
                           {renderEditableCell(entry, "empresa", entry.empresa)}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
                           {renderEditableCell(entry, "razonSocial", entry.razonSocial)}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
                           {renderEditableCell(entry, "nit", entry.nit)}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
                           {renderEditableCell(
                             entry,
                             "margen",
@@ -643,10 +656,10 @@ export default function DirectoryTable({
                             entry.margen != null ? `${entry.margen}%` : "—"
                           )}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
                           {renderEditableCell(entry, "correo", entry.correo || "")}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className={cn("text-sm", entry.observaciones && entry.observaciones.toLowerCase() !== "automatico" && "font-bold")} onClick={(e) => isAdmin && e.stopPropagation()}>
                           {renderEditableCell(entry, "observaciones", entry.observaciones || "")}
                         </TableCell>
                       </>
@@ -687,6 +700,79 @@ export default function DirectoryTable({
                     <TableRow className="bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={isAdmin ? colCount : colCount - 1} className="p-0">
                         <EmployeeLeaveHistory cedula={entry.cedula} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!personEntry && isExpanded && (
+                    <TableRow className="bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={isAdmin ? colCount : colCount - 1} className="p-0">
+                        <div className="px-6 py-3">
+                          <h4 className="text-sm font-medium mb-2">Contactos Comerciales</h4>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Se usan para pedidos y devoluciones. El correo principal se usa para cortes.
+                          </p>
+                          {(entry.contactos?.length ?? 0) > 0 && (
+                            <div className="space-y-1 mb-3">
+                              {entry.contactos!.map((c, i) => (
+                                <div key={i} className="flex items-center gap-3 text-sm bg-background rounded px-3 py-1.5 border">
+                                  <span className="font-medium min-w-[120px]">{c.nombre || "—"}</span>
+                                  <span className="text-muted-foreground min-w-[200px]">{c.correo}</span>
+                                  <span className="text-xs bg-muted px-2 py-0.5 rounded">{c.ciudad || "General"}</span>
+                                  {isAdmin && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 ml-auto text-destructive hover:text-destructive"
+                                      onClick={(e) => { e.stopPropagation(); handleRemoveContacto(entry, i); }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {isAdmin && (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Nombre"
+                                value={newContacto.nombre}
+                                onChange={(e) => setNewContacto((c) => ({ ...c, nombre: e.target.value }))}
+                                onKeyDown={(e) => e.key === "Enter" && handleAddContacto(entry)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 text-xs w-[150px]"
+                              />
+                              <Input
+                                placeholder="Correo"
+                                value={newContacto.correo}
+                                onChange={(e) => setNewContacto((c) => ({ ...c, correo: e.target.value }))}
+                                onKeyDown={(e) => e.key === "Enter" && handleAddContacto(entry)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 text-xs w-[200px]"
+                              />
+                              <Input
+                                placeholder="Ciudad"
+                                value={newContacto.ciudad}
+                                onChange={(e) => setNewContacto((c) => ({ ...c, ciudad: e.target.value }))}
+                                onKeyDown={(e) => e.key === "Enter" && handleAddContacto(entry)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-7 text-xs w-[120px]"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={(e) => { e.stopPropagation(); handleAddContacto(entry); }}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Agregar
+                              </Button>
+                            </div>
+                          )}
+                          {!isAdmin && (entry.contactos?.length ?? 0) === 0 && (
+                            <p className="text-xs text-muted-foreground italic">Sin contactos comerciales</p>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

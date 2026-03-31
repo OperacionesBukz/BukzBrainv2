@@ -70,15 +70,22 @@ export interface PersonEntry extends DirectoryBase {
   clasificacion?: PersonClasificacion;
 }
 
+export interface ContactoComercial {
+  nombre: string;
+  correo: string;
+  ciudad: string;
+}
+
 export interface SupplierEntry extends DirectoryBase {
   type: "proveedor";
   empresa: string;
   razonSocial: string;
   nit: string;
   margen: number;
-  correo: string;
-  correos_cc: string[];  // CC emails for devoluciones
+  correo: string;           // Correo principal — usado para cortes
+  correos_cc: string[];     // CC emails
   observaciones: string;
+  contactos?: ContactoComercial[];  // Contactos comerciales por ciudad — usados para pedidos y devoluciones
 }
 
 export type DirectoryEntry = PersonEntry | SupplierEntry;
