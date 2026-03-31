@@ -33,10 +33,12 @@ export default function VendorMultiSelect({
   const [open, setOpen] = useState(false);
 
   const isTodos = value.length === 0;
+  const isAllExplicit = value.length === vendors.length && vendors.length > 0;
 
-  const triggerLabel = isTodos
-    ? `Todos (${vendors.length})`
-    : `${value.length} proveedor${value.length === 1 ? "" : "es"} seleccionado${value.length === 1 ? "" : "s"}`;
+  const triggerLabel =
+    isTodos || isAllExplicit
+      ? `Todos (${vendors.length})`
+      : `${value.length} proveedor${value.length === 1 ? "" : "es"} seleccionado${value.length === 1 ? "" : "s"}`;
 
   function toggleVendor(vendorName: string) {
     if (isTodos) {
@@ -61,14 +63,11 @@ export default function VendorMultiSelect({
 
   function toggleAll() {
     if (isTodos) {
-      // Deselect all → but since empty means "Todos", keep as is (no-op visual)
-      // Actually: the button says "Deseleccionar Todos" when isTodos
-      // We interpret that as: select none is the same as "Todos", so keep empty
-      // Instead: when isTodos, clicking toggle selects all individually (makes them all checked)
-      // This is a UI quirk — let's just do nothing (already all selected)
-      return;
+      // "Deseleccionar Todos": switch from implicit all (=[]) to explicit all
+      // so the user can then deselect individual vendors
+      onChange(vendors.map((v) => v.name));
     } else {
-      // Currently some selected → select all (= Todos)
+      // Some selected → select all (= Todos)
       onChange([]);
     }
   }
