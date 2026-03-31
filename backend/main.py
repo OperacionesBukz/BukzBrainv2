@@ -2,6 +2,8 @@
 Backend FastAPI para Panel de Operaciones BUKZ.
 Expone la lógica de negocio de los módulos Python como API REST.
 """
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,10 +24,22 @@ from routers import webhooks
 from routers import email
 from routers import pedidos
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: iniciar scheduler de background para pre-computo de caches
+    from services.scheduler_service import start_scheduler
+    start_scheduler()
+    yield
+    # Shutdown: detener scheduler
+    from services.scheduler_service import stop_scheduler
+    stop_scheduler()
+
+
 app = FastAPI(
     title="BUKZ Operaciones API",
     description="API backend para el Panel de Operaciones de BUKZ",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS — permite que tu frontend en GitHub Pages se comunique con este backend

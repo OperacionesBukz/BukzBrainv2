@@ -202,3 +202,23 @@ export interface SingleExportResponse {
   excel_base64: string;
   filename: string;
 }
+
+// ─── Cache Status ────────────────────────────────────────────────────────
+
+export interface CacheLocationStatus {
+  age_hours: number | null;
+  sku_count: number;
+  fresh: boolean;
+  cached_at: string;
+}
+
+export interface CacheStatusResponse {
+  inventory: Record<string, CacheLocationStatus>;
+  sales: {
+    age_hours: number | null;
+    sku_count: number;
+    fresh: boolean;
+    last_refreshed: string | null;
+  };
+  scheduler_running: boolean;
+}

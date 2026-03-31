@@ -18,6 +18,7 @@ import type {
   StatusTransitionRequest,
   StatusTransitionResponse,
   SingleExportResponse,
+  CacheStatusResponse,
 } from "./types";
 
 const API_BASE =
@@ -233,4 +234,21 @@ export function downloadExcelFromBase64(base64: string, filename: string): void 
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Cache Status ────────────────────────────────────────────────────────
+
+export async function getCacheStatus(): Promise<CacheStatusResponse> {
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/cache/status`);
+  return handleResponse(res);
+}
+
+export async function forceRefreshCache(
+  target: "inventory" | "sales" | "all" = "all"
+): Promise<{ status: string; target: string }> {
+  const res = await resilientFetch(
+    `${API_BASE}/api/reposiciones/cache/refresh?target=${target}`,
+    { method: "POST" }
+  );
+  return handleResponse(res);
 }

@@ -514,10 +514,58 @@ def sales_data():
 
 
 # ---------------------------------------------------------------------------
+# CACHE-01, CACHE-02: Estado y refresh de caches
+# ---------------------------------------------------------------------------
+
+@router.get("/cache/status")
+def cache_status():
+    """Devuelve estado de frescura de los caches de inventario y ventas."""
+    from services.scheduler_service import get_cache_status
+    return get_cache_status()
+
+
+@router.post("/cache/refresh")
+def force_cache_refresh(
+    target: str = Query("all", description="'inventory', 'sales', o 'all'"),
+):
+    """Fuerza refresh de caches. Retorna inmediatamente, refresh corre en background."""
+    from services.scheduler_service import refresh_all_inventory_caches, check_and_refresh_sales_cache
+
+    if target in ("inventory", "all"):
+        threading.Thread(target=refresh_all_inventory_caches, daemon=True).start()
+    if target in ("sales", "all"):
+        threading.Thread(target=check_and_refresh_sales_cache, daemon=True).start()
+    return {"status": "refresh_started", "target": target}
+
+
+# ---------------------------------------------------------------------------
 # Constantes para Motor de Cálculo de Reposición
 # ---------------------------------------------------------------------------
 
 _REPLENISHMENT_ORDERS_COLLECTION = "replenishment_orders"
+
+
+def _load_inventory_from_cache_or_shopify(
+    location_gid: str,
+    vendor_filter: list[str] | None,
+) -> list[dict]:
+    """
+    Intenta leer inventario del cache. Si no hay o esta vencido, llama a Shopify en vivo.
+    El cache guarda TODOS los vendors; el filtro se aplica en Python.
+    """
+    from services.scheduler_service import read_inventory_cache
+    items, meta = read_inventory_cache(location_gid)
+    if items is not None:
+        if vendor_filter:
+            vendor_set = set(vendor_filter)
+            items = [i for i in items if i.get("vendor") in vendor_set]
+        return items
+    # Fallback: Shopify en vivo
+    return shopify_service.get_inventory_by_location(
+        location_gid=location_gid,
+        vendor_filter=vendor_filter,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Calculation Job State (persisted in Firestore for multi-worker support)
@@ -536,9 +584,10 @@ def _update_calc_job(job_id: str, data: dict):
 
 
 def _run_calculation_job(job_id: str, body_dict: dict):
-    """Background thread for async calculation."""
+    """Background thread for async calculation — version paralela."""
     from services.reposicion_service import calculate_replenishment as _calc_repl
     from datetime import date as date_type
+    from concurrent.futures import ThreadPoolExecutor
 
     def _update(step: str, progress: int):
         _update_calc_job(job_id, {"step": step, "progress": progress})
@@ -551,15 +600,20 @@ def _run_calculation_job(job_id: str, body_dict: dict):
         safety_factor = body_dict.get("safety_factor", 1.5)
         date_range_days = body_dict.get("date_range_days", 180)
 
-        # Step 1: Inventory
-        _update("inventory", 10)
-        try:
-            inventory_items = shopify_service.get_inventory_by_location(
-                location_gid=location_id,
-                vendor_filter=vendors if vendors else None,
+        # Paso 1: Cargar datos en PARALELO (inventario + ventas + pedidos)
+        _update("loading_data", 10)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            fut_inventory = executor.submit(
+                _load_inventory_from_cache_or_shopify,
+                location_id,
+                vendors if vendors else None,
             )
-        except Exception as e:
-            raise Exception(f"Error obteniendo inventario de Shopify: {str(e)}")
+            fut_sales = executor.submit(_load_sales_cache_data, db)
+            fut_pending = executor.submit(_load_pending_orders_map, db)
+
+            inventory_items = fut_inventory.result()
+            sales_data, cache_meta = fut_sales.result()
+            pending_orders_map = fut_pending.result()
 
         if not inventory_items:
             _update_calc_job(job_id, {
@@ -571,9 +625,8 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             })
             return
 
-        _update("sales_cache", 40)
-        sales_data, cache_meta = _load_sales_cache_data(db)
-
+        # Paso 2: Calcular
+        _update("calculating", 70)
         today = datetime.now(timezone.utc).date()
         requested_start = today - timedelta(days=date_range_days)
         cache_start_str = cache_meta.get("date_range_start", "")
@@ -583,10 +636,6 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             cache_start = requested_start
         effective_start = max(requested_start, cache_start)
 
-        _update("pending_orders", 60)
-        pending_orders_map = _load_pending_orders_map(db)
-
-        _update("calculating", 75)
         params = {
             "lead_time_days": lead_time_days,
             "safety_factor": safety_factor,
@@ -601,6 +650,7 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             params=params,
         )
 
+        # Paso 3: Guardar borrador
         _update("saving", 90)
         request_params = {
             "location_id": location_id,
@@ -611,7 +661,6 @@ def _run_calculation_job(job_id: str, body_dict: dict):
         }
         draft_id = _persist_draft(db, result, request_params)
 
-        # Store result in the draft doc (already in Firestore), just mark job done
         _update_calc_job(job_id, {
             "status": "completed",
             "step": "done",

@@ -21,6 +21,7 @@ import {
   downloadExcelFromBase64,
   getOrderList,
   deleteOrder,
+  getCacheStatus,
 } from "./api";
 import type {
   ReplenishmentConfig,
@@ -57,6 +58,16 @@ export function useVendors() {
       if (Array.isArray(data) && data.length === 0) return 5000;
       return false;
     },
+  });
+}
+
+export function useCacheStatus() {
+  return useQuery({
+    queryKey: ["reposiciones", "cache", "status"],
+    queryFn: getCacheStatus,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+    retry: 1,
   });
 }
 

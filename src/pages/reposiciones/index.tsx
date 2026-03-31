@@ -8,6 +8,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import CacheStatusBadge from "./components/CacheStatusBadge";
 import ConfigPanel from "./components/ConfigPanel";
 import OrderHistoryTab from "./components/OrderHistoryTab";
 import SuggestionsTable from "./components/SuggestionsTable";
@@ -72,9 +73,7 @@ function formatTimeAgo(isoString: string): string {
 
 const CALC_STEPS = [
   { key: "ventas", label: "Actualizando datos de ventas" },
-  { key: "inventory", label: "Obteniendo inventario de Shopify" },
-  { key: "sales_cache", label: "Cargando datos de ventas" },
-  { key: "pending_orders", label: "Revisando pedidos pendientes" },
+  { key: "loading_data", label: "Cargando datos (inventario, ventas, pedidos)" },
   { key: "calculating", label: "Calculando reposición" },
   { key: "saving", label: "Guardando borrador" },
 ] as const;
@@ -405,11 +404,14 @@ export default function ReposicionesPage() {
       {/* Header — stays outside tabs, visible on both */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Reposiciones</h1>
-        {salesStatus?.last_refreshed && (
-          <span className="text-sm text-muted-foreground">
-            Datos actualizados: {formatTimeAgo(salesStatus.last_refreshed)}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          <CacheStatusBadge />
+          {salesStatus?.last_refreshed && (
+            <span className="text-sm text-muted-foreground">
+              Datos actualizados: {formatTimeAgo(salesStatus.last_refreshed)}
+            </span>
+          )}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "sugerido" | "historial")}>
