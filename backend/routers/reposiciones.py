@@ -750,21 +750,50 @@ def _load_pending_orders_map(db) -> dict[str, list[dict]]:
     return pending_map
 
 
+_DRAFT_CHUNK_SIZE = 500  # products per chunk
+
 def _persist_draft(db, result: dict, request_params: dict) -> str:
     """
     Crea documento borrador en replenishment_orders (D-13).
+    Products se guardan en sub-colección 'chunks' para evitar el límite de 1MB.
     Retorna el ID del documento creado.
     """
+    products = result["products"]
     doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document()
     doc_ref.set({
         "status": "borrador",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "params": request_params,
-        "products": result["products"],
         "vendor_summary": result["vendor_summary"],
         "stats": result["stats"],
+        "chunked": True,
+        "product_count": len(products),
     })
+    # Write products in chunks
+    for i in range(0, len(products), _DRAFT_CHUNK_SIZE):
+        chunk = products[i:i + _DRAFT_CHUNK_SIZE]
+        doc_ref.collection("product_chunks").document(f"chunk_{i // _DRAFT_CHUNK_SIZE}").set({
+            "products": chunk,
+        })
     return doc_ref.id
+
+
+def _load_draft_products(db, draft_id: str) -> list[dict]:
+    """Load products from draft chunks."""
+    doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(draft_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        return []
+    data = doc.to_dict()
+    # Legacy: products inline
+    if "products" in data and not data.get("chunked"):
+        return data["products"]
+    # Chunked
+    products = []
+    chunks = doc_ref.collection("product_chunks").stream()
+    for chunk in sorted(chunks, key=lambda c: c.id):
+        products.extend(chunk.to_dict().get("products", []))
+    return products
 
 
 # ---------------------------------------------------------------------------
@@ -805,11 +834,10 @@ def get_calculation_status(job_id: str):
 
     if status == "completed":
         draft_id = job.get("draft_id", "")
-        # Load result from the draft document
         db = _get_firestore()
         draft_doc = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(draft_id).get()
         if not draft_doc.exists:
-            # Empty result
+            _calc_job_ref(job_id).delete()
             return CalculateResponse(
                 products=[],
                 vendor_summary=[],
@@ -820,10 +848,10 @@ def get_calculation_status(job_id: str):
                 draft_id=draft_id,
             )
         draft_data = draft_doc.to_dict()
-        # Clean up job doc
+        products = _load_draft_products(db, draft_id)
         _calc_job_ref(job_id).delete()
         return CalculateResponse(
-            products=[ProductAnalysis(**p) for p in draft_data.get("products", [])],
+            products=[ProductAnalysis(**p) for p in products],
             vendor_summary=[VendorSummary(**v) for v in draft_data.get("vendor_summary", [])],
             stats=ReplenishmentStats(**draft_data.get("stats", {})),
             draft_id=draft_id,
