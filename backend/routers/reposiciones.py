@@ -108,6 +108,12 @@ def _get_firestore():
     return get_firestore_db()
 
 
+def _array_union(values: list):
+    """Lazy import wrapper for Firestore ArrayUnion sentinel."""
+    from google.cloud.firestore_v1 import ArrayUnion
+    return ArrayUnion(values)
+
+
 def _persist_job_state(operation_id: str | None, status: str):
     """Persiste estado del job en Firestore para sobrevivir reinicios del backend."""
     try:
@@ -894,5 +900,278 @@ def mark_order_sent(order_id: str, sent_by: str):
     if not doc_ref.get().exists:
         raise HTTPException(status_code=404, detail="Pedido no encontrado")
     now_str = datetime.now(timezone.utc).isoformat()
-    doc_ref.update({"status": "enviado", "sent_at": now_str, "sent_by": sent_by})
+    doc_ref.update({
+        "status": "enviado",
+        "sent_at": now_str,
+        "sent_by": sent_by,
+        "enviado_at": now_str,
+        "enviado_by": sent_by,
+        "status_history": _array_union([{
+            "status": "enviado",
+            "changed_by": sent_by,
+            "changed_at": now_str,
+        }]),
+    })
     return MarkSentResponse(status="enviado", sent_at=now_str)
+
+
+# ─── Pydantic models — Phase 8: Historial de Pedidos ──────────────────────
+
+class OrderListItem(BaseModel):
+    order_id: str
+    vendor: str
+    status: str
+    item_count: int
+    created_by: str
+    created_at: str
+    status_history: list = []
+
+class OrderListResponse(BaseModel):
+    orders: list[OrderListItem]
+
+class OrderDetailItem(BaseModel):
+    sku: str
+    title: str
+    quantity: int
+    stock: int
+
+class StatusHistoryEntry(BaseModel):
+    status: str
+    changed_by: str
+    changed_at: str
+
+class OrderDetailResponse(BaseModel):
+    order_id: str
+    vendor: str
+    status: str
+    items: list[OrderDetailItem]
+    created_by: str
+    created_at: str
+    approved_by: Optional[str] = None
+    approved_at: Optional[str] = None
+    status_history: list[StatusHistoryEntry] = []
+
+class StatusTransitionRequest(BaseModel):
+    status: str
+    changed_by: str
+
+class StatusTransitionResponse(BaseModel):
+    status: str
+    changed_at: str
+
+class SingleExportResponse(BaseModel):
+    excel_base64: str
+    filename: str
+
+
+ALLOWED_TRANSITIONS = {
+    "aprobado": ["enviado"],
+    "enviado": ["parcial", "recibido"],
+    "parcial": ["recibido"],
+    "recibido": [],
+}
+
+
+# ─── HIST-01: GET /orders ──────────────────────────────────────────────────
+
+@router.get("/orders", response_model=OrderListResponse)
+def list_orders(
+    vendor: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    """
+    Devuelve historial de pedidos (excluyendo borradores).
+    Filtros opcionales: vendor, status (un valor), date_from, date_to (ISO 8601 date).
+    """
+    db = _get_firestore()
+    try:
+        collection_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION)
+
+        if status:
+            # Filtrar por status específico
+            query = collection_ref.where("status", "==", status)
+        else:
+            # Excluir borradores
+            query = collection_ref.where(
+                "status", "in", ["aprobado", "enviado", "parcial", "recibido"]
+            )
+
+        if vendor:
+            query = query.where("vendor", "==", vendor)
+
+        query = query.order_by("created_at", direction="DESCENDING")
+        docs = query.stream()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando pedidos: {str(e)}")
+
+    orders: list[OrderListItem] = []
+    for doc in docs:
+        data = doc.to_dict()
+        created_at = data.get("created_at", "")
+
+        # Aplicar filtros de fecha en Python para evitar índices compuestos de Firestore
+        if date_from and created_at < date_from:
+            continue
+        if date_to:
+            # date_to es inclusivo: comparar contra inicio del día siguiente
+            from datetime import date as _date
+            try:
+                dt_to = _date.fromisoformat(date_to)
+                from datetime import timedelta as _td
+                exclusive_end = (dt_to + _td(days=1)).isoformat()
+                if created_at >= exclusive_end:
+                    continue
+            except ValueError:
+                pass
+
+        orders.append(OrderListItem(
+            order_id=doc.id,
+            vendor=data.get("vendor", ""),
+            status=data.get("status", ""),
+            item_count=len(data.get("items", [])),
+            created_by=data.get("created_by", ""),
+            created_at=created_at,
+            status_history=data.get("status_history", []),
+        ))
+
+    return OrderListResponse(orders=orders)
+
+
+# ─── HIST-03, HIST-05: GET /orders/{order_id} ─────────────────────────────
+
+@router.get("/orders/{order_id}", response_model=OrderDetailResponse)
+def get_order_detail(order_id: str):
+    """Devuelve detalle completo de un pedido incluyendo items y status_history."""
+    db = _get_firestore()
+    doc_snap = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(order_id).get()
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+
+    data = doc_snap.to_dict()
+    raw_items = data.get("items", [])
+    items = [
+        OrderDetailItem(
+            sku=item.get("sku", ""),
+            title=item.get("title", ""),
+            quantity=item.get("quantity", 0),
+            stock=item.get("stock", 0),
+        )
+        for item in raw_items
+    ]
+    raw_history = data.get("status_history", [])
+    history = [
+        StatusHistoryEntry(
+            status=entry.get("status", ""),
+            changed_by=entry.get("changed_by", ""),
+            changed_at=entry.get("changed_at", ""),
+        )
+        for entry in raw_history
+    ]
+
+    return OrderDetailResponse(
+        order_id=doc_snap.id,
+        vendor=data.get("vendor", ""),
+        status=data.get("status", ""),
+        items=items,
+        created_by=data.get("created_by", ""),
+        created_at=data.get("created_at", ""),
+        approved_by=data.get("approved_by"),
+        approved_at=data.get("approved_at"),
+        status_history=history,
+    )
+
+
+# ─── HIST-02, HIST-05: PATCH /orders/{order_id}/status ────────────────────
+
+@router.patch("/orders/{order_id}/status", response_model=StatusTransitionResponse)
+def transition_order_status(order_id: str, body: StatusTransitionRequest):
+    """
+    Transiciona el estado de un pedido según ALLOWED_TRANSITIONS.
+    Usa transacción Firestore para atomicidad y escribe status_history (D-17).
+    """
+    from google.cloud.firestore_v1 import transactional as _transactional
+
+    db = _get_firestore()
+    doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(order_id)
+    now_str = datetime.now(timezone.utc).isoformat()
+
+    @_transactional
+    def _do_transition(transaction, doc_ref):
+        snap = doc_ref.get(transaction=transaction)
+        if not snap.exists:
+            raise ValueError("not_found")
+        current_status = snap.to_dict().get("status", "")
+        allowed = ALLOWED_TRANSITIONS.get(current_status, [])
+        if body.status not in allowed:
+            raise ValueError(f"invalid_transition:{current_status}")
+        transaction.update(doc_ref, {
+            "status": body.status,
+            f"{body.status}_at": now_str,
+            f"{body.status}_by": body.changed_by,
+            "status_history": _array_union([{
+                "status": body.status,
+                "changed_by": body.changed_by,
+                "changed_at": now_str,
+            }]),
+        })
+
+    transaction = db.transaction()
+    try:
+        _do_transition(transaction, doc_ref)
+    except ValueError as e:
+        msg = str(e)
+        if msg == "not_found":
+            raise HTTPException(status_code=404, detail="Pedido no encontrado")
+        if msg.startswith("invalid_transition:"):
+            current = msg.split(":", 1)[1]
+            raise HTTPException(
+                status_code=409,
+                detail=f"Transicion invalida: {current} -> {body.status}",
+            )
+        raise HTTPException(status_code=409, detail=msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en transicion de estado: {str(e)}")
+
+    return StatusTransitionResponse(status=body.status, changed_at=now_str)
+
+
+# ─── HIST-04: GET /orders/{order_id}/export ───────────────────────────────
+
+@router.get("/orders/{order_id}/export", response_model=SingleExportResponse)
+def export_single_order(order_id: str):
+    """
+    Genera un Excel base64 para un pedido individual.
+    Columnas: SKU, Titulo, Cantidad, Stock Actual.
+    """
+    db = _get_firestore()
+    doc_snap = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(order_id).get()
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+
+    data = doc_snap.to_dict()
+    vendor = data.get("vendor", "proveedor")
+    items = data.get("items", [])
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pedido"
+    ws.append(["SKU", "Titulo", "Cantidad", "Stock Actual"])
+    for item in items:
+        ws.append([
+            item.get("sku", ""),
+            item.get("title", ""),
+            item.get("quantity", 0),
+            item.get("stock", 0),
+        ])
+
+    excel_buf = BytesIO()
+    wb.save(excel_buf)
+    excel_base64 = base64.b64encode(excel_buf.getvalue()).decode("utf-8")
+
+    safe_vendor = vendor.replace("/", "-").replace("\\", "-").replace(" ", "_")
+    filename = f"pedido_{safe_vendor}_{today_str}.xlsx"
+
+    return SingleExportResponse(excel_base64=excel_base64, filename=filename)
