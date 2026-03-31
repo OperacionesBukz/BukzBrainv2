@@ -17,7 +17,7 @@ export default function GiftCards() {
           <TabsTrigger value="crear">Crear Gift Card</TabsTrigger>
           <TabsTrigger value="listado">Listado</TabsTrigger>
         </TabsList>
-        <TabsContent value="crear" className="max-w-lg">
+        <TabsContent value="crear" className="max-w-lg mx-auto">
           <CreateGiftCardForm />
         </TabsContent>
         <TabsContent value="listado">
