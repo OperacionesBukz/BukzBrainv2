@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo, useCallback } from "react";
-import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { useState, useRef, useMemo, useCallback, Fragment } from "react";
+import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, ChevronDown } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import EmployeeLeaveHistory from "./EmployeeLeaveHistory";
 import {
   STATUS_CONFIG,
   DIRECTORY_STATUSES,
@@ -107,6 +108,7 @@ export default function DirectoryTable({
   const inputRef = useRef<HTMLInputElement>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const toggleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
@@ -372,7 +374,7 @@ export default function DirectoryTable({
     );
   };
 
-  const colCount = isPersonType ? 7 : 7;
+  const colCount = isPersonType ? 8 : 7;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -380,6 +382,7 @@ export default function DirectoryTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
+              {isPersonType && <TableHead className="w-[40px]" />}
               {isPersonType ? (
                 <>
                   <SortableHead label="Nombre" sortField="nombre" />
@@ -403,6 +406,7 @@ export default function DirectoryTable({
 
             {isAdmin && (
               <TableRow className="bg-primary/5">
+                {isPersonType && <TableHead className="p-1" />}
                 {isPersonType ? (
                   <>
                     <TableHead className="p-1">
@@ -565,80 +569,111 @@ export default function DirectoryTable({
                 </TableCell>
               </TableRow>
             )}
-            {sortedEntries.map((entry) => (
-              <TableRow key={entry.id} className="group">
-                {isPerson(entry) ? (
-                  <>
-                    <TableCell className="text-sm font-medium">
-                      {renderEditableCell(entry, "nombre", `${entry.nombre} ${entry.apellido}`.trim())}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "cedula", entry.cedula)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "celular", entry.celular)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "correo", entry.correo)}
-                    </TableCell>
-                    <TableCell>{renderClasificacionSelect(entry)}</TableCell>
-                  </>
-                ) : (
-                  <>
-                    <TableCell className="text-sm font-medium">
-                      {renderEditableCell(entry, "empresa", entry.empresa)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "razonSocial", entry.razonSocial)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "nit", entry.nit)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(
-                        entry,
-                        "margen",
-                        String(entry.margen)
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "correo", entry.correo || "")}
-                    </TableCell>
-                  </>
-                )}
-                <TableCell>{renderStatusSelect(entry)}</TableCell>
-                {isAdmin && (
-                  <TableCell>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          if (isPerson(entry)) {
-                            startEdit(entry.id, "nombre", entry.nombre);
-                          } else {
-                            startEdit(entry.id, "empresa", entry.empresa);
-                          }
-                        }}
-                        title="Editar"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteId(entry.id)}
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
+            {sortedEntries.map((entry) => {
+              const isExpanded = expandedId === entry.id;
+              const personEntry = isPerson(entry);
+
+              const isInactive = entry.estado === "Inactivo";
+
+              return (
+                <Fragment key={entry.id}>
+                  <TableRow
+                    className={cn(
+                      "group",
+                      personEntry && "cursor-pointer hover:bg-muted/30",
+                      isInactive && "opacity-50"
+                    )}
+                    onClick={personEntry ? () => setExpandedId(isExpanded ? null : entry.id) : undefined}
+                  >
+                    {personEntry && (
+                      <TableCell className="w-[40px] px-2">
+                        {isExpanded
+                          ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        }
+                      </TableCell>
+                    )}
+                    {personEntry ? (
+                      <>
+                        <TableCell className={cn("text-sm font-medium", isInactive && "line-through")} onClick={(e) => isAdmin && e.stopPropagation()}>
+                          {renderEditableCell(entry, "nombre", `${entry.nombre} ${entry.apellido}`.trim())}
+                        </TableCell>
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
+                          {renderEditableCell(entry, "cedula", entry.cedula)}
+                        </TableCell>
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
+                          {renderEditableCell(entry, "celular", entry.celular)}
+                        </TableCell>
+                        <TableCell className="text-sm" onClick={(e) => isAdmin && e.stopPropagation()}>
+                          {renderEditableCell(entry, "correo", entry.correo)}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>{renderClasificacionSelect(entry)}</TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className={cn("text-sm font-medium", isInactive && "line-through")}>
+                          {renderEditableCell(entry, "empresa", entry.empresa)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {renderEditableCell(entry, "razonSocial", entry.razonSocial)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {renderEditableCell(entry, "nit", entry.nit)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {renderEditableCell(
+                            entry,
+                            "margen",
+                            String(entry.margen)
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {renderEditableCell(entry, "correo", entry.correo || "")}
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell onClick={(e) => e.stopPropagation()}>{renderStatusSelect(entry)}</TableCell>
+                    {isAdmin && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              if (isPerson(entry)) {
+                                startEdit(entry.id, "nombre", entry.nombre);
+                              } else {
+                                startEdit(entry.id, "empresa", entry.empresa);
+                              }
+                            }}
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteId(entry.id)}
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                  {personEntry && isExpanded && (
+                    <TableRow className="bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={isAdmin ? colCount : colCount - 1} className="p-0">
+                        <EmployeeLeaveHistory cedula={entry.cedula} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
