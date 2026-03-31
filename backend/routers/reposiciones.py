@@ -1055,10 +1055,6 @@ def list_orders(
                 "status", "in", ["aprobado", "enviado", "parcial", "recibido"]
             )
 
-        if vendor:
-            query = query.where("vendor", "==", vendor)
-
-        query = query.order_by("created_at", direction="DESCENDING")
         docs = query.stream()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error consultando pedidos: {str(e)}")
@@ -1068,11 +1064,12 @@ def list_orders(
         data = doc.to_dict()
         created_at = data.get("created_at", "")
 
-        # Aplicar filtros de fecha en Python para evitar índices compuestos de Firestore
+        # Filtros aplicados en Python para evitar índices compuestos
+        if vendor and data.get("vendor", "") != vendor:
+            continue
         if date_from and created_at < date_from:
             continue
         if date_to:
-            # date_to es inclusivo: comparar contra inicio del día siguiente
             from datetime import date as _date
             try:
                 dt_to = _date.fromisoformat(date_to)
@@ -1093,6 +1090,7 @@ def list_orders(
             status_history=data.get("status_history", []),
         ))
 
+    orders.sort(key=lambda o: o.created_at, reverse=True)
     return OrderListResponse(orders=orders)
 
 
