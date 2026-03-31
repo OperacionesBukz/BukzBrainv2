@@ -115,12 +115,21 @@ export interface OrderItem {
 export interface ReplenishmentOrder {
   order_id: string;
   vendor: string;
-  status: "aprobado" | "enviado";
+  status: "aprobado" | "enviado" | "parcial" | "recibido";
   items: OrderItem[];
   created_by: string;
   created_at: string;
   sent_at?: string;
   sent_by?: string;
+  enviado_at?: string;
+  enviado_by?: string;
+  parcial_at?: string;
+  parcial_by?: string;
+  recibido_at?: string;
+  recibido_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  status_history?: StatusHistoryEntry[];
 }
 
 export interface OrderCreated {
@@ -151,4 +160,44 @@ export interface ExportOrdersResponse {
 export interface MarkSentResponse {
   status: string;
   sent_at: string;
+}
+
+// ─── Phase 8: Order History ──────────────────────────────────────────────
+
+export interface StatusHistoryEntry {
+  status: string;
+  changed_by: string;
+  changed_at: string;
+}
+
+export interface OrderListItem {
+  order_id: string;
+  vendor: string;
+  status: "aprobado" | "enviado" | "parcial" | "recibido";
+  item_count: number;
+  created_by: string;
+  created_at: string;
+  status_history: StatusHistoryEntry[];
+}
+
+export interface OrderHistoryFilters {
+  vendor: string;
+  status: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
+export interface StatusTransitionRequest {
+  status: string;
+  changed_by: string;
+}
+
+export interface StatusTransitionResponse {
+  status: string;
+  changed_at: string;
+}
+
+export interface SingleExportResponse {
+  excel_base64: string;
+  filename: string;
 }

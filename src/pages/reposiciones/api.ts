@@ -13,6 +13,11 @@ import type {
   ExportOrdersRequest,
   ExportOrdersResponse,
   MarkSentResponse,
+  OrderListItem,
+  ReplenishmentOrder,
+  StatusTransitionRequest,
+  StatusTransitionResponse,
+  SingleExportResponse,
 } from "./types";
 
 const API_BASE =
@@ -126,6 +131,71 @@ export function downloadZipFromBase64(base64: string, filename: string): void {
     byteArray[i] = byteChars.charCodeAt(i);
   }
   const blob = new Blob([byteArray], { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Phase 8: Order History ──────────────────────────────────────────────
+
+export async function getOrderList(params?: {
+  vendor?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}): Promise<{ orders: OrderListItem[] }> {
+  const searchParams = new URLSearchParams();
+  if (params?.vendor) searchParams.set("vendor", params.vendor);
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.date_from) searchParams.set("date_from", params.date_from);
+  if (params?.date_to) searchParams.set("date_to", params.date_to);
+  const qs = searchParams.toString();
+  const url = `${API_BASE}/api/reposiciones/orders${qs ? `?${qs}` : ""}`;
+  const res = await resilientFetch(url);
+  return handleResponse(res);
+}
+
+export async function getOrderDetail(orderId: string): Promise<ReplenishmentOrder> {
+  const res = await resilientFetch(`${API_BASE}/api/reposiciones/orders/${orderId}`);
+  return handleResponse(res);
+}
+
+export async function transitionOrderStatus(
+  orderId: string,
+  body: StatusTransitionRequest
+): Promise<StatusTransitionResponse> {
+  const res = await resilientFetch(
+    `${API_BASE}/api/reposiciones/orders/${orderId}/status`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+  return handleResponse(res);
+}
+
+export async function exportSingleOrder(
+  orderId: string
+): Promise<SingleExportResponse> {
+  const res = await resilientFetch(
+    `${API_BASE}/api/reposiciones/orders/${orderId}/export`
+  );
+  return handleResponse(res);
+}
+
+export function downloadExcelFromBase64(base64: string, filename: string): void {
+  const byteChars = atob(base64);
+  const byteArray = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteArray[i] = byteChars.charCodeAt(i);
+  }
+  const blob = new Blob([byteArray], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
