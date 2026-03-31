@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 7 planned — 2 plans, 2 waves, skip-verify
-last_updated: "2026-03-31T00:00:42.655Z"
+stopped_at: Phase 8 context gathered
+last_updated: "2026-03-31T00:05:53.159Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 5
@@ -123,6 +123,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-30T23:53:09.368Z
-Stopped at: Phase 7 planned — 2 plans, 2 waves, skip-verify
-Resume file: .planning/phases/07-aprobaci-n-pedidos-y-exportaci-n/07-01-PLAN.md
+Last session: 2026-03-31T00:05:53.155Z
+Stopped at: Phase 8 context gathered
+Resume file: .planning/phases/08-historial-de-pedidos/08-CONTEXT.md
