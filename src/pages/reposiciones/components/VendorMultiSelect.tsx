@@ -86,7 +86,7 @@ export default function VendorMultiSelect({
             <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
             <CommandItem
               onSelect={toggleAll}
-              className="border-b dark:border-border cursor-pointer"
+              className="border-b dark:border-border cursor-pointer data-[selected=true]:bg-blue-50 data-[selected=true]:text-blue-900 dark:data-[selected=true]:bg-blue-950/40 dark:data-[selected=true]:text-blue-100"
             >
               <div className="flex items-center gap-2 w-full">
                 <Checkbox
@@ -110,7 +110,7 @@ export default function VendorMultiSelect({
                   key={vendor.name}
                   value={vendor.name}
                   onSelect={() => toggleVendor(vendor.name)}
-                  className="cursor-pointer"
+                  className="cursor-pointer data-[selected=true]:bg-blue-50 data-[selected=true]:text-blue-900 dark:data-[selected=true]:bg-blue-950/40 dark:data-[selected=true]:text-blue-100"
                 >
                   <div className="flex items-center gap-2 w-full">
                     <Checkbox
