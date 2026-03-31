@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useState, useRef, useMemo, useCallback } from "react";
+import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -61,6 +61,10 @@ type PersonField = "nombre" | "cedula" | "celular" | "correo";
 type SupplierField = "empresa" | "razonSocial" | "nit" | "margen" | "correo";
 type EditableField = PersonField | SupplierField;
 
+type SortKey = "nombre" | "cedula" | "celular" | "correo" | "tipo" | "estado"
+  | "empresa" | "razonSocial" | "nit" | "margen";
+type SortDir = "asc" | "desc";
+
 interface EditingCell {
   entryId: string;
   field: EditableField;
@@ -101,6 +105,56 @@ export default function DirectoryTable({
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const toggleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }, [sortKey]);
+
+  const sortedEntries = useMemo(() => {
+    if (!sortKey) return entries;
+    return [...entries].sort((a, b) => {
+      let valA = "";
+      let valB = "";
+      if (sortKey === "nombre" && isPerson(a) && isPerson(b)) {
+        valA = `${a.nombre} ${a.apellido}`.toLowerCase();
+        valB = `${b.nombre} ${b.apellido}`.toLowerCase();
+      } else if (sortKey === "tipo" && isPerson(a) && isPerson(b)) {
+        valA = getClasificacion(a);
+        valB = getClasificacion(b);
+      } else if (sortKey === "margen") {
+        const nA = (a as SupplierEntry).margen ?? 0;
+        const nB = (b as SupplierEntry).margen ?? 0;
+        return sortDir === "asc" ? nA - nB : nB - nA;
+      } else {
+        valA = String((a as Record<string, unknown>)[sortKey] ?? "").toLowerCase();
+        valB = String((b as Record<string, unknown>)[sortKey] ?? "").toLowerCase();
+      }
+      return sortDir === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    });
+  }, [entries, sortKey, sortDir]);
+
+  const SortableHead = ({ label, sortField, className }: { label: string; sortField: SortKey; className?: string }) => (
+    <TableHead
+      className={cn("cursor-pointer select-none hover:bg-muted/50 transition-colors", className)}
+      onClick={() => toggleSort(sortField)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === sortField ? (
+          sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </span>
+    </TableHead>
+  );
 
   const splitFullName = (full: string) => {
     const parts = full.trim().split(/\s+/);
@@ -328,22 +382,22 @@ export default function DirectoryTable({
             <TableRow className="bg-muted/30">
               {isPersonType ? (
                 <>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead className="w-auto whitespace-nowrap">Cédula</TableHead>
-                  <TableHead className="w-[130px]">Celular</TableHead>
-                  <TableHead>Correo</TableHead>
-                  <TableHead className="w-[150px]">Tipo</TableHead>
+                  <SortableHead label="Nombre" sortField="nombre" />
+                  <SortableHead label="Cédula" sortField="cedula" className="w-auto whitespace-nowrap" />
+                  <SortableHead label="Celular" sortField="celular" className="w-[130px]" />
+                  <SortableHead label="Correo" sortField="correo" />
+                  <SortableHead label="Tipo" sortField="tipo" className="w-[150px]" />
                 </>
               ) : (
                 <>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Razón Social</TableHead>
-                  <TableHead className="w-[150px]">NIT</TableHead>
-                  <TableHead className="w-[100px]">Margen %</TableHead>
-                  <TableHead>Correo</TableHead>
+                  <SortableHead label="Empresa" sortField="empresa" />
+                  <SortableHead label="Razón Social" sortField="razonSocial" />
+                  <SortableHead label="NIT" sortField="nit" className="w-[150px]" />
+                  <SortableHead label="Margen %" sortField="margen" className="w-[100px]" />
+                  <SortableHead label="Correo" sortField="correo" />
                 </>
               )}
-              <TableHead className="w-[100px]">Estado</TableHead>
+              <SortableHead label="Estado" sortField="estado" className="w-[100px]" />
               {isAdmin && <TableHead className="w-[70px]" />}
             </TableRow>
 
@@ -500,7 +554,7 @@ export default function DirectoryTable({
             )}
           </TableHeader>
           <TableBody>
-            {entries.length === 0 && (
+            {sortedEntries.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={colCount}
@@ -511,7 +565,7 @@ export default function DirectoryTable({
                 </TableCell>
               </TableRow>
             )}
-            {entries.map((entry) => (
+            {sortedEntries.map((entry) => (
               <TableRow key={entry.id} className="group">
                 {isPerson(entry) ? (
                   <>
