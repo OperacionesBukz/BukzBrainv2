@@ -34,6 +34,7 @@ const EnvioCortes = lazyWithReload(() => import("./pages/EnvioCortes"));
 const Devoluciones = lazyWithReload(() => import("./pages/Devoluciones"));
 const GiftCards = lazyWithReload(() => import("./pages/GiftCards"));
 const Directorio = lazyWithReload(() => import("./pages/Directorio"));
+const CMV = lazyWithReload(() => import("./pages/CMV"));
 const RequestsHub = lazyWithReload(() => import("./pages/RequestsHub"));
 const CalculatorPage = lazyWithReload(() => import("./pages/Calculator"));
 const UserManagement = lazyWithReload(() => import("./pages/admin/UserManagement"));
@@ -101,6 +102,7 @@ const App = () => {
                               <Route path="/devoluciones" element={<Devoluciones />} />
                               <Route path="/gift-cards" element={<GiftCards />} />
                               <Route path="/directorio" element={<Directorio />} />
+                              <Route path="/cmv" element={<CMV />} />
                               <Route path="/assistant" element={<Assistant />} />
                               <Route path="/calculator" element={<CalculatorPage />} />
                               <Route path="/user-admin" element={<UserManagement />} />

@@ -13,6 +13,7 @@ import {
   Scissors,
   ContactRound,
   GitBranchPlus,
+  DollarSign,
   type LucideIcon,
 } from "lucide-react";
 export type WorkspaceId = "general" | "operaciones";
@@ -37,6 +38,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/celesa", label: "Celesa", description: "Pedidos Celesa", icon: Ship, workspace: "operaciones" },
   { path: "/workflow", label: "Workflow", description: "Ingreso de mercancía, scrap, cortes y devoluciones", icon: GitBranchPlus, workspace: "operaciones" },
   { path: "/directorio", label: "Directorio", description: "Base de datos de empleados, temporales y proveedores", icon: ContactRound, workspace: "operaciones" },
+  { path: "/cmv", label: "CMV", description: "Costo de Mercancía Vendida", icon: DollarSign, workspace: "operaciones" },
   { path: "/calculator", label: "Calculadora", description: "Conversor EUR a COP", icon: Calculator, workspace: "general" },
 ];
 
