@@ -265,7 +265,7 @@ export default function DirectoryTable({
         )}
       >
         {DIRECTORY_STATUSES.map((s) => (
-          <option key={s} value={s}>
+          <option key={s} value={s} className="bg-popover text-popover-foreground">
             {s}
           </option>
         ))}
@@ -310,7 +310,7 @@ export default function DirectoryTable({
         )}
       >
         {PERSON_CLASIFICACIONES.map((c) => (
-          <option key={c} value={c}>
+          <option key={c} value={c} className="bg-popover text-popover-foreground">
             {c}
           </option>
         ))}
