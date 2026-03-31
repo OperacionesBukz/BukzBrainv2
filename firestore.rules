@@ -154,5 +154,28 @@ service cloud.firestore {
       allow read, write: if isAuthenticated()
                          && request.auth.uid == userId;
     }
+
+    // ─── Replenishment Orders (drafts, orders) ────────────────────────────────
+    // Authenticated users can read and write (create drafts, approve, generate orders).
+    match /replenishment_orders/{orderId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ─── Reposiciones Meta (bulk op state) ───────────────────────────────────
+    match /reposiciones_meta/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─── Sales Cache (aggregated Shopify sales) ───────────────────────────────
+    match /sales_cache/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+
+      match /chunks/{chunkId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+      }
+    }
   }
 }

@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import ConfigPanel from "./components/ConfigPanel";
 import SuggestionsTable from "./components/SuggestionsTable";
 import VendorSummaryPanel from "./components/VendorSummaryPanel";
@@ -12,8 +15,12 @@ import {
   useReplenishmentConfig,
   saveReplenishmentConfig,
   useCalculationFlow,
+  useApprove,
+  useGenerateOrders,
+  useExportZip,
+  useMarkSent,
 } from "./hooks";
-import type { CalculateRequest } from "./types";
+import type { CalculateRequest, EffectiveProductItem } from "./types";
 
 // ─── StatCard ────────────────────────────────────────────────────────────────
 
@@ -105,8 +112,24 @@ export default function ReposicionesPage() {
   const [overridesMap, setOverridesMap] = useState<Record<string, number>>({});
   const [deletedSkus, setDeletedSkus] = useState<Set<string>>(new Set());
 
-  // Store draft_id for Phase 7 approval flow
+  // Store draft_id for approval flow
   const [draftId, setDraftId] = useState<string | null>(null);
+
+  // Phase 7: Approval & order flow state
+  const [approvalState, setApprovalState] = useState<{
+    status: "none" | "aprobado";
+    approved_by: string;
+    approved_at: string;
+  }>({ status: "none", approved_by: "", approved_at: "" });
+  const [generatedOrders, setGeneratedOrders] = useState<Record<string, string>>({});
+  const [selectedVendors, setSelectedVendors] = useState<Set<string>>(new Set());
+  const [sentVendors, setSentVendors] = useState<Set<string>>(new Set());
+  const [markingSentVendor, setMarkingSentVendor] = useState<string | null>(null);
+
+  const approveMutation = useApprove();
+  const generateMutation = useGenerateOrders();
+  const exportMutation = useExportZip();
+  const markSentMutation = useMarkSent();
 
   // Merge saved Firestore config when it loads
   useEffect(() => {
@@ -144,8 +167,26 @@ export default function ReposicionesPage() {
   useEffect(() => {
     if (results?.draft_id) {
       setDraftId(results.draft_id);
+      // Reset approval state for new calculation
+      setApprovalState({ status: "none", approved_by: "", approved_at: "" });
+      setGeneratedOrders({});
+      setSentVendors(new Set());
     }
   }, [results]);
+
+  // Compute effective products: apply overrides + filter deleted skus
+  const effectiveProducts = useMemo(() => {
+    if (!results) return [];
+    return results.products
+      .filter((p) => !deletedSkus.has(p.sku))
+      .map((p) => ({
+        sku: p.sku,
+        title: p.title,
+        vendor: p.vendor,
+        quantity: overridesMap[p.sku] ?? p.suggested_qty,
+        stock: p.stock,
+      } as EffectiveProductItem));
+  }, [results, overridesMap, deletedSkus]);
 
   async function handleCalcular() {
     if (!user?.uid || !config.location_id) return;
@@ -172,6 +213,83 @@ export default function ReposicionesPage() {
     await startCalculation(request);
   }
 
+  function handleAprobar() {
+    if (!draftId || !user?.uid) return;
+    approveMutation.mutate(
+      {
+        draft_id: draftId,
+        approved_by: user.uid,
+        effective_products: effectiveProducts,
+      },
+      {
+        onSuccess: (data) => {
+          setApprovalState({
+            status: "aprobado",
+            approved_by: user.displayName ?? user.email ?? user.uid,
+            approved_at: data.approved_at,
+          });
+          const allVendors = new Set(
+            effectiveProducts.map((p) => p.vendor).filter(Boolean)
+          );
+          setSelectedVendors(allVendors);
+          toast.success("Sugerido aprobado correctamente");
+        },
+      }
+    );
+  }
+
+  function handleVendorToggle(vendor: string) {
+    setSelectedVendors((prev) => {
+      const next = new Set(prev);
+      if (next.has(vendor)) next.delete(vendor);
+      else next.add(vendor);
+      return next;
+    });
+  }
+
+  function handleGenerarPedidos() {
+    if (!draftId || !user?.uid || selectedVendors.size === 0) return;
+    generateMutation.mutate(
+      {
+        draft_id: draftId,
+        vendors: Array.from(selectedVendors),
+        created_by: user.uid,
+      },
+      {
+        onSuccess: (data) => {
+          const orderMap: Record<string, string> = {};
+          for (const order of data.orders) {
+            orderMap[order.vendor] = order.order_id;
+          }
+          setGeneratedOrders(orderMap);
+          toast.success(`${data.orders.length} pedido(s) generado(s)`);
+        },
+      }
+    );
+  }
+
+  function handleDescargarZip() {
+    const orderIds = Object.values(generatedOrders);
+    if (orderIds.length === 0) return;
+    exportMutation.mutate({ order_ids: orderIds });
+  }
+
+  function handleMarkSent(vendor: string, orderId: string) {
+    if (!user?.uid) return;
+    setMarkingSentVendor(vendor);
+    markSentMutation.mutate(
+      { orderId, sentBy: user.uid },
+      {
+        onSuccess: () => {
+          setSentVendors((prev) => new Set(prev).add(vendor));
+          setMarkingSentVendor(null);
+          toast.success(`Pedido de ${vendor} marcado como enviado`);
+        },
+        onSettled: () => setMarkingSentVendor(null),
+      }
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -184,17 +302,19 @@ export default function ReposicionesPage() {
         )}
       </div>
 
-      {/* Config section */}
-      <ConfigPanel
-        locations={locations.data ?? []}
-        vendors={vendors.data ?? []}
-        config={config}
-        onConfigChange={setConfig}
-        onCalcular={handleCalcular}
-        isLoading={isCalculating || isPolling}
-        isLocationsLoading={locations.isLoading}
-        isVendorsLoading={vendors.isLoading}
-      />
+      {/* Config section — disabled after approval */}
+      <div className={approvalState.status === "aprobado" ? "opacity-50 pointer-events-none" : ""}>
+        <ConfigPanel
+          locations={locations.data ?? []}
+          vendors={vendors.data ?? []}
+          config={config}
+          onConfigChange={setConfig}
+          onCalcular={handleCalcular}
+          isLoading={isCalculating || isPolling}
+          isLocationsLoading={locations.isLoading}
+          isVendorsLoading={vendors.isLoading}
+        />
+      </div>
 
       {/* Cache refresh progress bar */}
       {isPolling && (
@@ -221,7 +341,10 @@ export default function ReposicionesPage() {
               value={results.stats.out_of_stock}
               variant="warning"
             />
-            <StatCard label="Proveedores" value={results.stats.vendors_with_orders} />
+            <StatCard
+              label="Proveedores con pedidos"
+              value={Object.keys(generatedOrders).length || results.stats.vendors_with_orders}
+            />
           </div>
 
           {/* Editable suggestions table — APPR-02, APPR-03 */}
@@ -237,16 +360,79 @@ export default function ReposicionesPage() {
             }
           />
 
-          {/* Vendor summary reflecting edits and deletions — APPR-04 */}
+          {/* Approval section — APPR-05 */}
+          {draftId && approvalState.status === "none" && (
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+              <div>
+                <p className="font-medium">Aprobar Sugerido</p>
+                <p className="text-sm text-muted-foreground">
+                  {effectiveProducts.length} productos ·{" "}
+                  {new Set(effectiveProducts.map((p) => p.vendor)).size} proveedores
+                </p>
+              </div>
+              <Button
+                onClick={handleAprobar}
+                disabled={approveMutation.isPending || effectiveProducts.length === 0}
+              >
+                {approveMutation.isPending ? "Aprobando..." : "Aprobar Sugerido"}
+              </Button>
+            </div>
+          )}
+
+          {approvalState.status === "aprobado" && (
+            <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-0">
+                Aprobado
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                por {approvalState.approved_by} ·{" "}
+                {new Date(approvalState.approved_at).toLocaleString("es-CO", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </span>
+            </div>
+          )}
+
+          {/* Vendor summary with checkboxes — APPR-04, APPR-06 */}
           <VendorSummaryPanel
             products={results.products}
             overridesMap={overridesMap}
             deletedSkus={deletedSkus}
+            isApproved={approvalState.status === "aprobado"}
+            selectedVendors={selectedVendors}
+            onVendorToggle={handleVendorToggle}
+            ordersByVendor={Object.keys(generatedOrders).length > 0 ? generatedOrders : undefined}
+            sentVendors={sentVendors}
+            onMarkSent={handleMarkSent}
+            isMarkingSent={markingSentVendor}
           />
 
-          {/* Hidden: draft_id available for Phase 7 approval flow */}
-          {draftId && (
-            <input type="hidden" name="draft_id" value={draftId} />
+          {/* Generate orders — APPR-06 + ORD-01 */}
+          {approvalState.status === "aprobado" && Object.keys(generatedOrders).length === 0 && (
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={handleGenerarPedidos}
+                disabled={generateMutation.isPending || selectedVendors.size === 0}
+              >
+                {generateMutation.isPending
+                  ? "Generando..."
+                  : `Generar Pedidos (${selectedVendors.size} proveedor${selectedVendors.size === 1 ? "" : "es"})`}
+              </Button>
+            </div>
+          )}
+
+          {/* ZIP download — ORD-02, ORD-03 */}
+          {Object.keys(generatedOrders).length > 0 && (
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={handleDescargarZip}
+                disabled={exportMutation.isPending}
+              >
+                {exportMutation.isPending ? "Generando ZIP..." : "Descargar ZIP"}
+              </Button>
+            </div>
           )}
         </div>
       )}
