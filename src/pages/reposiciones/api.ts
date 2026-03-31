@@ -27,7 +27,12 @@ const API_BASE =
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(body?.detail ?? `Error del servidor (${response.status})`);
+    const detail = body?.detail;
+    const msg =
+      typeof detail === "string"
+        ? detail
+        : detail?.message ?? detail?.error ?? `Error del servidor (${response.status})`;
+    throw new Error(msg);
   }
   return response.json();
 }
@@ -62,7 +67,11 @@ export async function refreshSales(
         body.message || "Hay una operacion Bulk en curso en Shopify"
       );
     }
-    const errorMsg = body?.detail ?? `Error del servidor (${res.status})`;
+    const det = body?.detail;
+    const errorMsg =
+      typeof det === "string"
+        ? det
+        : det?.message ?? det?.error ?? `Error del servidor (${res.status})`;
     throw new Error(errorMsg);
   }
 
