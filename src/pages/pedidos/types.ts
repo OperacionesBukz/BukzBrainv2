@@ -18,8 +18,7 @@ export interface SedeInfo {
 export interface PedidosConfig {
   sedes: string[];
   sedes_info: Record<string, SedeInfo>;
-  proveedores_sedes: string[];
-  proveedores_ciudad: string[];
+  proveedores: string[];
   tipos: string[];
   meses: string[];
   ciudades: string[];

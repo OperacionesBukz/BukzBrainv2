@@ -124,7 +124,7 @@ export default function SedesTab() {
                   )}
                 </SelectTrigger>
                 <SelectContent>
-                  {config?.proveedores_sedes.map((p) => (
+                  {config?.proveedores.map((p) => (
                     <SelectItem key={p} value={p}>
                       {p}
                     </SelectItem>

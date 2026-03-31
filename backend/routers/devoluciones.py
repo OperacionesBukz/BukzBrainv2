@@ -177,21 +177,26 @@ INFO_CIUDAD: dict[str, dict[str, str]] = {
 
 
 def _get_suppliers_from_firestore() -> dict[str, list[str]]:
-    """Load active suppliers from Firestore, returning dict of empresa -> [emails].
+    """Load active suppliers from Firestore 'directory' collection.
 
     Falls back to the hardcoded PROVEEDORES_EMAIL if Firestore is unavailable.
     """
     try:
         db = get_firestore_db()
-        docs = db.collection("suppliers").where("estado", "==", "Activo").stream()
-        result = {}
+        docs = (
+            db.collection("directory")
+            .where("type", "==", "proveedor")
+            .where("estado", "==", "Activo")
+            .stream()
+        )
+        result: dict[str, list[str]] = {}
         for doc in docs:
             data = doc.to_dict()
             empresa = data.get("empresa", "")
             correo = data.get("correo", "")
             cc = data.get("correos_cc", [])
             if empresa and correo:
-                result[empresa] = [correo] + cc
+                result[empresa] = [correo] + [c for c in cc if c]
         return result
     except Exception as e:
         print(f"[devoluciones] Firestore error, using fallback: {e}")

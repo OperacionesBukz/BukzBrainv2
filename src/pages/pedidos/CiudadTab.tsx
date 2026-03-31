@@ -119,7 +119,7 @@ export default function CiudadTab() {
                   )}
                 </SelectTrigger>
                 <SelectContent>
-                  {config?.proveedores_ciudad.map((p) => (
+                  {config?.proveedores.map((p) => (
                     <SelectItem key={p} value={p}>
                       {p}
                     </SelectItem>
