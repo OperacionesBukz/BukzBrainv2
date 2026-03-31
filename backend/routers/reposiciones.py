@@ -27,6 +27,8 @@ _BULK_OP_STATE_DOC = "bulk_op_state"
 _SALES_CACHE_COLLECTION = "sales_cache"
 _SALES_CACHE_DOC = "6m_global"
 _CACHE_TTL_HOURS = 24
+_VENDORS_CACHE_DOC = "vendors_cache"
+_VENDORS_CACHE_TTL_HOURS = 12
 _JOB_STALE_SECONDS = 900  # 15 minutos — si running pero sin actualización, asumir muerto
 
 _reposiciones_job: dict = {
@@ -65,12 +67,42 @@ def get_locations():
 def get_vendors():
     """
     Devuelve lista de proveedores únicos desde productos de Shopify con conteo.
+    Usa cache en Firestore (TTL 12h) para evitar paginar miles de productos en cada request.
     Returns: [{"name": str, "product_count": int}, ...]
     """
+    db = _get_firestore()
+
+    # Check Firestore cache first
     try:
-        return shopify_service.get_vendors_from_shopify()
+        cache_ref = db.collection(_BULK_OP_COLLECTION).document(_VENDORS_CACHE_DOC)
+        cache_snap = cache_ref.get()
+        if cache_snap.exists:
+            cache_data = cache_snap.to_dict()
+            cached_at = cache_data.get("cached_at", "")
+            if cached_at:
+                cache_time = datetime.fromisoformat(cached_at)
+                if datetime.now(timezone.utc) - cache_time < timedelta(hours=_VENDORS_CACHE_TTL_HOURS):
+                    return cache_data.get("vendors", [])
+    except Exception:
+        pass  # Cache miss — fall through to Shopify
+
+    # Fetch from Shopify
+    try:
+        vendors = shopify_service.get_vendors_from_shopify()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo proveedores: {str(e)}")
+
+    # Save to cache (fire-and-forget)
+    try:
+        cache_ref.set({
+            "vendors": vendors,
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(vendors),
+        })
+    except Exception:
+        pass  # Non-critical
+
+    return vendors
 
 
 # ---------------------------------------------------------------------------
