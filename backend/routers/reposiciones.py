@@ -972,6 +972,19 @@ def mark_order_sent(order_id: str, sent_by: str):
     return MarkSentResponse(status="enviado", sent_at=now_str)
 
 
+# ─── ORD-05: DELETE /orders/{order_id} ────────────────────────────────────
+
+@router.delete("/orders/{order_id}")
+def delete_order(order_id: str):
+    """Elimina un pedido de reposición."""
+    db = _get_firestore()
+    doc_ref = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(order_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    doc_ref.delete()
+    return {"id": order_id, "message": "Pedido eliminado"}
+
+
 # ─── Pydantic models — Phase 8: Historial de Pedidos ──────────────────────
 
 class OrderListItem(BaseModel):

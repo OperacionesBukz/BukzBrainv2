@@ -195,6 +195,14 @@ export async function transitionOrderStatus(
   return handleResponse(res);
 }
 
+export async function deleteOrder(orderId: string): Promise<{ id: string; message: string }> {
+  const res = await resilientFetch(
+    `${API_BASE}/api/reposiciones/orders/${orderId}`,
+    { method: "DELETE" }
+  );
+  return handleResponse(res);
+}
+
 export async function exportSingleOrder(
   orderId: string
 ): Promise<SingleExportResponse> {

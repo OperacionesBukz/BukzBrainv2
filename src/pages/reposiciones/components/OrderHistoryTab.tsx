@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOrderHistory, useStatusTransition, useVendors } from "../hooks";
+import { useOrderHistory, useStatusTransition, useVendors, useDeleteOrder } from "../hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { StringDatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -20,7 +20,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ExpandableOrderRow from "./ExpandableOrderRow";
 import type { OrderHistoryFilters, OrderListItem } from "../types";
@@ -80,10 +90,12 @@ export default function OrderHistoryTab() {
 
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const vendors = useVendors();
   const { orders, isLoading, error } = useOrderHistory(filters);
   const transitionMutation = useStatusTransition();
+  const deleteMutation = useDeleteOrder();
 
   // ─── Sort toggle ────────────────────────────────────────────────────────────
 
@@ -130,6 +142,15 @@ export default function OrderHistoryTab() {
           toast.success(`Pedido marcado como ${newStatus}`),
       }
     );
+  }
+
+  // ─── Delete handler ─────────────────────────────────────────────────────────
+
+  function handleDelete() {
+    if (!deleteId) return;
+    deleteMutation.mutate(deleteId, {
+      onSettled: () => setDeleteId(null),
+    });
   }
 
   // ─── Filter helpers ─────────────────────────────────────────────────────────
@@ -192,26 +213,26 @@ export default function OrderHistoryTab() {
         {/* Date from */}
         <div className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">Desde</span>
-          <Input
-            type="date"
-            className="h-9 text-sm w-36"
+          <StringDatePicker
             value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))
+            onChange={(val) =>
+              setFilters((prev) => ({ ...prev, dateFrom: val }))
             }
+            placeholder="Seleccionar"
+            className="h-9 text-sm w-[160px]"
           />
         </div>
 
         {/* Date to */}
         <div className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">Hasta</span>
-          <Input
-            type="date"
-            className="h-9 text-sm w-36"
+          <StringDatePicker
             value={filters.dateTo}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, dateTo: e.target.value }))
+            onChange={(val) =>
+              setFilters((prev) => ({ ...prev, dateTo: val }))
             }
+            placeholder="Seleccionar"
+            className="h-9 text-sm w-[160px]"
           />
         </div>
 
@@ -290,6 +311,7 @@ export default function OrderHistoryTab() {
                     transitions={TRANSITIONS[order.status] ?? []}
                     onTransition={handleTransition}
                     isTransitioning={transitionMutation.isPending}
+                    onDelete={(id) => setDeleteId(id)}
                   />
                 ))
               )}
@@ -298,6 +320,27 @@ export default function OrderHistoryTab() {
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar pedido</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta accion no se puede deshacer. El pedido sera eliminado permanentemente del historial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

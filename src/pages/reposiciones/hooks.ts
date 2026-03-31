@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   exportSingleOrder,
   downloadExcelFromBase64,
   getOrderList,
+  deleteOrder,
 } from "./api";
 import type {
   ReplenishmentConfig,
@@ -333,6 +334,20 @@ export function useExportSingleOrder() {
     },
     onError: (err: Error) => {
       toast.error(err.message || "Error descargando Excel");
+    },
+  });
+}
+
+export function useDeleteOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) => deleteOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reposiciones", "order-history"] });
+      toast.success("Pedido eliminado");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Error al eliminar pedido");
     },
   });
 }

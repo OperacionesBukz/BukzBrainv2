@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { useOrderDetail, useExportSingleOrder } from "../hooks";
 import type { OrderListItem } from "../types";
 
@@ -26,6 +26,7 @@ interface ExpandableOrderRowProps {
   transitions: { label: string; value: string }[];
   onTransition: (orderId: string, newStatus: string) => void;
   isTransitioning: boolean;
+  onDelete: (orderId: string) => void;
 }
 
 // ─── Date formatter ───────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ export default function ExpandableOrderRow({
   transitions,
   onTransition,
   isTransitioning,
+  onDelete,
 }: ExpandableOrderRowProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -83,7 +85,7 @@ export default function ExpandableOrderRow({
 
           {/* Acciones */}
           <TableCell>
-            <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+            <div className="flex gap-1 flex-wrap items-center" onClick={(e) => e.stopPropagation()}>
               {transitions.map((t) => (
                 <Button
                   key={t.value}
@@ -99,6 +101,17 @@ export default function ExpandableOrderRow({
                   {t.label}
                 </Button>
               ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(order.order_id);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </TableCell>
 
