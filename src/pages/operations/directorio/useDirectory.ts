@@ -66,15 +66,17 @@ export function useDirectory() {
   const updateEntry = async (
     id: string,
     updates: Partial<Omit<DirectoryEntry, "id" | "createdAt" | "createdBy">>
-  ) => {
+  ): Promise<boolean> => {
     try {
       await updateDoc(doc(db, "directory", id), {
         ...updates,
         updatedAt: serverTimestamp(),
       });
+      return true;
     } catch (error) {
       console.error("Error updating directory entry:", error);
       toast.error("Error al actualizar registro");
+      return false;
     }
   };
 

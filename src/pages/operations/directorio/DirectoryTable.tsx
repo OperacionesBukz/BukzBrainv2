@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { STATUS_CONFIG, DIRECTORY_STATUSES, isPerson } from "./types";
 import type {
@@ -92,6 +93,7 @@ export default function DirectoryTable({
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [transferEntry, setTransferEntry] = useState<PersonEntry | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const splitFullName = (full: string) => {
@@ -267,13 +269,13 @@ export default function DirectoryTable({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="overflow-x-auto rounded-lg border">
-        <Table className="table-fixed">
+        <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
               {isPersonType ? (
                 <>
                   <TableHead>Nombre</TableHead>
-                  <TableHead className="w-[130px]">Cédula</TableHead>
+                  <TableHead className="w-auto whitespace-nowrap">Cédula</TableHead>
                   <TableHead className="w-[130px]">Celular</TableHead>
                   <TableHead>Correo</TableHead>
                 </>
@@ -492,6 +494,17 @@ export default function DirectoryTable({
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
+                      {isPerson(entry) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                          onClick={() => setTransferEntry(entry)}
+                          title={entry.type === "empleado" ? "Pasar a Temporales" : "Pasar a Empleados"}
+                        >
+                          <ArrowRightLeft className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -532,6 +545,52 @@ export default function DirectoryTable({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={transferEntry !== null}
+        onOpenChange={(open) => !open && setTransferEntry(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Transferir registro</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Mover a{" "}
+              <span className="font-semibold text-foreground">
+                {transferEntry
+                  ? `${transferEntry.nombre} ${transferEntry.apellido}`.trim()
+                  : ""}
+              </span>{" "}
+              a{" "}
+              <span className="font-semibold text-foreground">
+                {transferEntry?.type === "empleado"
+                  ? "Temporales"
+                  : "Empleados"}
+              </span>
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (transferEntry) {
+                  const targetType =
+                    transferEntry.type === "empleado" ? "temporal" : "empleado";
+                  const ok = await onUpdate(transferEntry.id, { type: targetType });
+                  if (ok) {
+                    toast.success(
+                      `Registro movido a ${targetType === "empleado" ? "Empleados" : "Temporales"}`
+                    );
+                  }
+                }
+                setTransferEntry(null);
+              }}
+            >
+              Transferir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
