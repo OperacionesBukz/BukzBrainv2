@@ -110,8 +110,9 @@ export default function VendorMultiSelect({
               <div className="flex items-center gap-2 w-full">
                 <Checkbox
                   checked={isTodos}
-                  onCheckedChange={toggleAll}
                   aria-label="Seleccionar todos los proveedores"
+                  tabIndex={-1}
+                  className="pointer-events-none"
                 />
                 <span className="font-medium">
                   {isTodos ? "Deseleccionar Todos" : "Seleccionar Todos"}
@@ -133,8 +134,9 @@ export default function VendorMultiSelect({
                   <div className="flex items-center gap-2 w-full">
                     <Checkbox
                       checked={checked}
-                      onCheckedChange={() => toggleVendor(vendor.name)}
                       aria-label={`Seleccionar proveedor ${vendor.name}`}
+                      tabIndex={-1}
+                      className="pointer-events-none"
                     />
                     <span className="flex-1 truncate">{vendor.name}</span>
                     <span className="text-xs text-muted-foreground">
