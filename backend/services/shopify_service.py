@@ -133,8 +133,7 @@ def get_locations() -> dict:
                     result = {}
                     for edge in edges:
                         node = edge["node"]
-                        loc_id = int(node["id"].split("/")[-1])
-                        result[node["name"]] = loc_id
+                        result[node["name"]] = node["id"]
                     print(f"[LOCATIONS] GraphQL OK: {len(result)} locations", flush=True)
                     return result
             gql_errors = body.get("errors", [])
@@ -155,7 +154,7 @@ def get_locations() -> dict:
         print(f"[LOCATIONS] REST response: {response.status_code}", flush=True)
         if response.status_code == 200:
             locations_data = response.json().get("locations", [])
-            result = {loc["name"]: loc["id"] for loc in locations_data}
+            result = {loc["name"]: f"gid://shopify/Location/{loc['id']}" for loc in locations_data}
             print(f"[LOCATIONS] REST OK: {len(result)} locations", flush=True)
             return result
         errors.append(f"REST HTTP {response.status_code}: {response.text[:200]}")
