@@ -520,12 +520,19 @@ def sales_data():
 _REPLENISHMENT_ORDERS_COLLECTION = "replenishment_orders"
 
 # ---------------------------------------------------------------------------
-# Calculation Job State (async calculation)
+# Calculation Job State (persisted in Firestore for multi-worker support)
 # ---------------------------------------------------------------------------
 import uuid
 
-_calc_jobs: dict[str, dict] = {}
-_calc_jobs_lock = threading.Lock()
+_CALC_JOBS_COLLECTION = "reposiciones_meta"
+
+
+def _calc_job_ref(job_id: str):
+    return _get_firestore().collection(_CALC_JOBS_COLLECTION).document(f"calc_job_{job_id}")
+
+
+def _update_calc_job(job_id: str, data: dict):
+    _calc_job_ref(job_id).set(data, merge=True)
 
 
 def _run_calculation_job(job_id: str, body_dict: dict):
@@ -533,11 +540,8 @@ def _run_calculation_job(job_id: str, body_dict: dict):
     from services.reposicion_service import calculate_replenishment as _calc_repl
     from datetime import date as date_type
 
-    def _update(step: str, progress: int | None = None):
-        with _calc_jobs_lock:
-            _calc_jobs[job_id]["step"] = step
-            if progress is not None:
-                _calc_jobs[job_id]["progress"] = progress
+    def _update(step: str, progress: int):
+        _update_calc_job(job_id, {"step": step, "progress": progress})
 
     try:
         db = _get_firestore()
@@ -558,28 +562,16 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             raise Exception(f"Error obteniendo inventario de Shopify: {str(e)}")
 
         if not inventory_items:
-            with _calc_jobs_lock:
-                _calc_jobs[job_id].update({
-                    "status": "completed",
-                    "step": "done",
-                    "progress": 100,
-                    "result": {
-                        "products": [],
-                        "vendor_summary": [],
-                        "stats": {
-                            "total_products": 0,
-                            "needs_replenishment": 0,
-                            "urgent": 0,
-                            "out_of_stock": 0,
-                            "vendors_with_orders": 0,
-                        },
-                        "draft_id": f"empty_{int(time.time())}",
-                    },
-                })
+            _update_calc_job(job_id, {
+                "status": "completed",
+                "step": "done",
+                "progress": 100,
+                "draft_id": f"empty_{int(time.time())}",
+                "product_count": 0,
+            })
             return
 
         _update("sales_cache", 40)
-        # Step 2: Sales cache
         sales_data, cache_meta = _load_sales_cache_data(db)
 
         today = datetime.now(timezone.utc).date()
@@ -591,11 +583,9 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             cache_start = requested_start
         effective_start = max(requested_start, cache_start)
 
-        # Step 3: Pending orders
         _update("pending_orders", 60)
         pending_orders_map = _load_pending_orders_map(db)
 
-        # Step 4: Calculate
         _update("calculating", 75)
         params = {
             "lead_time_days": lead_time_days,
@@ -611,7 +601,6 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             params=params,
         )
 
-        # Step 5: Persist draft
         _update("saving", 90)
         request_params = {
             "location_id": location_id,
@@ -621,21 +610,20 @@ def _run_calculation_job(job_id: str, body_dict: dict):
             "date_range_days": date_range_days,
         }
         draft_id = _persist_draft(db, result, request_params)
-        result["draft_id"] = draft_id
 
-        with _calc_jobs_lock:
-            _calc_jobs[job_id].update({
-                "status": "completed",
-                "step": "done",
-                "progress": 100,
-                "result": result,
-            })
+        # Store result in the draft doc (already in Firestore), just mark job done
+        _update_calc_job(job_id, {
+            "status": "completed",
+            "step": "done",
+            "progress": 100,
+            "draft_id": draft_id,
+            "product_count": len(result.get("products", [])),
+        })
     except Exception as e:
-        with _calc_jobs_lock:
-            _calc_jobs[job_id].update({
-                "status": "failed",
-                "error": str(e),
-            })
+        _update_calc_job(job_id, {
+            "status": "failed",
+            "error": str(e),
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -790,15 +778,12 @@ def calculate_replenishment_endpoint(body: CalculateRequest):
     Devuelve job_id para consultar progreso via GET /calculate/{job_id}.
     """
     job_id = str(uuid.uuid4())[:8]
-    with _calc_jobs_lock:
-        _calc_jobs[job_id] = {
-            "status": "running",
-            "step": "starting",
-            "progress": 0,
-            "error": None,
-            "result": None,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-        }
+    _update_calc_job(job_id, {
+        "status": "running",
+        "step": "starting",
+        "progress": 0,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    })
     thread = threading.Thread(
         target=_run_calculation_job,
         args=(job_id, body.model_dump()),
@@ -811,27 +796,42 @@ def calculate_replenishment_endpoint(body: CalculateRequest):
 @router.get("/calculate/{job_id}")
 def get_calculation_status(job_id: str):
     """Consulta progreso/resultado de un cálculo asíncrono."""
-    with _calc_jobs_lock:
-        job = _calc_jobs.get(job_id)
-    if not job:
+    doc = _calc_job_ref(job_id).get()
+    if not doc.exists:
         raise HTTPException(status_code=404, detail="Job no encontrado")
 
-    if job["status"] == "completed":
-        result = job["result"]
-        # Clean up job from memory
-        with _calc_jobs_lock:
-            _calc_jobs.pop(job_id, None)
+    job = doc.to_dict()
+    status = job.get("status", "running")
+
+    if status == "completed":
+        draft_id = job.get("draft_id", "")
+        # Load result from the draft document
+        db = _get_firestore()
+        draft_doc = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(draft_id).get()
+        if not draft_doc.exists:
+            # Empty result
+            return CalculateResponse(
+                products=[],
+                vendor_summary=[],
+                stats=ReplenishmentStats(
+                    total_products=0, needs_replenishment=0,
+                    urgent=0, out_of_stock=0, vendors_with_orders=0,
+                ),
+                draft_id=draft_id,
+            )
+        draft_data = draft_doc.to_dict()
+        # Clean up job doc
+        _calc_job_ref(job_id).delete()
         return CalculateResponse(
-            products=[ProductAnalysis(**p) for p in result["products"]],
-            vendor_summary=[VendorSummary(**v) for v in result["vendor_summary"]],
-            stats=ReplenishmentStats(**result["stats"]),
-            draft_id=result["draft_id"],
+            products=[ProductAnalysis(**p) for p in draft_data.get("products", [])],
+            vendor_summary=[VendorSummary(**v) for v in draft_data.get("vendor_summary", [])],
+            stats=ReplenishmentStats(**draft_data.get("stats", {})),
+            draft_id=draft_id,
         )
 
-    if job["status"] == "failed":
+    if status == "failed":
         error = job.get("error", "Error desconocido")
-        with _calc_jobs_lock:
-            _calc_jobs.pop(job_id, None)
+        _calc_job_ref(job_id).delete()
         raise HTTPException(status_code=500, detail=error)
 
     # Still running
