@@ -807,7 +807,9 @@ def calculate_replenishment_endpoint(body: CalculateRequest):
     Devuelve job_id para consultar progreso via GET /calculate/{job_id}.
     """
     job_id = str(uuid.uuid4())[:8]
-    _update_calc_job(job_id, {
+    # Write synchronously and wait for Firestore confirmation before returning
+    db = _get_firestore()
+    db.collection(_CALC_JOBS_COLLECTION).document(f"calc_job_{job_id}").set({
         "status": "running",
         "step": "starting",
         "progress": 0,
@@ -827,7 +829,8 @@ def get_calculation_status(job_id: str):
     """Consulta progreso/resultado de un cálculo asíncrono."""
     doc = _calc_job_ref(job_id).get()
     if not doc.exists:
-        raise HTTPException(status_code=404, detail="Job no encontrado")
+        # Job doc may not be visible yet (Firestore eventual consistency) — tell client to retry
+        return {"status": "running", "step": "starting", "progress": 0}
 
     job = doc.to_dict()
     status = job.get("status", "running")
@@ -837,7 +840,6 @@ def get_calculation_status(job_id: str):
         db = _get_firestore()
         draft_doc = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(draft_id).get()
         if not draft_doc.exists:
-            _calc_job_ref(job_id).delete()
             return CalculateResponse(
                 products=[],
                 vendor_summary=[],
@@ -849,7 +851,11 @@ def get_calculation_status(job_id: str):
             )
         draft_data = draft_doc.to_dict()
         products = _load_draft_products(db, draft_id)
-        _calc_job_ref(job_id).delete()
+        # Cleanup job doc asynchronously
+        try:
+            _calc_job_ref(job_id).delete()
+        except Exception:
+            pass
         return CalculateResponse(
             products=[ProductAnalysis(**p) for p in products],
             vendor_summary=[VendorSummary(**v) for v in draft_data.get("vendor_summary", [])],
@@ -859,7 +865,10 @@ def get_calculation_status(job_id: str):
 
     if status == "failed":
         error = job.get("error", "Error desconocido")
-        _calc_job_ref(job_id).delete()
+        try:
+            _calc_job_ref(job_id).delete()
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=error)
 
     # Still running
