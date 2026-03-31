@@ -50,7 +50,7 @@ interface DirectoryTableProps {
   isAdmin: boolean;
 }
 
-type PersonField = "nombre" | "apellido" | "cedula" | "celular" | "correo";
+type PersonField = "nombre" | "cedula" | "celular" | "correo";
 type SupplierField = "empresa" | "razonSocial" | "nit" | "margen" | "correo";
 type EditableField = PersonField | SupplierField;
 
@@ -60,8 +60,7 @@ interface EditingCell {
 }
 
 const emptyPerson = {
-  nombre: "",
-  apellido: "",
+  nombreCompleto: "",
   cedula: "",
   celular: "",
   correo: "",
@@ -95,14 +94,22 @@ export default function DirectoryTable({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const splitFullName = (full: string) => {
+    const parts = full.trim().split(/\s+/);
+    if (parts.length <= 1) return { nombre: parts[0] || "", apellido: "" };
+    const mid = Math.ceil(parts.length / 2);
+    return { nombre: parts.slice(0, mid).join(" "), apellido: parts.slice(mid).join(" ") };
+  };
+
   const handleAddRow = async () => {
     if (isPersonType) {
       const p = newRow as typeof emptyPerson;
-      if (!p.nombre.trim() || !p.apellido.trim()) return;
+      if (!p.nombreCompleto.trim()) return;
+      const { nombre, apellido } = splitFullName(p.nombreCompleto);
       await onAdd({
         type,
-        nombre: p.nombre.trim(),
-        apellido: p.apellido.trim(),
+        nombre,
+        apellido,
         cedula: p.cedula.trim(),
         celular: p.celular.trim(),
         correo: p.correo.trim(),
@@ -138,6 +145,19 @@ export default function DirectoryTable({
     if (!editingCell) return;
     const entry = entries.find((e) => e.id === editingCell.entryId);
     if (!entry) return;
+
+    // For "nombre" field on persons, we edit the full name and split back
+    if (editingCell.field === "nombre" && isPerson(entry)) {
+      const currentFull = `${entry.nombre} ${entry.apellido}`.trim();
+      if (editValue.trim() === currentFull) {
+        setEditingCell(null);
+        return;
+      }
+      const { nombre, apellido } = splitFullName(editValue);
+      await onUpdate(editingCell.entryId, { nombre, apellido });
+      setEditingCell(null);
+      return;
+    }
 
     const currentValue = String(
       (entry as Record<string, unknown>)[editingCell.field] ?? ""
@@ -242,7 +262,7 @@ export default function DirectoryTable({
     );
   };
 
-  const colCount = isPersonType ? 7 : 7;
+  const colCount = isPersonType ? 6 : 7;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -253,7 +273,6 @@ export default function DirectoryTable({
               {isPersonType ? (
                 <>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Apellido</TableHead>
                   <TableHead className="w-[130px]">Cédula</TableHead>
                   <TableHead className="w-[130px]">Celular</TableHead>
                   <TableHead>Correo</TableHead>
@@ -277,21 +296,10 @@ export default function DirectoryTable({
                   <>
                     <TableHead className="p-1">
                       <Input
-                        placeholder="Nombre"
-                        value={(newRow as typeof emptyPerson).nombre}
+                        placeholder="Nombre completo"
+                        value={(newRow as typeof emptyPerson).nombreCompleto}
                         onChange={(e) =>
-                          setNewRow((r) => ({ ...r, nombre: e.target.value }))
-                        }
-                        onKeyDown={(e) => e.key === "Enter" && handleAddRow()}
-                        className="h-7 text-xs"
-                      />
-                    </TableHead>
-                    <TableHead className="p-1">
-                      <Input
-                        placeholder="Apellido"
-                        value={(newRow as typeof emptyPerson).apellido}
-                        onChange={(e) =>
-                          setNewRow((r) => ({ ...r, apellido: e.target.value }))
+                          setNewRow((r) => ({ ...r, nombreCompleto: e.target.value }))
                         }
                         onKeyDown={(e) => e.key === "Enter" && handleAddRow()}
                         className="h-7 text-xs"
@@ -430,10 +438,7 @@ export default function DirectoryTable({
                 {isPerson(entry) ? (
                   <>
                     <TableCell className="text-sm font-medium">
-                      {renderEditableCell(entry, "nombre", entry.nombre)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {renderEditableCell(entry, "apellido", entry.apellido)}
+                      {renderEditableCell(entry, "nombre", `${entry.nombre} ${entry.apellido}`.trim())}
                     </TableCell>
                     <TableCell className="text-sm">
                       {renderEditableCell(entry, "cedula", entry.cedula)}

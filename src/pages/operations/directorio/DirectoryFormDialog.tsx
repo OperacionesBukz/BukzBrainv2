@@ -31,8 +31,7 @@ interface DirectoryFormDialogProps {
 }
 
 const initialPerson = {
-  nombre: "",
-  apellido: "",
+  nombreCompleto: "",
   cedula: "",
   celular: "",
   correo: "",
@@ -68,8 +67,7 @@ export default function DirectoryFormDialog({
       if (isPersonType && "nombre" in entry) {
         const p = entry as PersonEntry;
         setPersonForm({
-          nombre: p.nombre,
-          apellido: p.apellido,
+          nombreCompleto: `${p.nombre} ${p.apellido}`.trim(),
           cedula: p.cedula,
           celular: p.celular,
           correo: p.correo,
@@ -93,13 +91,21 @@ export default function DirectoryFormDialog({
     }
   }, [entry, open, isPersonType]);
 
+  const splitFullName = (full: string) => {
+    const parts = full.trim().split(/\s+/);
+    if (parts.length <= 1) return { nombre: parts[0] || "", apellido: "" };
+    const mid = Math.ceil(parts.length / 2);
+    return { nombre: parts.slice(0, mid).join(" "), apellido: parts.slice(mid).join(" ") };
+  };
+
   const handleSubmit = async () => {
     if (isPersonType) {
-      if (!personForm.nombre.trim() || !personForm.apellido.trim()) return;
+      if (!personForm.nombreCompleto.trim()) return;
+      const { nombre, apellido } = splitFullName(personForm.nombreCompleto);
       const data = {
         type,
-        nombre: personForm.nombre.trim(),
-        apellido: personForm.apellido.trim(),
+        nombre,
+        apellido,
         cedula: personForm.cedula.trim(),
         celular: personForm.celular.trim(),
         correo: personForm.correo.trim(),
@@ -155,30 +161,15 @@ export default function DirectoryFormDialog({
         <div className="space-y-4 pt-2">
           {isPersonType ? (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Nombre *</label>
-                  <Input
-                    value={personForm.nombre}
-                    onChange={(e) =>
-                      setPersonForm((f) => ({ ...f, nombre: e.target.value }))
-                    }
-                    placeholder="Nombre"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Apellido *</label>
-                  <Input
-                    value={personForm.apellido}
-                    onChange={(e) =>
-                      setPersonForm((f) => ({
-                        ...f,
-                        apellido: e.target.value,
-                      }))
-                    }
-                    placeholder="Apellido"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nombre completo *</label>
+                <Input
+                  value={personForm.nombreCompleto}
+                  onChange={(e) =>
+                    setPersonForm((f) => ({ ...f, nombreCompleto: e.target.value }))
+                  }
+                  placeholder="Nombre completo"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Cédula</label>

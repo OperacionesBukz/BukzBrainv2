@@ -26,8 +26,7 @@ export function exportDirectory(
 
   if (isPersonType) {
     data = (entries.filter(isPerson) as PersonEntry[]).map((e) => ({
-      Nombre: e.nombre,
-      Apellido: e.apellido,
+      Nombre: `${e.nombre} ${e.apellido}`.trim(),
       "Cédula": e.cedula,
       Celular: e.celular,
       Correo: e.correo,
