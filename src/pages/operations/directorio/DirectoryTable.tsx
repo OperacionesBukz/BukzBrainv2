@@ -59,11 +59,11 @@ interface DirectoryTableProps {
 }
 
 type PersonField = "nombre" | "cedula" | "celular" | "correo";
-type SupplierField = "empresa" | "razonSocial" | "nit" | "margen" | "correo";
+type SupplierField = "empresa" | "razonSocial" | "nit" | "margen" | "correo" | "observaciones";
 type EditableField = PersonField | SupplierField;
 
 type SortKey = "nombre" | "cedula" | "celular" | "correo" | "tipo" | "estado"
-  | "empresa" | "razonSocial" | "nit" | "margen";
+  | "empresa" | "razonSocial" | "nit" | "margen" | "observaciones";
 type SortDir = "asc" | "desc";
 
 interface EditingCell {
@@ -87,6 +87,7 @@ const emptySupplier = {
   margen: "",
   correo: "",
   correos_cc: "",
+  observaciones: "",
   estado: "Activo" as DirectoryStatus,
 };
 
@@ -197,6 +198,7 @@ export default function DirectoryTable({
           .split(";")
           .map((v: string) => v.trim())
           .filter(Boolean),
+        observaciones: s.observaciones.trim(),
         estado: s.estado,
       } as Omit<SupplierEntry, "id" | "createdBy" | "createdAt" | "updatedAt">);
       setNewRow({ ...emptySupplier });
@@ -375,7 +377,7 @@ export default function DirectoryTable({
     );
   };
 
-  const colCount = isPersonType ? 8 : 7;
+  const colCount = isPersonType ? 8 : 8;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -399,6 +401,7 @@ export default function DirectoryTable({
                   <SortableHead label="NIT" sortField="nit" className="w-[150px]" />
                   <SortableHead label="Margen %" sortField="margen" className="w-[100px]" />
                   <SortableHead label="Correo" sortField="correo" />
+                  <SortableHead label="Observaciones" sortField="observaciones" />
                 </>
               )}
               <SortableHead label="Estado" sortField="estado" className="w-[100px]" />
@@ -534,6 +537,17 @@ export default function DirectoryTable({
                         className="h-7 text-xs"
                       />
                     </TableHead>
+                    <TableHead className="p-1">
+                      <Input
+                        placeholder="Observaciones"
+                        value={(newRow as typeof emptySupplier).observaciones}
+                        onChange={(e) =>
+                          setNewRow((r) => ({ ...r, observaciones: e.target.value }))
+                        }
+                        onKeyDown={(e) => e.key === "Enter" && handleAddRow()}
+                        className="h-7 text-xs"
+                      />
+                    </TableHead>
                   </>
                 )}
                 <TableHead className="p-1">
@@ -631,6 +645,9 @@ export default function DirectoryTable({
                         </TableCell>
                         <TableCell className="text-sm">
                           {renderEditableCell(entry, "correo", entry.correo || "")}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {renderEditableCell(entry, "observaciones", entry.observaciones || "")}
                         </TableCell>
                       </>
                     )}

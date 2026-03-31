@@ -40,6 +40,7 @@ export function exportDirectory(
       "Margen %": e.margen,
       Correo: e.correo || "",
       "Correos CC": (e.correos_cc || []).join("; "),
+      Observaciones: e.observaciones || "",
       Estado: e.estado,
     }));
   }
@@ -67,6 +68,7 @@ export interface ParsedSupplierRow {
   margen: number;
   correo: string;
   correos_cc: string[];
+  observaciones: string;
 }
 
 export interface ParseError {
@@ -119,6 +121,7 @@ const SUPPLIER_COLUMN_MAP: Record<string, keyof ParsedSupplierRow> = {
   correo: "correo",
   email: "correo",
   "correos cc": "correos_cc",
+  observaciones: "observaciones",
 };
 
 function normalizeHeader(header: string): string {
@@ -281,6 +284,7 @@ export async function parseSupplierExcel(
         .split(";")
         .map((s: string) => s.trim())
         .filter(Boolean),
+      observaciones: mapped.observaciones || "",
     });
   });
 

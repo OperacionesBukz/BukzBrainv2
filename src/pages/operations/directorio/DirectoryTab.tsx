@@ -112,6 +112,7 @@ export default function DirectoryTab({
         if (row.nit) updates.nit = row.nit;
         if (row.correo) updates.correo = row.correo;
         if (row.correos_cc?.length) updates.correos_cc = row.correos_cc;
+        if (row.observaciones) updates.observaciones = row.observaciones;
         if (Object.keys(updates).length > 0) {
           await updateEntry(existing.id, updates);
           updated++;
@@ -125,6 +126,7 @@ export default function DirectoryTab({
           margen: row.margen,
           correo: row.correo,
           correos_cc: row.correos_cc || [],
+          observaciones: row.observaciones || "",
           estado: "Activo",
         });
         created++;

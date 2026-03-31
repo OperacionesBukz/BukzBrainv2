@@ -140,7 +140,7 @@ export default function DirectoryImportDialog({
 
   const columnsHint = isPersonType
     ? "Nombre, Apellido, Cédula, Celular, Correo"
-    : "Empresa, Razón Social, NIT, Margen, Correo, Correos CC";
+    : "Empresa, Razón Social, NIT, Margen, Correo, Correos CC, Observaciones";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
