@@ -1,4 +1,7 @@
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useState } from "react";
+import { Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { doc, deleteDoc } from "firebase/firestore";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -8,6 +11,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePedidosLog } from "./hooks";
 
 function formatDate(ts: { seconds?: number } | null | undefined): string {
@@ -23,6 +39,24 @@ function formatDate(ts: { seconds?: number } | null | undefined): string {
 
 export default function HistorialTab() {
   const { logs, loading } = usePedidosLog();
+  const { isAdmin } = useAuth();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, "pedidos_log", deleteId));
+      toast.success("Registro eliminado");
+    } catch (e) {
+      toast.error("Error al eliminar registro");
+      console.error(e);
+    } finally {
+      setDeleting(false);
+      setDeleteId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -54,6 +88,7 @@ export default function HistorialTab() {
             <TableHead>Mes / Año</TableHead>
             <TableHead>Enviado por</TableHead>
             <TableHead>Fecha</TableHead>
+            {isAdmin && <TableHead className="w-[50px]" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -83,10 +118,44 @@ export default function HistorialTab() {
               <TableCell className="text-muted-foreground whitespace-nowrap">
                 {formatDate(log.creadoEn as { seconds?: number } | null)}
               </TableCell>
+              {isAdmin && (
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeleteId(log.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar registro</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar este registro del historial? Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

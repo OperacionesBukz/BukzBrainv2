@@ -98,6 +98,14 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // ─── Pedidos Log ─────────────────────────────────────────
+    // Historial de pedidos enviados a proveedores.
+    // Cualquier usuario autenticado puede leer y crear.
+    match /pedidos_log/{logId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
     // ─── Devoluciones Log ─────────────────────────────────────
     // Historial de envíos de devoluciones. Lectura abierta, escritura solo admin/backend.
     match /devoluciones_log/{logId} {
