@@ -89,7 +89,6 @@ const CMV = () => {
               onSalesFileSelected={setSalesFile}
               onNotesFileSelected={setNotesFile}
               onProcess={process}
-              onImportCompleted={importCompleted}
             />
           )}
 
@@ -110,6 +109,7 @@ const CMV = () => {
               totals={state.totals}
               onExport={handleExport}
               onSaveHistory={handleSaveHistory}
+              onImportCompleted={importCompleted}
               onReset={reset}
             />
           )}

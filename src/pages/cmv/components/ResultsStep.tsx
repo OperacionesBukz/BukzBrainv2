@@ -16,7 +16,7 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { Download, Save, RotateCcw } from "lucide-react";
+import { Download, Save, RotateCcw, Upload } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -26,6 +26,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { Separator } from "@/components/ui/separator";
+import FileUploadZone from "@/pages/ingreso/FileUploadZone";
 import { SummaryCards } from "./SummaryCards";
 import { CmvTable } from "./CmvTable";
 import type { CmvProduct, CmvTotals, VendorBreakdown } from "../types";
@@ -35,6 +37,7 @@ interface ResultsStepProps {
   totals: CmvTotals;
   onExport: (month: number, year: number) => void;
   onSaveHistory: (month: number, year: number) => void;
+  onImportCompleted: (file: File) => void;
   onReset: () => void;
 }
 
@@ -55,6 +58,7 @@ export function ResultsStep({
   totals,
   onExport,
   onSaveHistory,
+  onImportCompleted,
   onReset,
 }: ResultsStepProps) {
   const now = new Date();
@@ -258,15 +262,49 @@ export function ResultsStep({
           <Download className="h-4 w-4 mr-2" />
           Exportar a Excel
         </Button>
-        <Button variant="outline" onClick={() => onSaveHistory(month, year)}>
-          <Save className="h-4 w-4 mr-2" />
-          Guardar en Historial
-        </Button>
+        {hasCostData && (
+          <Button variant="outline" onClick={() => onSaveHistory(month, year)}>
+            <Save className="h-4 w-4 mr-2" />
+            Guardar en Historial
+          </Button>
+        )}
         <Button variant="ghost" onClick={onReset}>
           <RotateCcw className="h-4 w-4 mr-2" />
           Nuevo Procesamiento
         </Button>
       </div>
+
+      {/* Siguiente paso: importar CMV completado (solo si aún no tiene costos) */}
+      {!hasCostData && (
+        <>
+          <div className="flex items-center gap-4">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground uppercase">siguiente paso</span>
+            <Separator className="flex-1" />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Upload className="h-5 w-5" />
+                Importar CMV completado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Descarga el Excel, llena las columnas <strong>Descuento</strong> (BUKZ / PROVEEDOR / VACIO) y <strong>Margen</strong>, y vuelve a subirlo aquí. El sistema calculará el costo automáticamente.
+              </p>
+              <FileUploadZone
+                title="CMV con Descuento y Margen"
+                hint="Sube el Excel con las columnas Descuento y Margen llenadas"
+                accept=".xlsx,.xls"
+                isLoaded={false}
+                onFileSelected={onImportCompleted}
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
