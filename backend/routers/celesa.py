@@ -75,6 +75,16 @@ def _gql(query: str, variables: dict | None = None, timeout: int = 30, _retries:
     resp.raise_for_status()
     body = resp.json()
     if "errors" in body:
+        # Shopify GraphQL returns THROTTLED as HTTP 200 with error in body
+        is_throttled = any(
+            e.get("extensions", {}).get("code") == "THROTTLED"
+            for e in body["errors"]
+        )
+        if is_throttled:
+            if _retries <= 0:
+                raise RuntimeError("Shopify API throttled tras múltiples reintentos")
+            time.sleep(2.0)
+            return _gql(query, variables, timeout, _retries - 1)
         raise RuntimeError(f"GraphQL errors: {body['errors']}")
     return body["data"]
 
