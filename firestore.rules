@@ -202,5 +202,16 @@ service cloud.firestore {
     match /cmv_history/{docId} {
       allow read, write: if isAuthenticated();
     }
+
+    // ─── Product Catalog (Shopify SKU→vendor mapping) ─────────────────────
+    match /product_catalog/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+
+      match /chunks/{chunkId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+      }
+    }
   }
 }

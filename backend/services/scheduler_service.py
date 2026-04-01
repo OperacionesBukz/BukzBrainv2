@@ -15,12 +15,17 @@ INVENTORY_CACHE_COLLECTION = "inventory_cache"
 INVENTORY_CACHE_TTL_HOURS = 2
 SALES_PRE_REFRESH_THRESHOLD_HOURS = 20
 INVENTORY_REFRESH_INTERVAL_HOURS = 4
+PRODUCT_CATALOG_COLLECTION = "product_catalog"
+PRODUCT_CATALOG_DOC = "global"
+PRODUCT_CATALOG_TTL_HOURS = 24
 
 # ── Module state ──
 _scheduler = None
 _scheduler_lock = threading.Lock()
 _inventory_refreshing = False
 _inventory_refresh_lock = threading.Lock()
+_catalog_refreshing = False
+_catalog_refresh_lock = threading.Lock()
 
 
 def _get_firestore():
@@ -155,6 +160,115 @@ def refresh_all_inventory_caches():
     finally:
         with _inventory_refresh_lock:
             _inventory_refreshing = False
+
+
+# ── Product Catalog Cache: Write ──
+
+def write_product_catalog(items: list[dict]):
+    """
+    Escribe catálogo de productos (SKU→vendor+title) en Firestore.
+    Si >8000 items, usa chunking en subcollection.
+    """
+    db = _get_firestore()
+    doc_ref = db.collection(PRODUCT_CATALOG_COLLECTION).document(PRODUCT_CATALOG_DOC)
+
+    meta = {
+        "cached_at": datetime.now(timezone.utc).isoformat(),
+        "sku_count": len(items),
+        "status": "ready",
+    }
+
+    if len(items) <= 8000:
+        meta["chunked"] = False
+        meta["data"] = items
+        doc_ref.set(meta)
+    else:
+        meta["chunked"] = True
+        doc_ref.set(meta)
+        # Borrar chunks anteriores
+        old_chunks = doc_ref.collection("chunks").stream()
+        for old in old_chunks:
+            old.reference.delete()
+        # Escribir nuevos chunks de 500
+        for i in range(0, len(items), 500):
+            chunk = items[i:i + 500]
+            doc_ref.collection("chunks").document(str(i // 500)).set({"data": chunk})
+
+    logger.info(f"[product_catalog] Wrote {len(items)} items")
+
+
+# ── Product Catalog Cache: Read ──
+
+def read_product_catalog(check_ttl: bool = True) -> tuple[list[dict] | None, dict | None]:
+    """
+    Lee catálogo de productos desde Firestore.
+    Returns (items, meta) si cache existe y tiene <TTL horas (o check_ttl=False).
+    Returns (None, None) si no existe o esta vencido.
+    """
+    db = _get_firestore()
+    doc_ref = db.collection(PRODUCT_CATALOG_COLLECTION).document(PRODUCT_CATALOG_DOC)
+
+    try:
+        snap = doc_ref.get()
+        if not snap.exists:
+            return None, None
+
+        meta = snap.to_dict()
+        cached_at_str = meta.get("cached_at", "")
+        if not cached_at_str:
+            return None, None
+
+        if check_ttl:
+            cached_at = datetime.fromisoformat(cached_at_str)
+            if cached_at.tzinfo is None:
+                cached_at = cached_at.replace(tzinfo=timezone.utc)
+            age_hours = (datetime.now(timezone.utc) - cached_at).total_seconds() / 3600
+
+            if age_hours > PRODUCT_CATALOG_TTL_HOURS:
+                return None, None
+
+        # Leer datos inline
+        if not meta.get("chunked", False) and "data" in meta:
+            return meta["data"], meta
+
+        # Leer datos chunked
+        if meta.get("chunked"):
+            items = []
+            chunks = doc_ref.collection("chunks").stream()
+            for chunk in sorted(chunks, key=lambda c: int(c.id)):
+                items.extend(chunk.to_dict().get("data", []))
+            return items, meta
+
+        return None, None
+    except Exception as e:
+        logger.warning(f"[product_catalog] Error leyendo cache: {e}")
+        return None, None
+
+
+# ── Scheduler Job: Product Catalog Refresh ──
+
+def refresh_product_catalog():
+    """
+    Refresca catálogo completo de productos desde Shopify.
+    """
+    global _catalog_refreshing
+    with _catalog_refresh_lock:
+        if _catalog_refreshing:
+            logger.info("[product_catalog] Refresh ya en progreso, skipping")
+            return
+        _catalog_refreshing = True
+
+    try:
+        from services import shopify_service
+        logger.info("[product_catalog] Refrescando catálogo de productos")
+        items = shopify_service.get_all_products_catalog()
+        write_product_catalog(items)
+        logger.info(f"[product_catalog] Refresh completado: {len(items)} SKUs")
+    except Exception as e:
+        logger.error(f"[product_catalog] Error en refresh: {e}")
+    finally:
+        with _catalog_refresh_lock:
+            _catalog_refreshing = False
 
 
 # ── Scheduler Job: Sales Pre-Refresh ──
@@ -303,8 +417,17 @@ def start_scheduler():
             max_instances=1,
             misfire_grace_time=300,
         )
+        _scheduler.add_job(
+            refresh_product_catalog,
+            "interval",
+            hours=24,
+            next_run_time=datetime.now(timezone.utc) + timedelta(minutes=5),
+            id="product_catalog_refresh",
+            max_instances=1,
+            misfire_grace_time=300,
+        )
         _scheduler.start()
-        logger.info("Scheduler iniciado: inventory_refresh cada 4h, sales_pre_refresh cada 1h")
+        logger.info("Scheduler iniciado: inventory_refresh cada 4h, sales_pre_refresh cada 1h, product_catalog cada 24h")
 
 
 def stop_scheduler():

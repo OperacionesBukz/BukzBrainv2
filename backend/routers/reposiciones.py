@@ -539,6 +539,28 @@ def force_cache_refresh(
 
 
 # ---------------------------------------------------------------------------
+# CATALOG: Product catalog (SKU→vendor mapping)
+# ---------------------------------------------------------------------------
+
+@router.post("/catalog/refresh")
+def refresh_catalog():
+    """Fuerza refresh del catálogo de productos. Retorna inmediatamente."""
+    from services.scheduler_service import refresh_product_catalog
+    threading.Thread(target=refresh_product_catalog, daemon=True).start()
+    return {"status": "refresh_started"}
+
+
+@router.get("/catalog/status")
+def get_catalog_status():
+    """Devuelve estado del catálogo de productos."""
+    from services.scheduler_service import read_product_catalog
+    items, meta = read_product_catalog()
+    if meta:
+        return {"status": "ready", "sku_count": meta.get("sku_count", 0), "cached_at": meta.get("cached_at")}
+    return {"status": "empty"}
+
+
+# ---------------------------------------------------------------------------
 # Constantes para Motor de Cálculo de Reposición
 # ---------------------------------------------------------------------------
 

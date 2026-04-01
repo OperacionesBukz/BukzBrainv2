@@ -90,3 +90,54 @@ async def handle_orders_fulfilled(
         updated,
     )
     return {"status": "ok", "order_name": order_name, "updated": updated}
+
+
+@router.post("/shopify/products-update")
+async def handle_products_update(
+    request: Request,
+    x_shopify_hmac_sha256: str = Header(...),
+):
+    """
+    Webhook: products/update y products/create
+    Actualiza el catálogo de productos incrementalmente cuando se crea o actualiza
+    un producto en Shopify.
+    """
+    body = await request.body()
+
+    if not _verify_hmac(body, x_shopify_hmac_sha256):
+        raise HTTPException(status_code=401, detail="Firma HMAC invalida")
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="JSON invalido")
+
+    vendor = payload.get("vendor", "")
+    title = payload.get("title", "")
+    variants = payload.get("variants", [])
+
+    if not variants:
+        return {"status": "ok", "updated": 0}
+
+    # Read current catalog (ignore TTL — always update even if stale)
+    from services.scheduler_service import read_product_catalog, write_product_catalog
+    items, meta = read_product_catalog(check_ttl=False)
+    if items is None:
+        items = []
+
+    # Remove old entries for this product's SKUs and add new ones
+    new_skus = {v.get("sku", "").strip() for v in variants if v.get("sku", "").strip()}
+    # Keep items that don't belong to these SKUs
+    items = [item for item in items if item.get("sku") not in new_skus]
+    # Add updated entries
+    for sku in new_skus:
+        items.append({"sku": sku, "vendor": vendor, "title": title})
+
+    write_product_catalog(items)
+
+    logger.info(
+        "Webhook products/update: %d SKUs actualizados para '%s'",
+        len(new_skus),
+        title,
+    )
+    return {"status": "ok", "updated": len(new_skus)}

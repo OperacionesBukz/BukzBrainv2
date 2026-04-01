@@ -3,6 +3,8 @@ import {
   collection,
   onSnapshot,
   addDoc,
+  doc,
+  getDoc,
   getDocs,
   query,
   orderBy,
@@ -63,7 +65,7 @@ export function useVendors() {
   return { vendors, loading };
 }
 
-// --- Hook: SKU → Vendor (desde inventory_cache de reposiciones) ---
+// --- Hook: SKU → Vendor (desde product_catalog) ---
 
 export function useSkuVendorMap() {
   const [skuVendorMap, setSkuVendorMap] = useState<Map<string, string>>(new Map());
@@ -72,35 +74,39 @@ export function useSkuVendorMap() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadInventoryCache() {
+    async function loadProductCatalog() {
       try {
-        const snap = await getDocs(collection(db, "inventory_cache"));
+        const docSnap = await getDoc(doc(db, "product_catalog", "global"));
         const map = new Map<string, string>();
 
-        for (const docSnap of snap.docs) {
-          const data = docSnap.data();
+        if (!docSnap.exists()) {
+          // Catalog not yet populated, fall back silently
+          if (!cancelled) { setSkuVendorMap(map); setLoading(false); }
+          return;
+        }
 
-          // Datos inline (no chunked)
-          if (!data.chunked && Array.isArray(data.data)) {
-            for (const item of data.data) {
-              if (item.sku && item.vendor) {
-                map.set(item.sku.trim(), item.vendor);
-              }
+        const data = docSnap.data();
+
+        // Inline data (not chunked)
+        if (!data.chunked && Array.isArray(data.data)) {
+          for (const item of data.data) {
+            if (item.sku && item.vendor) {
+              map.set(item.sku.trim(), item.vendor);
             }
           }
+        }
 
-          // Datos chunked — leer subcollection
-          if (data.chunked) {
-            const chunksSnap = await getDocs(
-              collection(db, "inventory_cache", docSnap.id, "chunks")
-            );
-            for (const chunkDoc of chunksSnap.docs) {
-              const chunkData = chunkDoc.data().data;
-              if (Array.isArray(chunkData)) {
-                for (const item of chunkData) {
-                  if (item.sku && item.vendor) {
-                    map.set(item.sku.trim(), item.vendor);
-                  }
+        // Chunked data
+        if (data.chunked) {
+          const chunksSnap = await getDocs(
+            collection(db, "product_catalog", "global", "chunks")
+          );
+          for (const chunkDoc of chunksSnap.docs) {
+            const chunkData = chunkDoc.data().data;
+            if (Array.isArray(chunkData)) {
+              for (const item of chunkData) {
+                if (item.sku && item.vendor) {
+                  map.set(item.sku.trim(), item.vendor);
                 }
               }
             }
@@ -112,15 +118,15 @@ export function useSkuVendorMap() {
           setLoading(false);
         }
       } catch (err) {
-        console.error("Error cargando inventory_cache:", err);
+        console.error("Error cargando product_catalog:", err);
         if (!cancelled) {
-          toast.error("Error al cargar mapeo SKU→Vendor del inventario");
+          toast.error("Error al cargar catálogo de productos");
           setLoading(false);
         }
       }
     }
 
-    loadInventoryCache();
+    loadProductCatalog();
     return () => { cancelled = true; };
   }, []);
 

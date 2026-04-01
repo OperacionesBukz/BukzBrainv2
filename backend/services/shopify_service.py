@@ -1638,3 +1638,83 @@ def get_inventory_by_location(location_gid: str, vendor_filter: list[str] | None
             break
 
     return results
+
+
+def get_all_products_catalog() -> list[dict]:
+    """
+    Pagina a través de TODOS los productos de Shopify y devuelve un catálogo
+    de SKU→vendor+title para cada variante.
+
+    Returns: [{"sku": str, "vendor": str, "title": str}, ...]
+    """
+    graphql_url = settings.get_graphql_url()
+    headers = settings.get_shopify_headers()
+
+    results: list[dict] = []
+    cursor = None
+
+    while True:
+        after_clause = f', after: "{cursor}"' if cursor else ""
+        query = """
+        {
+          products(first: 250%s) {
+            pageInfo { hasNextPage endCursor }
+            edges {
+              node {
+                vendor
+                title
+                variants(first: 100) {
+                  edges {
+                    node {
+                      sku
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """ % after_clause
+
+        _throttler.wait_if_needed()
+        try:
+            resp = requests.post(
+                graphql_url,
+                json={"query": query},
+                headers=headers,
+                timeout=30,
+            )
+            _throttler.update_from_response(resp)
+
+            if resp.status_code == 429:
+                time.sleep(_throttler.handle_429(resp))
+                continue
+
+            if resp.status_code != 200:
+                break
+
+            products_data = resp.json().get("data", {}).get("products", {})
+
+            for edge in products_data.get("edges", []):
+                node = edge.get("node", {})
+                vendor = (node.get("vendor") or "").strip()
+                title = (node.get("title") or "").strip()
+
+                for v_edge in node.get("variants", {}).get("edges", []):
+                    v_node = v_edge.get("node", {})
+                    sku = (v_node.get("sku") or "").strip()
+                    if sku:
+                        results.append({
+                            "sku": sku,
+                            "vendor": vendor,
+                            "title": title,
+                        })
+
+            page_info = products_data.get("pageInfo", {})
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+        except Exception:
+            break
+
+    return results
