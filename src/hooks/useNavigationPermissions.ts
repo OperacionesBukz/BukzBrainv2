@@ -17,6 +17,9 @@ const WORKFLOW_SUB_PATHS = ["/ingreso", "/crear-productos", "/actualizar-product
 // Sub-rutas agrupadas bajo /reposiciones-menu
 const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades", "/rotacion"];
 
+// Sub-rutas agrupadas bajo /celesa
+const CELESA_SUB_PATHS = ["/celesa-seguimiento", "/celesa-actualizacion"];
+
 export function useNavigationPermissions() {
   const { user } = useAuth();
   const [allowedPages, setAllowedPages] = useState<Set<string>>(
@@ -43,7 +46,7 @@ export function useNavigationPermissions() {
     let defaultWorkspaces: WorkspaceMap | null = null;
     let userNavOrder: NavOrderMap = {};
 
-    const ALL_SUB_PATHS = [...WORKFLOW_SUB_PATHS, ...REPOSICIONES_SUB_PATHS];
+    const ALL_SUB_PATHS = [...WORKFLOW_SUB_PATHS, ...REPOSICIONES_SUB_PATHS, ...CELESA_SUB_PATHS];
 
     const compute = () => {
       // Pages: user-specific config takes priority; fall back to default; fall back to show all
@@ -70,6 +73,15 @@ export function useNavigationPermissions() {
           allowed.add("/reposiciones-menu");
         } else {
           allowed.delete("/reposiciones-menu");
+        }
+        // Incluir sub-rutas de celesa
+        for (const sub of CELESA_SUB_PATHS) {
+          if (pages[sub] !== false) allowed.add(sub);
+        }
+        if (CELESA_SUB_PATHS.some((p) => allowed.has(p))) {
+          allowed.add("/celesa");
+        } else {
+          allowed.delete("/celesa");
         }
         setAllowedPages(allowed);
       }

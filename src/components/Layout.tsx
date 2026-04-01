@@ -23,6 +23,8 @@ import {
   ClipboardCheck,
   AlertCircle,
   TrendingUp,
+  Ship,
+  RefreshCw as RefreshCwIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -111,6 +113,12 @@ const reposicionesSubItems = [
 ];
 const REPOSICIONES_PATHS = reposicionesSubItems.map((s) => s.path);
 
+const celesaSubItems = [
+  { title: "Seguimiento", path: "/celesa-seguimiento", icon: Ship },
+  { title: "Actualización", path: "/celesa-actualizacion", icon: RefreshCwIcon },
+];
+const CELESA_PATHS = celesaSubItems.map((s) => s.path);
+
 export function Layout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -119,6 +127,7 @@ export function Layout({ children }: { children: ReactNode }) {
     if (p.startsWith("/user-admin")) return "admin";
     if (WORKFLOW_PATHS.includes(p)) return "workflow";
     if (REPOSICIONES_PATHS.includes(p)) return "reposiciones";
+    if (CELESA_PATHS.includes(p)) return "celesa";
     return null;
   });
   const isMobile = useIsMobile();
@@ -184,12 +193,18 @@ export function Layout({ children }: { children: ReactNode }) {
     (sub) => allowedPages.has(sub.path)
   );
 
+  const visibleCelesaItems = celesaSubItems.filter(
+    (sub) => allowedPages.has(sub.path)
+  );
+
   const subMenuData = activeSubMenu === "admin"
     ? { title: "Administración", items: adminSubItems, categories: null as typeof visibleWorkflowCategories | null }
     : activeSubMenu === "workflow"
     ? { title: "Workflow", items: visibleWorkflowItems, categories: visibleWorkflowCategories }
     : activeSubMenu === "reposiciones"
     ? { title: "Pedidos", items: visibleReposicionesItems, categories: null as typeof visibleWorkflowCategories | null }
+    : activeSubMenu === "celesa"
+    ? { title: "Celesa", items: visibleCelesaItems, categories: null as typeof visibleWorkflowCategories | null }
     : null;
 
   // Measure sub-sidebar width for main content margin
@@ -208,7 +223,7 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading || !user) return;
     const currentPath = location.pathname;
-    const isInWorkspace = workspace.paths.includes(currentPath) || WORKFLOW_PATHS.includes(currentPath) || REPOSICIONES_PATHS.includes(currentPath);
+    const isInWorkspace = workspace.paths.includes(currentPath) || WORKFLOW_PATHS.includes(currentPath) || REPOSICIONES_PATHS.includes(currentPath) || CELESA_PATHS.includes(currentPath);
     const isAdminPath = currentPath.startsWith("/user-admin");
     if (!isInWorkspace && !isAdminPath) {
       const firstAvailable = visibleNavItems[0]?.path ?? workspace.paths[0];
@@ -289,9 +304,11 @@ export function Layout({ children }: { children: ReactNode }) {
                   {visibleNavItems.map((item, index) => {
                     const subMenuKey = item.path === "/workflow" ? "workflow"
                       : item.path === "/reposiciones-menu" ? "reposiciones"
+                      : item.path === "/celesa" ? "celesa"
                       : null;
                     const subMenuPaths = subMenuKey === "workflow" ? WORKFLOW_PATHS
                       : subMenuKey === "reposiciones" ? REPOSICIONES_PATHS
+                      : subMenuKey === "celesa" ? CELESA_PATHS
                       : [];
                     const isSubMenuTrigger = subMenuKey !== null;
                     const isActive = isSubMenuTrigger
@@ -620,11 +637,15 @@ export function Layout({ children }: { children: ReactNode }) {
                         {visibleNavItems.map((item, index) => {
                           const mobileSubMenuKey = item.path === "/workflow" ? "workflow"
                             : item.path === "/reposiciones-menu" ? "reposiciones"
+                            : item.path === "/celesa" ? "celesa"
                             : null;
                           const mobileSubMenuPaths = mobileSubMenuKey === "workflow" ? WORKFLOW_PATHS
                             : mobileSubMenuKey === "reposiciones" ? REPOSICIONES_PATHS
+                            : mobileSubMenuKey === "celesa" ? CELESA_PATHS
                             : [];
-                          const mobileSubMenuItems = mobileSubMenuKey === "reposiciones" ? visibleReposicionesItems : null;
+                          const mobileSubMenuItems = mobileSubMenuKey === "reposiciones" ? visibleReposicionesItems
+                            : mobileSubMenuKey === "celesa" ? visibleCelesaItems
+                            : null;
                           const isSubMenuTrigger = mobileSubMenuKey !== null;
                           const isActive = isSubMenuTrigger
                             ? mobileSubMenuPaths.includes(location.pathname)

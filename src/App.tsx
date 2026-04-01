@@ -25,6 +25,7 @@ const Reposiciones = lazyWithReload(() => import("./pages/reposiciones"));
 const Pedidos = lazyWithReload(() => import("./pages/Pedidos"));
 const Novedades = lazyWithReload(() => import("./pages/Novedades"));
 const Celesa = lazyWithReload(() => import("./pages/Celesa"));
+const CelesaActualizacion = lazyWithReload(() => import("./pages/CelesaActualizacion"));
 const IngresoMercancia = lazyWithReload(() => import("./pages/IngresoMercancia"));
 const ScrapBukz = lazyWithReload(() => import("./pages/ScrapBukz"));
 const CrearProductos = lazyWithReload(() => import("./pages/CrearProductos"));
@@ -93,7 +94,9 @@ const App = () => {
                               <Route path="/reposiciones" element={<Reposiciones />} />
                               <Route path="/pedidos" element={<Pedidos />} />
                               <Route path="/novedades" element={<Novedades />} />
-                              <Route path="/celesa" element={<Celesa />} />
+                              <Route path="/celesa" element={<Navigate to="/celesa-seguimiento" replace />} />
+                              <Route path="/celesa-seguimiento" element={<Celesa />} />
+                              <Route path="/celesa-actualizacion" element={<CelesaActualizacion />} />
                               <Route path="/ingreso" element={<IngresoMercancia />} />
                               <Route path="/scrap" element={<ScrapBukz />} />
                               <Route path="/crear-productos" element={<CrearProductos />} />
