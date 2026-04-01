@@ -23,6 +23,7 @@ from routers import reposiciones
 from routers import webhooks
 from routers import email
 from routers import pedidos
+from routers import inventory_turnover
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,6 +67,7 @@ app.include_router(suppliers.router, dependencies=_auth)
 app.include_router(reposiciones.router, dependencies=_auth)
 app.include_router(email.router, dependencies=_auth)
 app.include_router(pedidos.router, dependencies=_auth)
+app.include_router(inventory_turnover.router, dependencies=_auth)
 
 # Webhooks — SIN auth (Shopify envia su propia verificacion HMAC)
 app.include_router(webhooks.router)

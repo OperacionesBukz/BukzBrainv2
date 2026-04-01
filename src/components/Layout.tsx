@@ -22,6 +22,7 @@ import {
   Package,
   ClipboardCheck,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -106,6 +107,7 @@ const reposicionesSubItems = [
   { title: "Reposiciones", path: "/reposiciones", icon: PackageSearch },
   { title: "Reposiciones Manuales", path: "/reposicion", icon: Package },
   { title: "Novedades", path: "/novedades", icon: AlertCircle },
+  { title: "Rotacion", path: "/rotacion", icon: TrendingUp },
 ];
 const REPOSICIONES_PATHS = reposicionesSubItems.map((s) => s.path);
 

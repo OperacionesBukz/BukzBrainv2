@@ -15,7 +15,7 @@ type NavOrderMap = Record<string, string[]>;
 const WORKFLOW_SUB_PATHS = ["/ingreso", "/crear-productos", "/actualizar-productos", "/scrap", "/cortes", "/envio-cortes", "/devoluciones", "/gift-cards"];
 
 // Sub-rutas agrupadas bajo /reposiciones-menu
-const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades"];
+const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades", "/rotacion"];
 
 export function useNavigationPermissions() {
   const { user } = useAuth();

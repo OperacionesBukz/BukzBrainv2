@@ -14,6 +14,7 @@ import {
   ContactRound,
   GitBranchPlus,
   DollarSign,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 export type WorkspaceId = "general" | "operaciones";
@@ -39,6 +40,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/workflow", label: "Workflow", description: "Ingreso de mercancía, scrap, cortes y devoluciones", icon: GitBranchPlus, workspace: "operaciones" },
   { path: "/directorio", label: "Directorio", description: "Base de datos de empleados, temporales y proveedores", icon: ContactRound, workspace: "operaciones" },
   { path: "/cmv", label: "CMV", description: "Costo de Mercancía Vendida", icon: DollarSign, workspace: "operaciones" },
+  { path: "/rotacion", label: "Rotacion", description: "Rotacion de inventario por sede", icon: TrendingUp, workspace: "operaciones" },
   { path: "/calculator", label: "Calculadora", description: "Conversor EUR a COP", icon: Calculator, workspace: "general" },
 ];
 
