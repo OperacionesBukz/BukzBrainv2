@@ -134,7 +134,7 @@ export function useCmvHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "cmv_history"), orderBy("year", "desc"), orderBy("month", "desc"));
+    const q = query(collection(db, "cmv_history"), orderBy("processedAt", "desc"));
     const unsub = onSnapshot(
       q,
       (snap) => {
