@@ -555,12 +555,18 @@ def refresh_catalog(force: bool = Query(default=False, description="Forzar reset
 
 @router.get("/catalog/status")
 def get_catalog_status():
-    """Devuelve estado del catálogo de productos."""
+    """Devuelve estado del catálogo + estado de Bulk Op actual en Shopify."""
     from services.scheduler_service import read_product_catalog
+    from services import shopify_service
     items, meta = read_product_catalog()
+    catalog = {}
     if meta:
-        return {"status": "ready", "sku_count": meta.get("sku_count", 0), "cached_at": meta.get("cached_at")}
-    return {"status": "empty"}
+        catalog = {"sku_count": meta.get("sku_count", 0), "cached_at": meta.get("cached_at")}
+
+    # También mostrar estado de la Bulk Op actual
+    bulk_op = shopify_service.check_bulk_operation_status()
+
+    return {"catalog": catalog, "bulk_op": bulk_op}
 
 
 # ---------------------------------------------------------------------------
