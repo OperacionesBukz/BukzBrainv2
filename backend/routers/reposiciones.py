@@ -543,11 +543,14 @@ def force_cache_refresh(
 # ---------------------------------------------------------------------------
 
 @router.post("/catalog/refresh")
-def refresh_catalog():
+def refresh_catalog(force: bool = Query(default=False, description="Forzar reset del lock")):
     """Fuerza refresh del catálogo de productos. Retorna inmediatamente."""
-    from services.scheduler_service import refresh_product_catalog
-    threading.Thread(target=refresh_product_catalog, daemon=True).start()
-    return {"status": "refresh_started"}
+    from services import scheduler_service
+    if force:
+        with scheduler_service._catalog_refresh_lock:
+            scheduler_service._catalog_refreshing = False
+    threading.Thread(target=scheduler_service.refresh_product_catalog, daemon=True).start()
+    return {"status": "refresh_started", "force": force}
 
 
 @router.get("/catalog/status")
