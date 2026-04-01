@@ -176,8 +176,12 @@ export function mapRawToProduct(row: RawSaleRecord): Partial<CmvProduct> {
   const obs = findField(row, "observaciones", "observacion", "obs");
   const { pedido, numeroPedido } = extractPedido(obs);
 
+  const comprobante = findField(row, "numero comprobante", "comprobante", "factura", "numero factura", "no. factura");
+  const consecutivo = findField(row, "consecutivo", "consecutivo factura");
+  const factura = comprobante && consecutivo ? `${comprobante}-${consecutivo}` : comprobante;
+
   return {
-    factura: findField(row, "numero comprobante", "comprobante", "factura", "numero factura", "no. factura"),
+    factura,
     fecha: findField(row, "fecha elaboracion", "fecha creacion", "fecha", "fecha factura", "fecha comprobante"),
     tercero: findField(row, "identificacion", "tercero", "nit"),
     terceroNombre: findField(row, "nombre tercero", "nombre contacto", "tercero nombre", "cliente", "razon social"),
@@ -225,7 +229,12 @@ export function isProductRecord(row: RawSaleRecord): boolean {
 }
 
 export function getInvoiceNumber(row: RawSaleRecord): string {
-  return findField(row, "numero comprobante", "comprobante", "factura", "numero factura", "no. factura");
+  const comprobante = findField(row, "numero comprobante", "comprobante", "factura", "numero factura", "no. factura");
+  const consecutivo = findField(row, "consecutivo", "consecutivo factura", "sec");
+  if (comprobante && consecutivo) {
+    return `${comprobante}-${consecutivo}`;
+  }
+  return comprobante;
 }
 
 // --- Exportación a Excel ---
