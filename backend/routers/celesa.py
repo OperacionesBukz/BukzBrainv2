@@ -124,6 +124,10 @@ def _fetch_azeta_stock() -> dict[str, int]:
             continue
         if sku:
             stock[sku] = qty
+    print(f"[CELESA] Azeta: {len(stock)} SKUs descargados", flush=True)
+    if stock:
+        sample = list(stock.items())[:3]
+        print(f"[CELESA] Azeta sample: {sample}", flush=True)
     return stock
 
 
@@ -243,8 +247,17 @@ def _process_inventory_jsonl(url: str, location_gid: str) -> list[dict]:
 
     # JSONL flat: InventoryItem rows, then child InventoryLevel rows con __parentId
     items: dict[str, dict] = {}  # inventory_item_gid -> {sku, title, vendor, inventory_item_id}
-
     results: list[dict] = []
+
+    # Diagnostic counters
+    total_lines = 0
+    inventory_item_rows = 0
+    inventory_level_rows = 0
+    vendor_matches = 0
+    location_matches = 0
+    vendors_seen: dict[str, int] = {}
+    locations_seen: dict[str, int] = {}
+    sample_items: list[dict] = []
 
     for line in resp.iter_lines():
         if not line:
@@ -254,18 +267,27 @@ def _process_inventory_jsonl(url: str, location_gid: str) -> list[dict]:
         except json.JSONDecodeError:
             continue
 
+        total_lines += 1
         obj_id = obj.get("id", "")
         parent_id = obj.get("__parentId", "")
 
         # InventoryItem row
         if "gid://shopify/InventoryItem/" in obj_id and "InventoryLevel" not in obj_id:
+            inventory_item_rows += 1
             variant = obj.get("variant") or {}
             product = variant.get("product") or {}
             vendor = (product.get("vendor") or "").strip()
             sku = (obj.get("sku") or "").strip()
 
-            # Filtro de vendor
+            # Track all vendors for diagnostic
+            vendors_seen[vendor or "(empty)"] = vendors_seen.get(vendor or "(empty)", 0) + 1
+
+            # Save first 3 raw items for diagnostic
+            if len(sample_items) < 3:
+                sample_items.append({"id": obj_id, "sku": sku, "vendor": vendor, "raw_keys": list(obj.keys())})
+
             if sku and vendor == VENDOR_FILTER:
+                vendor_matches += 1
                 items[obj_id] = {
                     "sku": sku,
                     "title": (product.get("title") or "").strip(),
@@ -275,13 +297,16 @@ def _process_inventory_jsonl(url: str, location_gid: str) -> list[dict]:
 
         # InventoryLevel row (child of InventoryItem)
         elif "gid://shopify/InventoryLevel/" in obj_id:
+            inventory_level_rows += 1
             loc_name = (obj.get("location", {}).get("name") or "").strip()
 
-            # Filtro de location
+            # Track all locations for diagnostic
+            locations_seen[loc_name or "(empty)"] = locations_seen.get(loc_name or "(empty)", 0) + 1
+
             if loc_name != DROPSHIPPING_LOCATION_NAME:
                 continue
+            location_matches += 1
 
-            # Solo si el parent es un item que pasó el filtro de vendor
             if parent_id not in items:
                 continue
 
@@ -300,7 +325,19 @@ def _process_inventory_jsonl(url: str, location_gid: str) -> list[dict]:
                 "inventory_item_id": item["inventory_item_id"],
             })
 
-    print(f"[CELESA] Procesados {len(results)} items (vendor={VENDOR_FILTER}, location={DROPSHIPPING_LOCATION_NAME})", flush=True)
+    # Log diagnostics
+    print(f"[CELESA] === JSONL DIAGNOSTIC ===", flush=True)
+    print(f"[CELESA] Total lines: {total_lines}", flush=True)
+    print(f"[CELESA] InventoryItem rows: {inventory_item_rows}", flush=True)
+    print(f"[CELESA] InventoryLevel rows: {inventory_level_rows}", flush=True)
+    print(f"[CELESA] Vendor '{VENDOR_FILTER}' matches: {vendor_matches}", flush=True)
+    print(f"[CELESA] Location '{DROPSHIPPING_LOCATION_NAME}' matches: {location_matches}", flush=True)
+    print(f"[CELESA] Final results: {len(results)}", flush=True)
+    print(f"[CELESA] Top vendors: {dict(sorted(vendors_seen.items(), key=lambda x: -x[1])[:10])}", flush=True)
+    print(f"[CELESA] All locations: {locations_seen}", flush=True)
+    print(f"[CELESA] Sample items: {sample_items}", flush=True)
+    print(f"[CELESA] === END DIAGNOSTIC ===", flush=True)
+
     return results
 
 
@@ -314,10 +351,12 @@ def _compare(
     Solo retorna items con diferencias.
     """
     differences: list[dict] = []
+    matched_skus = 0
     for item in shopify_items:
         sku = item["sku"]
         if sku not in azeta_stock:
             continue
+        matched_skus += 1
         azeta_qty = azeta_stock[sku]
         shopify_qty = item["available"]
         if shopify_qty != azeta_qty:
@@ -330,6 +369,11 @@ def _compare(
                 "diff": azeta_qty - shopify_qty,
                 "inventory_item_id": item["inventory_item_id"],
             })
+    print(f"[CELESA] Compare: {len(shopify_items)} shopify items, {matched_skus} SKU matches con Azeta, {len(differences)} con diferencias", flush=True)
+    if shopify_items and not matched_skus:
+        shopify_sample = [i["sku"] for i in shopify_items[:5]]
+        azeta_sample = list(azeta_stock.keys())[:5]
+        print(f"[CELESA] SKU MISMATCH? Shopify sample: {shopify_sample}, Azeta sample: {azeta_sample}", flush=True)
     return differences
 
 
