@@ -188,12 +188,15 @@ export function useCmvProcessor() {
 
       // 1. Parsear Excel UNA sola vez y extraer ISBNs únicos
       const { rawRecords, creditNotes, uniqueIsbns } = parseExcelFiles(salesBuffer, notesBuffer);
+      console.log("[CMV] Parsed:", rawRecords.length, "records,", uniqueIsbns.length, "unique ISBNs");
 
       // 2. Lookup de vendors via backend (envía ~3K ISBNs, recibe ~3K vendors)
       const skuVendorMap = await lookupVendorsBatch(uniqueIsbns);
+      console.log("[CMV] Lookup returned:", skuVendorMap.size, "vendors");
 
       // 3. Procesar con los datos ya parseados
       const result = processCmvFromRecords(rawRecords, creditNotes, vendors, skuVendorMap);
+      console.log("[CMV] Result:", result.products.length, "assigned,", result.unknownVendorProducts.length, "unknown,", result.missingMarginProducts.length, "missing margin");
 
       const hasExceptions = result.unknownVendorProducts.length > 0 || result.missingMarginProducts.length > 0;
 
