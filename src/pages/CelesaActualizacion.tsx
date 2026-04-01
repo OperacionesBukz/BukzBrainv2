@@ -10,6 +10,7 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
 import {
   startCelesaComparison,
   getCelesaStatus,
+  cancelCelesaJob,
   applyCelesaChanges,
   type CelesaStatus,
   type CelesaDifference,
@@ -134,6 +136,18 @@ export default function CelesaActualizacion() {
     }
   }, [pollStatus, stopPolling]);
 
+  const handleCancel = useCallback(async () => {
+    try {
+      await cancelCelesaJob();
+      stopPolling();
+      toast.info("Operación cancelada");
+      const s = await getCelesaStatus();
+      setStatus(s);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al cancelar");
+    }
+  }, [stopPolling]);
+
   const handleApply = useCallback(async () => {
     setConfirmOpen(false);
     try {
@@ -221,6 +235,13 @@ export default function CelesaActualizacion() {
               )}
               {isRunning ? "Comparando..." : "Comparar Inventario"}
             </Button>
+
+            {isBusy && (
+              <Button variant="outline" onClick={handleCancel}>
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancelar
+              </Button>
+            )}
 
             {differences && differences.length > 0 && !applyResult && (
               <>

@@ -497,6 +497,19 @@ def get_status():
         }
 
 
+@router.post("/cancel")
+def cancel_job():
+    with _job_lock:
+        _job.update({
+            "running": False,
+            "phase": None,
+            "error": "Cancelado por el usuario",
+            "applying": False,
+            "apply_phase": None,
+        })
+    return {"success": True, "message": "Cancelado"}
+
+
 @router.post("/apply")
 def apply_changes():
     with _job_lock:

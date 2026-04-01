@@ -59,6 +59,12 @@ export async function getCelesaStatus(): Promise<CelesaStatus> {
   );
 }
 
+export async function cancelCelesaJob(): Promise<{ success: boolean; message: string }> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/celesa/cancel`, { method: "POST" })
+  );
+}
+
 export async function applyCelesaChanges(): Promise<{ success: boolean; message: string }> {
   return handleResponse(
     await resilientFetch(`${API_BASE}/api/celesa/apply`, { method: "POST" })
