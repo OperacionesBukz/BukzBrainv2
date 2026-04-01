@@ -207,8 +207,13 @@ export function processCmvFromRecords(
     };
   });
 
-  // 4b. Descartar filas sin ISBN (no se pueden cruzar con vendor)
-  const withIsbn = mapped.filter((p) => p.isbn.trim() !== "");
+  // 4b. Descartar filas sin ISBN y productos excluidos del CMV
+  const EXCLUDED_PRODUCTS = ["bono de regalo bukz"];
+  const withIsbn = mapped.filter((p) => {
+    if (!p.isbn.trim()) return false;
+    if (EXCLUDED_PRODUCTS.some((ex) => p.producto.toLowerCase().includes(ex))) return false;
+    return true;
+  });
 
   // 5. Crear mapa de márgenes por vendor
   const vendorMargins = new Map<string, number>();
