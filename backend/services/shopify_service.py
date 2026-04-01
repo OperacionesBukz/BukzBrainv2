@@ -1765,19 +1765,19 @@ def get_all_products_catalog() -> list[dict]:
                 continue
 
             gid = row.get("id", "")
+            parent_id = row.get("__parentId", "")
 
-            if "Product/" in gid:
-                # Nodo producto — guardar vendor y title
+            if gid and "Product/" in gid and not parent_id:
+                # Nodo producto (tiene id, no tiene __parentId)
                 products_by_id[gid] = {
                     "vendor": (row.get("vendor") or "").strip(),
                     "title": (row.get("title") or "").strip(),
                 }
-            elif "ProductVariant/" in gid:
-                # Nodo variante — vincular con producto padre
+            elif parent_id:
+                # Nodo variante (tiene __parentId, puede o no tener id)
                 sku = (row.get("sku") or "").strip()
                 if not sku:
                     continue
-                parent_id = row.get("__parentId", "")
                 parent = products_by_id.get(parent_id, {})
                 results.append({
                     "sku": sku,
