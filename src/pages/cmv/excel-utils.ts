@@ -1,5 +1,5 @@
 import { read, utils, write } from "xlsx";
-import type { RawSaleRecord, CreditNote, CmvProduct } from "./types";
+import type { RawSaleRecord, CreditNote, CmvProduct, DiscountType } from "./types";
 
 // --- Normalización de headers ---
 
@@ -292,3 +292,78 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
+// --- Importación del Excel CMV completado ---
+
+export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
+  const wb = read(new Uint8Array(file));
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const raw = utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+  return raw
+    .map((row) => {
+      const normalized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(row)) {
+        normalized[normalizeHeader(key)] = value;
+      }
+
+      const findStr = (...keys: string[]): string => {
+        for (const k of keys) {
+          const val = normalized[normalizeHeader(k)];
+          if (val !== undefined && val !== "") return String(val).trim();
+        }
+        return "";
+      };
+
+      const findNum = (...keys: string[]): number => {
+        for (const k of keys) {
+          const val = normalized[normalizeHeader(k)];
+          if (val !== undefined && val !== "") {
+            const n = Number(val);
+            if (!isNaN(n)) return n;
+          }
+        }
+        return 0;
+      };
+
+      const margenRaw = findNum("Margen");
+      const margen = margenRaw > 1 ? margenRaw / 100 : margenRaw;
+
+      const descuentoRaw = findStr("Descuento", "Tipo Descuento").toUpperCase();
+      const descuento: DiscountType =
+        descuentoRaw === "BUKZ" ? "BUKZ" :
+        descuentoRaw === "PROVEEDOR" ? "PROVEEDOR" : "VACIO";
+
+      const costoUnitario = findNum("Costo Unitario", "Costo Unit.", "Costo");
+      const costoTotal = findNum("Costo Total");
+      const cantidad = findNum("Cantidad");
+      const valorUnitario = findNum("Valor Unitario", "Valor Unit.");
+
+      return {
+        factura: findStr("Factura", "Numero comprobante"),
+        fecha: findStr("Fecha"),
+        tercero: findStr("Tercero", "Identificacion"),
+        terceroNombre: findStr("Tercero Nombre", "Nombre tercero"),
+        bodega: findStr("Bodega"),
+        concepto: "",
+        isbn: findStr("ISBN", "Codigo"),
+        producto: findStr("Producto", "Nombre"),
+        cantidad,
+        valorUnitario,
+        descuentoPct: findNum("Descuento %", "Valor desc."),
+        valorTotal: findNum("Valor Total", "Total"),
+        observaciones: findStr("Observaciones"),
+        pedido: findStr("Pedido"),
+        numeroPedido: findStr("No. Pedido", "Numero Pedido"),
+        descuento,
+        formaPago: "",
+        tipoDocumento: "",
+        secuencia: "",
+        tipoItem: "",
+        vendor: findStr("Vendor", "Editorial", "Proveedor"),
+        margen,
+        costo: costoUnitario || (margen > 0 ? Math.round(valorUnitario * (1 - margen)) : 0),
+        costoTotal: costoTotal || (margen > 0 ? Math.round(valorUnitario * (1 - margen) * cantidad) : 0),
+      } as CmvProduct;
+    })
+    .filter((p) => p.isbn !== "" && p.valorTotal !== 0);
+}

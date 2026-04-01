@@ -61,7 +61,7 @@ export function ResultsStep({
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  // Calcular breakdown por vendor (solo ventas e items, sin costo/margen)
+  // Calcular breakdown por vendor
   const vendorBreakdown = useMemo<VendorBreakdown[]>(() => {
     const map = new Map<string, VendorBreakdown>();
     for (const p of products) {
@@ -69,19 +69,25 @@ export function ResultsStep({
       const existing = map.get(key);
       if (existing) {
         existing.ventas += p.valorTotal;
+        existing.costo += p.costoTotal;
         existing.items += 1;
       } else {
         map.set(key, {
           vendor: key,
           ventas: p.valorTotal,
-          costo: 0,
+          costo: p.costoTotal,
           items: 1,
           margen: 0,
         });
       }
     }
+    for (const v of map.values()) {
+      v.margen = v.ventas > 0 ? ((v.ventas - v.costo) / v.ventas) * 100 : 0;
+    }
     return Array.from(map.values()).sort((a, b) => b.ventas - a.ventas);
   }, [products]);
+
+  const hasCostData = totals.totalCosto > 0;
 
   // Top 10 vendors para el gráfico
   const chartData = useMemo(
@@ -197,12 +203,14 @@ export function ResultsStep({
                     <TableHead>Vendor</TableHead>
                     <TableHead className="text-right">Items</TableHead>
                     <TableHead className="text-right">Ventas</TableHead>
+                    {hasCostData && <TableHead className="text-right">Costo</TableHead>}
+                    {hasCostData && <TableHead className="text-right">Margen %</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vendorBreakdown.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={hasCostData ? 5 : 3} className="text-center py-6 text-muted-foreground">
                         Sin datos
                       </TableCell>
                     </TableRow>
@@ -216,6 +224,14 @@ export function ResultsStep({
                         <TableCell className="text-right whitespace-nowrap">
                           {formatCop(v.ventas)}
                         </TableCell>
+                        {hasCostData && (
+                          <TableCell className="text-right whitespace-nowrap">
+                            {formatCop(v.costo)}
+                          </TableCell>
+                        )}
+                        {hasCostData && (
+                          <TableCell className="text-right">{v.margen.toFixed(1)}%</TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}

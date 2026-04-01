@@ -26,13 +26,16 @@ type SortKey =
   | "vendor"
   | "cantidad"
   | "valorUnitario"
-  | "valorTotal";
+  | "valorTotal"
+  | "margen"
+  | "costo"
+  | "costoTotal";
 
 type SortDir = "asc" | "desc";
 
 const ROWS_PER_PAGE = 50;
 
-const columns: { key: SortKey; label: string; numeric?: boolean }[] = [
+const baseColumns: { key: SortKey; label: string; numeric?: boolean }[] = [
   { key: "factura", label: "Factura" },
   { key: "fecha", label: "Fecha" },
   { key: "producto", label: "Producto" },
@@ -41,6 +44,12 @@ const columns: { key: SortKey; label: string; numeric?: boolean }[] = [
   { key: "cantidad", label: "Cantidad", numeric: true },
   { key: "valorUnitario", label: "Valor Unit.", numeric: true },
   { key: "valorTotal", label: "Valor Total", numeric: true },
+];
+
+const costColumns: { key: SortKey; label: string; numeric?: boolean }[] = [
+  { key: "margen", label: "Margen", numeric: true },
+  { key: "costo", label: "Costo Unit.", numeric: true },
+  { key: "costoTotal", label: "Costo Total", numeric: true },
 ];
 
 function formatCop(value: number): string {
@@ -52,6 +61,15 @@ export function CmvTable({ products }: CmvTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("factura");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);
+
+  const hasCostData = useMemo(
+    () => products.some((p) => p.costoTotal > 0),
+    [products]
+  );
+  const columns = useMemo(
+    () => (hasCostData ? [...baseColumns, ...costColumns] : baseColumns),
+    [hasCostData]
+  );
 
   // Filtrar por búsqueda
   const filtered = useMemo(() => {
@@ -152,7 +170,7 @@ export function CmvTable({ products }: CmvTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                pageData.map((p, i) => (
+                pageData.map((p) => (
                   <TableRow key={`${p.factura}-${p.isbn}-${p.tercero}-${p.valorTotal}`}>
                     <TableCell className="font-mono text-xs">{p.factura}</TableCell>
                     <TableCell className="whitespace-nowrap">{p.fecha}</TableCell>
@@ -164,6 +182,13 @@ export function CmvTable({ products }: CmvTableProps) {
                     <TableCell className="text-right">{p.cantidad}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatCop(p.valorUnitario)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatCop(p.valorTotal)}</TableCell>
+                    {hasCostData && (
+                      <>
+                        <TableCell className="text-right">{(p.margen * 100).toFixed(1)}%</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">{formatCop(p.costo)}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">{formatCop(p.costoTotal)}</TableCell>
+                      </>
+                    )}
                   </TableRow>
                 ))
               )}

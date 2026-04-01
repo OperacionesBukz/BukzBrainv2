@@ -34,6 +34,7 @@ const CMV = () => {
     setSalesFile,
     setNotesFile,
     process,
+    importCompleted,
     resolveVendorException,
     finishReview,
     reset,
@@ -88,6 +89,7 @@ const CMV = () => {
               onSalesFileSelected={setSalesFile}
               onNotesFileSelected={setNotesFile}
               onProcess={process}
+              onImportCompleted={importCompleted}
             />
           )}
 

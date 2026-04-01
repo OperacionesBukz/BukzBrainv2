@@ -20,6 +20,7 @@ import type {
 } from "./types";
 import { INITIAL_CMV_STATE } from "./types";
 import { parseExcelFiles, processCmvFromRecords, calculateTotals } from "./processing";
+import { parseCompletedCmvExcel } from "./excel-utils";
 
 // --- Hook: Vendors (lee proveedores del Directorio) ---
 
@@ -255,6 +256,39 @@ export function useCmvProcessor() {
     []
   );
 
+  // Importar Excel CMV completado (con márgenes/costos llenados)
+  const importCompleted = useCallback(async (file: File) => {
+    setState((s) => ({ ...s, isProcessing: true, error: null, step: "processing" }));
+    try {
+      const buffer = await file.arrayBuffer();
+      const products = parseCompletedCmvExcel(buffer);
+      const totals = calculateTotals(products);
+
+      setState((s) => ({
+        ...s,
+        products,
+        unknownVendorProducts: [],
+        stats: {
+          totalRawRecords: products.length,
+          removedByNotes: 0,
+          removedPayments: 0,
+          removedServices: 0,
+          totalProducts: products.length,
+          unknownVendors: 0,
+        },
+        totals,
+        isProcessing: false,
+        step: "results",
+      }));
+
+      toast.success(`CMV importado: ${products.length} productos`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      setState((s) => ({ ...s, isProcessing: false, error: message, step: "upload" }));
+      toast.error(`Error al importar: ${message}`);
+    }
+  }, []);
+
   // Finalizar revisión y pasar a resultados
   const finishReview = useCallback(() => {
     setState((s) => ({ ...s, step: "results" }));
@@ -273,6 +307,7 @@ export function useCmvProcessor() {
     setSalesFile,
     setNotesFile,
     process,
+    importCompleted,
     resolveVendorException,
     finishReview,
     reset,
