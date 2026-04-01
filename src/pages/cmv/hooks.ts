@@ -233,17 +233,11 @@ export function useCmvProcessor() {
       const discountMap = await lookupDiscountCodes(uniqueOrders);
       console.log("[CMV] Discount lookup returned:", discountMap.size, "orders with codes");
 
-      // Asignar discount code y auto-clasificar tipo de descuento
+      // Asignar discount code de Shopify a cada producto
       const applyDiscounts = (products: typeof allProducts) =>
         products.map((p) => {
           const code = discountMap.get(p.numeroPedido) || "";
-          // Auto-clasificar: tiene código Shopify → BUKZ, tiene descuento sin código → PROVEEDOR, nada → VACIO
-          const descuento = code
-            ? "BUKZ" as const
-            : p.descuentoPct > 0
-              ? "PROVEEDOR" as const
-              : "VACIO" as const;
-          return { ...p, discountCode: code, descuento };
+          return { ...p, discountCode: code };
         });
 
       const productsWithDiscounts = applyDiscounts(result.products);

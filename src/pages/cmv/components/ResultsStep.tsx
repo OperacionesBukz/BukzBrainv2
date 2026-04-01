@@ -294,11 +294,11 @@ export function ResultsStep({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Descarga el Excel, llena la columna <strong>Margen</strong> (ej: 0.40), y vuelve a subirlo aquí. El Descuento ya está clasificado automáticamente. El sistema calculará el costo.
+                Descarga el Excel, clasifica la columna <strong>Descuento</strong> (BUKZ / PROVEEDOR / VACIO) y llena la columna <strong>Margen</strong> (ej: 0.40). El sistema calculará el costo automáticamente.
               </p>
               <FileUploadZone
-                title="CMV con Margen"
-                hint="Sube el Excel con la columna Margen llenada"
+                title="CMV con Descuento y Margen"
+                hint="Sube el Excel con las columnas Descuento y Margen llenadas"
                 accept=".xlsx,.xls"
                 isLoaded={false}
                 onFileSelected={onImportCompleted}
