@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 import UploadStep from "./cmv/components/UploadStep";
 import ProcessingStep from "./cmv/components/ProcessingStep";
 import { ResultsStep } from "./cmv/components/ResultsStep";
@@ -92,7 +93,16 @@ const CMV = () => {
             />
           )}
 
-          {(state.step === "processing" || state.step === "review") && (
+          {state.isProcessing && (
+            <Card>
+              <CardContent className="py-16 flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Procesando datos, buscando vendors y descuentos...</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!state.isProcessing && (state.step === "processing" || state.step === "review") && (
             <ProcessingStep
               stats={state.stats}
               unknownVendorProducts={state.unknownVendorProducts}
