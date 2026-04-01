@@ -185,5 +185,22 @@ service cloud.firestore {
         allow write: if isAdmin();
       }
     }
+
+    // ─── Inventory Cache (Shopify inventory snapshots) ──────────────────────
+    // Backend escribe via admin SDK. Frontend solo lee para CMV y reposiciones.
+    match /inventory_cache/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+
+      match /chunks/{chunkId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+      }
+    }
+
+    // ─── CMV History (costo de mercancía vendida) ───────────────────────────
+    match /cmv_history/{docId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
