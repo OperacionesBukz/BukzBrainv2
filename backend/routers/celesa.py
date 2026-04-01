@@ -26,6 +26,7 @@ AZETA_URL = os.getenv(
     "?fr_usuario=861549&fr_clave=Bukz549",
 )
 DROPSHIPPING_LOCATION_NAME = "Dropshipping [España]"
+VENDOR_FILTER = "Bukz España"
 
 # -- Estado global del job --------------------------------------------------
 
@@ -173,7 +174,7 @@ def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
                     available = int(qty_entry.get("quantity") or 0)
                     break
 
-            if sku:
+            if sku and vendor == VENDOR_FILTER:
                 results.append({
                     "sku": sku,
                     "title": title,
