@@ -1,8 +1,8 @@
 """
 Router: Rotación de Inventario por Sede
 Endpoints:
-  POST /api/turnover/start   → Inicia cálculo (background)
-  GET  /api/turnover/status  → Estado y resultados
+  POST /api/turnover/start   -> Inicia calculo (background)
+  GET  /api/turnover/status  -> Estado y resultados
 """
 
 import json
@@ -14,16 +14,15 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter
 
 from config import settings
-from services import shopify_service
 
 router = APIRouter(prefix="/api/turnover", tags=["Inventory Turnover"])
 
-# ── Estado global del job ───────────────────────────────────────────
+# -- Estado global del job -----------------------------------------------
 
 _job_lock = threading.Lock()
 _job: dict = {
     "running": False,
-    "phase": None,       # "inventory" | "bulk_start" | "bulk_poll" | "processing"
+    "phase": None,
     "error": None,
     "result": None,
     "started_at": None,
@@ -37,7 +36,7 @@ TARGET_LOCATIONS = [
 ]
 
 
-# ── Helpers ─────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------
 
 def _gql(query: str, timeout: int = 30) -> dict:
     resp = requests.post(
@@ -53,10 +52,15 @@ def _gql(query: str, timeout: int = 30) -> dict:
     return body["data"]
 
 
-def _get_target_locations() -> dict[str, str]:
-    """Retorna {name: gid} para las sedes objetivo."""
+def _get_target_locations() -> dict[str, int]:
+    """Retorna {name: numeric_id} para las sedes objetivo."""
     data = _gql("{ locations(first: 50) { edges { node { id name } } } }")
-    all_locs = {e["node"]["name"]: e["node"]["id"] for e in data["locations"]["edges"]}
+    all_locs = {}
+    for e in data["locations"]["edges"]:
+        name = e["node"]["name"]
+        gid = e["node"]["id"]  # gid://shopify/Location/12345
+        numeric_id = int(gid.split("/")[-1])
+        all_locs[name] = numeric_id
 
     found = {}
     for name in TARGET_LOCATIONS:
@@ -70,79 +74,91 @@ def _get_target_locations() -> dict[str, str]:
     return found
 
 
-def _get_inventory_per_location(locations: dict[str, str]) -> dict[str, dict]:
-    """Inventario actual por sede: {name: {total_units, total_cost, product_count}}"""
+def _get_inventory_per_location(locations: dict[str, int]) -> dict[str, dict]:
+    """
+    Inventario actual por sede usando REST API (mas confiable para grandes volumenes).
+    Retorna: {name: {total_units, product_count}}
+    """
+    rest_url = settings.get_rest_url()
+    headers = settings.get_shopify_headers()
     results = {}
 
-    for loc_name, loc_gid in locations.items():
+    for loc_name, loc_id in locations.items():
+        print(f"[TURNOVER] Consultando inventario: {loc_name} (id={loc_id})...", flush=True)
         total_units = 0
-        total_cost = 0.0
         product_count = 0
-        has_next = True
-        cursor = None
+        page = 0
 
-        while has_next:
-            after = f', after: "{cursor}"' if cursor else ""
-            query = f"""
-            {{
-              location(id: "{loc_gid}") {{
-                inventoryLevels(first: 250{after}) {{
-                  edges {{
-                    node {{
-                      quantities(names: ["available"]) {{
-                        name
-                        quantity
-                      }}
-                      item {{
-                        id
-                        unitCost {{
-                          amount
-                        }}
-                      }}
-                    }}
-                    cursor
-                  }}
-                  pageInfo {{
-                    hasNextPage
-                  }}
-                }}
-              }}
-            }}
-            """
+        # REST API: /inventory_levels.json?location_ids=X&limit=250
+        # Paginacion via Link header
+        url = f"{rest_url}/inventory_levels.json"
+        params = {"location_ids": str(loc_id), "limit": 250}
+
+        while url:
             try:
-                data = _gql(query)
-                levels = data["location"]["inventoryLevels"]
+                resp = requests.get(url, headers=headers, params=params, timeout=30)
 
-                for edge in levels["edges"]:
-                    node = edge["node"]
-                    qty = 0
-                    for q in node.get("quantities", []):
-                        if q["name"] == "available":
-                            qty = q["quantity"]
+                if resp.status_code == 429:
+                    retry_after = float(resp.headers.get("Retry-After", "2"))
+                    print(f"[TURNOVER] Rate limited, waiting {retry_after}s...", flush=True)
+                    time.sleep(retry_after)
+                    continue
+
+                resp.raise_for_status()
+                data = resp.json()
+                levels = data.get("inventory_levels", [])
+
+                for level in levels:
+                    available = level.get("available", 0) or 0
+                    if available > 0:
+                        product_count += 1
+                        total_units += available
+
+                page += 1
+
+                # Paginacion: buscar Link header con rel="next"
+                url = None
+                params = None  # Los params van en la URL del Link header
+                link_header = resp.headers.get("Link", "")
+                if 'rel="next"' in link_header:
+                    for part in link_header.split(","):
+                        if 'rel="next"' in part:
+                            url = part.split("<")[1].split(">")[0]
                             break
 
-                    if qty > 0:
-                        product_count += 1
-                        total_units += qty
-                        cost = node.get("item", {}).get("unitCost", {})
-                        if cost and cost.get("amount"):
-                            total_cost += float(cost["amount"]) * qty
-
-                    cursor = edge["cursor"]
-
-                has_next = levels["pageInfo"]["hasNextPage"]
+                # Rate limiting basico
                 time.sleep(0.3)
 
             except Exception as e:
-                print(f"[TURNOVER] Error inventory {loc_name}: {e}", flush=True)
-                has_next = False
+                print(f"[TURNOVER] Error inventory {loc_name} page {page}: {e}", flush=True)
+                # NO hacer break silencioso — reintentar una vez
+                time.sleep(2)
+                try:
+                    resp = requests.get(
+                        url or f"{rest_url}/inventory_levels.json",
+                        headers=headers,
+                        params=params or {"location_ids": str(loc_id), "limit": 250},
+                        timeout=30,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    levels = data.get("inventory_levels", [])
+                    for level in levels:
+                        available = level.get("available", 0) or 0
+                        if available > 0:
+                            product_count += 1
+                            total_units += available
+                    # No seguir paginando despues de un retry
+                    url = None
+                except Exception as e2:
+                    print(f"[TURNOVER] Retry also failed {loc_name}: {e2}", flush=True)
+                    url = None
 
         results[loc_name] = {
             "total_units": total_units,
-            "total_cost": round(total_cost, 2),
             "product_count": product_count,
         }
-        print(f"[TURNOVER] {loc_name}: {total_units} units, {product_count} SKUs, ${total_cost:,.0f}", flush=True)
+        print(f"[TURNOVER] {loc_name}: {total_units} unidades, {product_count} SKUs, {page} paginas", flush=True)
 
     return results
 
@@ -165,13 +181,6 @@ def _start_sales_bulk(months: int) -> str | None:
                     node {
                       sku
                       quantity
-                      variant {
-                        inventoryItem {
-                          unitCost {
-                            amount
-                          }
-                        }
-                      }
                     }
                   }
                 }
@@ -242,9 +251,9 @@ def _poll_bulk(max_wait: int = 600) -> str | None:
     raise RuntimeError(f"Bulk operation timeout ({max_wait}s)")
 
 
-def _process_sales_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]:
-    """Descarga JSONL y calcula ventas por sede."""
-    sales = {name: {"total_units_sold": 0, "total_cogs": 0.0, "sku_count": 0, "_skus": set()}
+def _process_sales_jsonl(url: str, locations: dict[str, int]) -> dict[str, dict]:
+    """Descarga JSONL y calcula ventas por sede (solo unidades)."""
+    sales = {name: {"total_units_sold": 0, "sku_count": 0, "_skus": set()}
              for name in locations}
 
     resp = requests.get(url, timeout=120, stream=True)
@@ -274,21 +283,18 @@ def _process_sales_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]
         elif "sku" in obj:
             sku = str(obj.get("sku", "")).strip()
             qty = obj.get("quantity", 0)
-            cost_data = (obj.get("variant") or {}).get("inventoryItem", {}).get("unitCost", {})
-            unit_cost = float(cost_data.get("amount", 0)) if cost_data else 0
 
             if parent_id in objects_by_id:
                 objects_by_id[parent_id]["items"].append(
-                    {"sku": sku, "quantity": qty, "unit_cost": unit_cost}
+                    {"sku": sku, "quantity": qty}
                 )
 
-    # Agregar por sede — usar la primera location que matchee una sede objetivo
+    # Agregar por sede
     for order_data in objects_by_id.values():
         order_locations = order_data.get("locations", [])
         if not order_locations:
             continue
 
-        # Buscar la primera sede que matchee un target
         matched = None
         for loc in order_locations:
             for target in locations:
@@ -303,58 +309,48 @@ def _process_sales_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]
         for item in order_data.get("items", []):
             if item["sku"]:
                 sales[matched]["total_units_sold"] += item["quantity"]
-                sales[matched]["total_cogs"] += item["unit_cost"] * item["quantity"]
                 sales[matched]["_skus"].add(item["sku"])
 
     # Convertir sets a counts
     for loc in sales:
         sales[loc]["sku_count"] = len(sales[loc]["_skus"])
-        sales[loc]["total_cogs"] = round(sales[loc]["total_cogs"], 2)
         del sales[loc]["_skus"]
 
     return sales
 
 
 def _build_result(
-    locations: dict[str, str],
+    locations: dict[str, int],
     inventory: dict[str, dict],
     sales: dict[str, dict],
     months: int,
 ) -> dict:
-    """Construye resultado final con rotación por sede."""
+    """Construye resultado final con rotacion por sede (solo unidades)."""
     rows = []
     for loc_name in locations:
         inv = inventory.get(loc_name, {})
         sal = sales.get(loc_name, {})
 
         inv_units = inv.get("total_units", 0)
-        inv_cost = inv.get("total_cost", 0)
         sold_units = sal.get("total_units_sold", 0)
-        cogs = sal.get("total_cogs", 0)
         sku_count = inv.get("product_count", 0)
 
         turnover = round(sold_units / inv_units, 2) if inv_units > 0 else None
-        cost_turnover = round(cogs / inv_cost, 2) if inv_cost > 0 else None
         days_of_inv = round((inv_units / sold_units) * (months * 30)) if sold_units > 0 else None
 
         rows.append({
             "sede": loc_name,
             "inventario_unidades": inv_units,
-            "inventario_valor": inv_cost,
             "inventario_skus": sku_count,
             "vendidas_unidades": sold_units,
-            "vendidas_cogs": cogs,
             "vendidas_skus": sal.get("sku_count", 0),
             "rotacion": turnover,
-            "rotacion_costo": cost_turnover,
             "dias_inventario": days_of_inv,
         })
 
     # Totales
     total_inv = sum(r["inventario_unidades"] for r in rows)
-    total_cost = sum(r["inventario_valor"] for r in rows)
     total_sold = sum(r["vendidas_unidades"] for r in rows)
-    total_cogs = sum(r["vendidas_cogs"] for r in rows)
 
     return {
         "periodo_meses": months,
@@ -362,20 +358,17 @@ def _build_result(
         "sedes": rows,
         "totales": {
             "inventario_unidades": total_inv,
-            "inventario_valor": round(total_cost, 2),
             "vendidas_unidades": total_sold,
-            "vendidas_cogs": round(total_cogs, 2),
             "rotacion": round(total_sold / total_inv, 2) if total_inv > 0 else None,
-            "rotacion_costo": round(total_cogs / total_cost, 2) if total_cost > 0 else None,
             "dias_inventario": round((total_inv / total_sold) * (months * 30)) if total_sold > 0 else None,
         },
     }
 
 
-# ── Background worker ──────────────────────────────────────────────
+# -- Background worker ---------------------------------------------------
 
 def _turnover_worker(months: int):
-    """Ejecuta todo el cálculo en background."""
+    """Ejecuta todo el calculo en background."""
     try:
         # Fase 1: Locations
         _job["phase"] = "locations"
@@ -384,7 +377,7 @@ def _turnover_worker(months: int):
             raise RuntimeError("No se encontraron sedes objetivo en Shopify")
         print(f"[TURNOVER] Sedes: {list(locations.keys())}", flush=True)
 
-        # Fase 2: Inventario actual
+        # Fase 2: Inventario actual via REST API
         _job["phase"] = "inventory"
         inventory = _get_inventory_per_location(locations)
 
@@ -403,9 +396,9 @@ def _turnover_worker(months: int):
         sales = _process_sales_jsonl(url, locations)
 
         for loc, data in sales.items():
-            print(f"[TURNOVER] Ventas {loc}: {data['total_units_sold']} unidades", flush=True)
+            print(f"[TURNOVER] Ventas {loc}: {data['total_units_sold']} unidades, {data['sku_count']} SKUs", flush=True)
 
-        # Fase 5: Calcular rotación
+        # Fase 5: Calcular rotacion
         _job["result"] = _build_result(locations, inventory, sales, months)
         _job["error"] = None
         print("[TURNOVER] Calculo completado", flush=True)
@@ -418,7 +411,7 @@ def _turnover_worker(months: int):
         _job["phase"] = None
 
 
-# ── Endpoints ───────────────────────────────────────────────────────
+# -- Endpoints -----------------------------------------------------------
 
 @router.post("/start")
 def start_turnover(months: int = 12):

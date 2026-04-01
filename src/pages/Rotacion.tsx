@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, TrendingUp, Package, ShoppingCart, Clock, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { RefreshCw, TrendingUp, Package, ShoppingCart, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ const PHASE_LABELS: Record<string, string> = {
   inventory: "Consultando inventario actual...",
   bulk_start: "Iniciando consulta de ventas...",
   bulk_poll: "Procesando ventas (puede tomar unos minutos)...",
-  processing: "Calculando rotación...",
+  processing: "Calculando rotacion...",
 };
 
 const PHASE_PROGRESS: Record<string, number> = {
@@ -31,10 +31,6 @@ const PHASE_PROGRESS: Record<string, number> = {
 
 function formatNumber(n: number): string {
   return n.toLocaleString("es-CO");
-}
-
-function formatCurrency(n: number): string {
-  return `$${n.toLocaleString("es-CO", { maximumFractionDigits: 0 })}`;
 }
 
 function getRotacionBadge(rotacion: number | null) {
@@ -93,11 +89,8 @@ export default function Rotacion() {
     try {
       await startTurnover(Number(months));
       toast.info("Calculo iniciado, esto puede tomar unos minutos...");
-
-      // Start polling
       stopPolling();
       pollRef.current = setInterval(pollStatus, 4000);
-      // Immediate first poll
       setTimeout(pollStatus, 1000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al iniciar");
@@ -106,7 +99,6 @@ export default function Rotacion() {
     }
   }, [months, pollStatus, stopPolling]);
 
-  // Check status on mount (in case there's a running or completed job)
   useEffect(() => {
     getTurnoverStatus().then((s) => {
       setStatus(s);
@@ -130,7 +122,7 @@ export default function Rotacion() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Rotacion de Inventario</h1>
           <p className="text-sm text-muted-foreground">
-            Analisis de rotacion por sede — unidades vendidas vs inventario actual
+            Unidades vendidas vs inventario actual por sede
           </p>
         </div>
       </div>
@@ -162,7 +154,6 @@ export default function Rotacion() {
             </Button>
           </div>
 
-          {/* Progress */}
           {isRunning && status?.phase && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -173,7 +164,6 @@ export default function Rotacion() {
             </div>
           )}
 
-          {/* Error */}
           {status?.error && !isRunning && (
             <div className="mt-4 flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -187,7 +177,7 @@ export default function Rotacion() {
       {result && (
         <>
           {/* Summary Cards */}
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -197,7 +187,7 @@ export default function Rotacion() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatNumber(result.totales.inventario_unidades)}</div>
-                <p className="text-xs text-muted-foreground">{formatCurrency(result.totales.inventario_valor)}</p>
+                <p className="text-xs text-muted-foreground">unidades disponibles</p>
               </CardContent>
             </Card>
 
@@ -210,7 +200,7 @@ export default function Rotacion() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatNumber(result.totales.vendidas_unidades)}</div>
-                <p className="text-xs text-muted-foreground">COGS: {formatCurrency(result.totales.vendidas_cogs)}</p>
+                <p className="text-xs text-muted-foreground">unidades vendidas</p>
               </CardContent>
             </Card>
 
@@ -226,23 +216,8 @@ export default function Rotacion() {
                   {result.totales.rotacion !== null ? `${result.totales.rotacion.toFixed(1)}x` : "—"}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Costo: {result.totales.rotacion_costo !== null ? `${result.totales.rotacion_costo.toFixed(1)}x` : "—"}
+                  {result.totales.dias_inventario !== null ? `${result.totales.dias_inventario} dias de inventario` : "—"}
                 </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Dias de Inventario
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {result.totales.dias_inventario !== null ? `${result.totales.dias_inventario}` : "—"}
-                </div>
-                <p className="text-xs text-muted-foreground">Promedio global</p>
               </CardContent>
             </Card>
           </div>
@@ -262,12 +237,10 @@ export default function Rotacion() {
                     <tr className="border-b text-left">
                       <th className="pb-3 font-medium">Sede</th>
                       <th className="pb-3 font-medium text-right">Inventario</th>
-                      <th className="pb-3 font-medium text-right">Valor Inv.</th>
-                      <th className="pb-3 font-medium text-right">SKUs Inv.</th>
+                      <th className="pb-3 font-medium text-right">SKUs</th>
                       <th className="pb-3 font-medium text-right">Vendidas</th>
-                      <th className="pb-3 font-medium text-right">COGS</th>
+                      <th className="pb-3 font-medium text-right">SKUs Vendidos</th>
                       <th className="pb-3 font-medium text-center">Rotacion</th>
-                      <th className="pb-3 font-medium text-center">Rot. Costo</th>
                       <th className="pb-3 font-medium text-center">Dias Inv.</th>
                     </tr>
                   </thead>
@@ -276,12 +249,10 @@ export default function Rotacion() {
                       <tr key={sede.sede} className="border-b last:border-0 hover:bg-muted/50">
                         <td className="py-3 font-medium">{sede.sede}</td>
                         <td className="py-3 text-right tabular-nums">{formatNumber(sede.inventario_unidades)}</td>
-                        <td className="py-3 text-right tabular-nums">{formatCurrency(sede.inventario_valor)}</td>
                         <td className="py-3 text-right tabular-nums">{formatNumber(sede.inventario_skus)}</td>
                         <td className="py-3 text-right tabular-nums">{formatNumber(sede.vendidas_unidades)}</td>
-                        <td className="py-3 text-right tabular-nums">{formatCurrency(sede.vendidas_cogs)}</td>
+                        <td className="py-3 text-right tabular-nums">{formatNumber(sede.vendidas_skus)}</td>
                         <td className="py-3 text-center">{getRotacionBadge(sede.rotacion)}</td>
-                        <td className="py-3 text-center">{getRotacionBadge(sede.rotacion_costo)}</td>
                         <td className="py-3 text-center">{getDiasLabel(sede.dias_inventario)}</td>
                       </tr>
                     ))}
@@ -290,12 +261,10 @@ export default function Rotacion() {
                     <tr className="border-t-2 font-semibold">
                       <td className="pt-3">Total</td>
                       <td className="pt-3 text-right tabular-nums">{formatNumber(result.totales.inventario_unidades)}</td>
-                      <td className="pt-3 text-right tabular-nums">{formatCurrency(result.totales.inventario_valor)}</td>
                       <td className="pt-3 text-right"></td>
                       <td className="pt-3 text-right tabular-nums">{formatNumber(result.totales.vendidas_unidades)}</td>
-                      <td className="pt-3 text-right tabular-nums">{formatCurrency(result.totales.vendidas_cogs)}</td>
+                      <td className="pt-3 text-right"></td>
                       <td className="pt-3 text-center">{getRotacionBadge(result.totales.rotacion)}</td>
-                      <td className="pt-3 text-center">{getRotacionBadge(result.totales.rotacion_costo)}</td>
                       <td className="pt-3 text-center">{getDiasLabel(result.totales.dias_inventario)}</td>
                     </tr>
                   </tfoot>
@@ -328,7 +297,6 @@ export default function Rotacion() {
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 <strong>Rotacion</strong> = Unidades vendidas / Inventario actual.{" "}
-                <strong>Rot. Costo</strong> = COGS / Valor inventario.{" "}
                 <strong>Dias Inv.</strong> = Dias que duraria el stock al ritmo actual de ventas.
               </p>
             </CardContent>

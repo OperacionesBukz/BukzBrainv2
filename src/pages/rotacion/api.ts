@@ -7,13 +7,10 @@ const API_BASE =
 export interface SedeRotacion {
   sede: string;
   inventario_unidades: number;
-  inventario_valor: number;
   inventario_skus: number;
   vendidas_unidades: number;
-  vendidas_cogs: number;
   vendidas_skus: number;
   rotacion: number | null;
-  rotacion_costo: number | null;
   dias_inventario: number | null;
 }
 
@@ -23,11 +20,8 @@ export interface TurnoverResult {
   sedes: SedeRotacion[];
   totales: {
     inventario_unidades: number;
-    inventario_valor: number;
     vendidas_unidades: number;
-    vendidas_cogs: number;
     rotacion: number | null;
-    rotacion_costo: number | null;
     dias_inventario: number | null;
   };
 }
