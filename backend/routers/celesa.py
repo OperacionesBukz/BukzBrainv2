@@ -4,8 +4,11 @@ Endpoints:
   POST /api/celesa/start    -> Inicia comparación Azeta vs Shopify (background)
   GET  /api/celesa/status   -> Estado y diferencias encontradas
   POST /api/celesa/apply    -> Aplica cambios a Shopify
+
+Usa Bulk Operations para consultar ~90k SKUs de inventario eficientemente.
 """
 
+import json
 import os
 import threading
 import time
@@ -18,7 +21,7 @@ from services.shopify_service import _throttler
 
 router = APIRouter(prefix="/api/celesa", tags=["Celesa Inventory"])
 
-# -- Azeta config -----------------------------------------------------------
+# -- Config ------------------------------------------------------------------
 
 AZETA_URL = os.getenv(
     "AZETA_URL",
@@ -52,7 +55,7 @@ def _set_job(**kwargs):
         _job.update(kwargs)
 
 
-# -- Helpers -----------------------------------------------------------------
+# -- GraphQL helper ----------------------------------------------------------
 
 def _gql(query: str, variables: dict | None = None, timeout: int = 30, _retries: int = 3) -> dict:
     _throttler.wait_if_needed()
@@ -75,7 +78,6 @@ def _gql(query: str, variables: dict | None = None, timeout: int = 30, _retries:
     resp.raise_for_status()
     body = resp.json()
     if "errors" in body:
-        # Shopify GraphQL returns THROTTLED as HTTP 200 with error in body
         is_throttled = any(
             e.get("extensions", {}).get("code") == "THROTTLED"
             for e in body["errors"]
@@ -89,6 +91,8 @@ def _gql(query: str, variables: dict | None = None, timeout: int = 30, _retries:
     return body["data"]
 
 
+# -- Location ----------------------------------------------------------------
+
 def _get_dropshipping_location() -> str:
     """Retorna el GID de la location 'Dropshipping [España]'."""
     data = _gql('{ locations(first: 250) { edges { node { id name } } } }')
@@ -99,6 +103,8 @@ def _get_dropshipping_location() -> str:
         f"Location '{DROPSHIPPING_LOCATION_NAME}' no encontrada en Shopify"
     )
 
+
+# -- Azeta -------------------------------------------------------------------
 
 def _fetch_azeta_stock() -> dict[str, int]:
     """Descarga stock de Azeta. Retorna {sku: quantity}."""
@@ -121,85 +127,184 @@ def _fetch_azeta_stock() -> dict[str, int]:
     return stock
 
 
-def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
-    """
-    Paginado: obtiene inventario completo de la location con rate limiting.
-    Retorna [{"sku", "title", "vendor", "available", "inventory_item_id"}, ...]
-    """
-    results: list[dict] = []
-    cursor = None
+# -- Shopify Bulk Operation --------------------------------------------------
 
-    query_template = """
-    query inventoryLevels($locationId: ID!, $first: Int!, $after: String) {
-      location(id: $locationId) {
-        inventoryLevels(first: $first, after: $after) {
-          pageInfo { hasNextPage endCursor }
-          edges {
-            node {
-              quantities(names: ["available"]) {
-                name
-                quantity
-              }
-              item {
+def _start_inventory_bulk() -> str:
+    """Lanza bulk operation para inventario completo con locations y vendors."""
+    mutation = """
+    mutation {
+      bulkOperationRunQuery(
+        query: \"\"\"
+        {
+          inventoryItems {
+            edges {
+              node {
                 id
                 sku
                 variant {
                   product {
-                    vendor
                     title
+                    vendor
+                  }
+                }
+                inventoryLevels {
+                  edges {
+                    node {
+                      location {
+                        name
+                      }
+                      quantities(names: ["available"]) {
+                        name
+                        quantity
+                      }
+                    }
                   }
                 }
               }
             }
           }
         }
+        \"\"\"
+      ) {
+        bulkOperation { id status }
+        userErrors { field message }
       }
     }
     """
+    data = _gql(mutation, timeout=30)
+    result = data.get("bulkOperationRunQuery", {})
+    errors = result.get("userErrors", [])
+    if errors:
+        raise RuntimeError(f"Bulk operation user errors: {errors}")
 
-    while True:
-        variables = {
-            "locationId": location_gid,
-            "first": 250,
-            "after": cursor,
-        }
+    op_id = result.get("bulkOperation", {}).get("id")
+    if not op_id:
+        raise RuntimeError("Bulk operation no retornó ID")
+    print(f"[CELESA] Bulk op started: {op_id}", flush=True)
+    return op_id
 
-        data = _gql(query_template, variables)
-        location_data = data.get("location") or {}
-        inv_levels = location_data.get("inventoryLevels", {})
 
-        for edge in inv_levels.get("edges", []):
-            node = edge.get("node", {})
-            item = node.get("item", {})
-            sku = (item.get("sku") or "").strip()
-            inventory_item_id = (item.get("id") or "").strip()
-            variant = item.get("variant") or {}
+def _poll_bulk(op_id: str, max_wait: int = 900) -> str:
+    """Espera a que la bulk operation termine y retorna la URL de descarga."""
+    query_by_id = '{ node(id: "%s") { ... on BulkOperation { id status errorCode objectCount url } } }' % op_id
+    query_current = "{ currentBulkOperation { id status errorCode objectCount url } }"
+
+    start = time.time()
+    use_node_query = True
+
+    while time.time() - start < max_wait:
+        try:
+            if use_node_query:
+                try:
+                    data = _gql(query_by_id)
+                    op = data.get("node")
+                except Exception:
+                    use_node_query = False
+                    data = _gql(query_current)
+                    op = data.get("currentBulkOperation")
+            else:
+                data = _gql(query_current)
+                op = data.get("currentBulkOperation")
+
+            if not op:
+                time.sleep(3)
+                continue
+
+            status = op.get("status")
+            count = op.get("objectCount", 0)
+            print(f"[CELESA] Bulk: {status} ({count} objects)", flush=True)
+
+            if status == "COMPLETED":
+                url = op.get("url")
+                if not url:
+                    raise RuntimeError("Bulk operation completada sin URL de descarga")
+                return url
+            elif status in ("FAILED", "CANCELED"):
+                raise RuntimeError(f"Bulk operation {status}: {op.get('errorCode')}")
+
+        except RuntimeError:
+            raise
+        except Exception:
+            pass
+
+        time.sleep(5)
+
+    raise RuntimeError(f"Bulk operation timeout ({max_wait}s)")
+
+
+def _process_inventory_jsonl(url: str, location_gid: str) -> list[dict]:
+    """
+    Descarga JSONL de bulk operation y extrae inventario filtrado por:
+    - Location: Dropshipping [España]
+    - Vendor: Bukz España
+    Retorna [{"sku", "title", "vendor", "available", "inventory_item_id"}, ...]
+    """
+    resp = http_requests.get(url, timeout=300, stream=True)
+
+    # JSONL flat: InventoryItem rows, then child InventoryLevel rows con __parentId
+    items: dict[str, dict] = {}  # inventory_item_gid -> {sku, title, vendor, inventory_item_id}
+
+    results: list[dict] = []
+
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        try:
+            obj = json.loads(line.decode("utf-8"))
+        except json.JSONDecodeError:
+            continue
+
+        obj_id = obj.get("id", "")
+        parent_id = obj.get("__parentId", "")
+
+        # InventoryItem row
+        if "gid://shopify/InventoryItem/" in obj_id and "InventoryLevel" not in obj_id:
+            variant = obj.get("variant") or {}
             product = variant.get("product") or {}
             vendor = (product.get("vendor") or "").strip()
-            title = (product.get("title") or "").strip()
+            sku = (obj.get("sku") or "").strip()
+
+            # Filtro de vendor
+            if sku and vendor == VENDOR_FILTER:
+                items[obj_id] = {
+                    "sku": sku,
+                    "title": (product.get("title") or "").strip(),
+                    "vendor": vendor,
+                    "inventory_item_id": obj_id,
+                }
+
+        # InventoryLevel row (child of InventoryItem)
+        elif "gid://shopify/InventoryLevel/" in obj_id:
+            loc_name = (obj.get("location", {}).get("name") or "").strip()
+
+            # Filtro de location
+            if loc_name != DROPSHIPPING_LOCATION_NAME:
+                continue
+
+            # Solo si el parent es un item que pasó el filtro de vendor
+            if parent_id not in items:
+                continue
 
             available = 0
-            for qty_entry in node.get("quantities", []):
-                if qty_entry.get("name") == "available":
-                    available = int(qty_entry.get("quantity") or 0)
+            for q in obj.get("quantities", []):
+                if q.get("name") == "available":
+                    available = int(q.get("quantity") or 0)
                     break
 
-            if sku and vendor == VENDOR_FILTER:
-                results.append({
-                    "sku": sku,
-                    "title": title,
-                    "vendor": vendor,
-                    "available": available,
-                    "inventory_item_id": inventory_item_id,
-                })
+            item = items[parent_id]
+            results.append({
+                "sku": item["sku"],
+                "title": item["title"],
+                "vendor": item["vendor"],
+                "available": available,
+                "inventory_item_id": item["inventory_item_id"],
+            })
 
-        page_info = inv_levels.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        cursor = page_info.get("endCursor")
-
+    print(f"[CELESA] Procesados {len(results)} items (vendor={VENDOR_FILTER}, location={DROPSHIPPING_LOCATION_NAME})", flush=True)
     return results
 
+
+# -- Compare -----------------------------------------------------------------
 
 def _compare(
     shopify_items: list[dict], azeta_stock: dict[str, int]
@@ -239,8 +344,14 @@ def _run_comparison():
         _set_job(phase="azeta")
         azeta_stock = _fetch_azeta_stock()
 
-        _set_job(phase="shopify")
-        shopify_items = _fetch_shopify_inventory(location_gid)
+        _set_job(phase="shopify_bulk")
+        op_id = _start_inventory_bulk()
+
+        _set_job(phase="shopify_polling")
+        jsonl_url = _poll_bulk(op_id)
+
+        _set_job(phase="processing")
+        shopify_items = _process_inventory_jsonl(jsonl_url, location_gid)
 
         _set_job(phase="comparing")
         diffs = _compare(shopify_items, azeta_stock)
@@ -293,7 +404,6 @@ def _run_apply():
         }
         """
 
-        # inventorySetQuantities acepta hasta 100 items por llamada
         batch_size = 100
         for i in range(0, total, batch_size):
             batch = diffs[i : i + batch_size]
@@ -325,7 +435,6 @@ def _run_apply():
                 if user_errors:
                     for ue in user_errors:
                         errors.append(f"{ue.get('field')}: {ue.get('message')}")
-                    # Partial success: if adjustmentGroup exists, some items succeeded
                     if has_adjustment:
                         applied += len(batch) - len(user_errors)
                 else:

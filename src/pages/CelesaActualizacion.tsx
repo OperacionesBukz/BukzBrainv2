@@ -38,16 +38,20 @@ const PHASE_LABELS: Record<string, string> = {
   starting: "Iniciando...",
   location: "Buscando location Dropshipping España...",
   azeta: "Descargando stock de Azeta...",
-  shopify: "Consultando inventario en Shopify...",
+  shopify_bulk: "Lanzando consulta masiva a Shopify...",
+  shopify_polling: "Esperando respuesta de Shopify (~90k SKUs)...",
+  processing: "Procesando inventario...",
   comparing: "Comparando diferencias...",
 };
 
 const PHASE_PROGRESS: Record<string, number> = {
   starting: 5,
-  location: 15,
-  azeta: 35,
-  shopify: 65,
-  comparing: 90,
+  location: 10,
+  azeta: 20,
+  shopify_bulk: 30,
+  shopify_polling: 55,
+  processing: 80,
+  comparing: 95,
 };
 
 function formatNumber(n: number): string {
