@@ -335,9 +335,18 @@ export function useCmvProcessor() {
     }
   }, []);
 
-  // Finalizar revisión y pasar a resultados
+  // Finalizar revisión: incluir productos sin vendor en resultados y pasar a results
   const finishReview = useCallback(() => {
-    setState((s) => ({ ...s, step: "results" }));
+    setState((s) => {
+      const allProducts = [...s.products, ...s.unknownVendorProducts];
+      return {
+        ...s,
+        products: allProducts,
+        unknownVendorProducts: [],
+        totals: calculateTotals(allProducts),
+        step: "results",
+      };
+    });
   }, []);
 
   const reset = useCallback(() => {
