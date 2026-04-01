@@ -62,8 +62,10 @@ export function ResultsStep({
   onReset,
 }: ResultsStepProps) {
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth(); // mes anterior (1-12)
+  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const [month, setMonth] = useState(prevMonth);
+  const [year, setYear] = useState(prevYear);
 
   // Calcular breakdown por vendor
   const vendorBreakdown = useMemo<VendorBreakdown[]>(() => {
