@@ -333,10 +333,19 @@ export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
         descuentoRaw === "BUKZ" ? "BUKZ" :
         descuentoRaw === "PROVEEDOR" ? "PROVEEDOR" : "VACIO";
 
-      const costoUnitario = findNum("Costo Unitario", "Costo Unit.", "Costo");
-      const costoTotal = findNum("Costo Total");
       const cantidad = findNum("Cantidad");
       const valorUnitario = findNum("Valor Unitario", "Valor Unit.");
+      const valorTotal = findNum("Valor Total", "Total");
+
+      // Calcular costo según tipo de descuento:
+      // BUKZ: el descuento lo dio Bukz → costo sobre precio original (valorUnitario)
+      // PROVEEDOR/VACIO: costo sobre el total real cobrado (valorTotal)
+      let costoTotal = 0;
+      if (margen > 0) {
+        const base = descuento === "BUKZ" ? valorUnitario : valorTotal;
+        costoTotal = Math.round(base * (1 - margen));
+      }
+      const costoUnitario = cantidad > 0 ? Math.round(costoTotal / cantidad) : costoTotal;
 
       return {
         factura: findStr("Factura", "Numero comprobante"),
@@ -350,7 +359,7 @@ export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
         cantidad,
         valorUnitario,
         descuentoPct: findNum("Descuento %", "Valor desc."),
-        valorTotal: findNum("Valor Total", "Total"),
+        valorTotal,
         observaciones: findStr("Observaciones"),
         pedido: findStr("Pedido"),
         numeroPedido: findStr("No. Pedido", "Numero Pedido"),
@@ -361,9 +370,9 @@ export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
         tipoItem: "",
         vendor: findStr("Vendor", "Editorial", "Proveedor"),
         margen,
-        costo: costoUnitario || (margen > 0 ? Math.round(valorUnitario * (1 - margen)) : 0),
-        costoTotal: costoTotal || (margen > 0 ? Math.round(valorUnitario * (1 - margen) * cantidad) : 0),
+        costo: costoUnitario,
+        costoTotal,
       } as CmvProduct;
     })
-    .filter((p) => p.isbn !== "" && p.valorTotal !== 0);
+    .filter((p) => p.isbn !== "");
 }
