@@ -208,7 +208,7 @@ export function processCmvFromRecords(
   });
 
   // 4b. Descartar filas sin ISBN y productos excluidos del CMV
-  const EXCLUDED_PRODUCTS = ["bono de regalo bukz"];
+  const EXCLUDED_PRODUCTS = ["bono de regalo"];
   const withIsbn = mapped.filter((p) => {
     if (!p.isbn.trim()) return false;
     if (EXCLUDED_PRODUCTS.some((ex) => p.producto.toLowerCase().includes(ex))) return false;
