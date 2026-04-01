@@ -45,7 +45,7 @@ export function useVendors() {
             return {
               id: d.id,
               name: (data.empresa as string) || "",
-              margin: (data.margen as number) || 0,
+              margin: ((data.margen as number) || 0) / 100,
               updatedAt: data.updatedAt,
             } as Vendor;
           })
