@@ -221,6 +221,16 @@ export function useCmvProcessor() {
       const skuVendorMap = await lookupVendorsBatch(uniqueIsbns);
       console.log("[CMV] Lookup returned:", skuVendorMap.size, "vendors");
 
+      // Validar que el catálogo retornó suficientes resultados
+      const matchRate = uniqueIsbns.length > 0 ? skuVendorMap.size / uniqueIsbns.length : 1;
+      if (matchRate < 0.8) {
+        setState((s) => ({ ...s, isProcessing: false, step: "upload" }));
+        toast.error(
+          `El catálogo solo encontró ${skuVendorMap.size} de ${uniqueIsbns.length} SKUs (${Math.round(matchRate * 100)}%). Puede estar actualizándose. Intenta de nuevo en unos minutos.`
+        );
+        return;
+      }
+
       // 3. Procesar con los datos ya parseados (sin márgenes)
       const result = processCmvFromRecords(rawRecords, creditNotes, skuVendorMap);
       console.log("[CMV] Result:", result.products.length, "assigned,", result.unknownVendorProducts.length, "unknown");
