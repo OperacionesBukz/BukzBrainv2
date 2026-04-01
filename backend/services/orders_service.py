@@ -222,6 +222,7 @@ def get_discount_codes(order_names: list[str]) -> dict[str, str]:
     """
     Consulta discount codes de ordenes Shopify por nombre.
     Retorna dict {order_name: discount_code}.
+    Usa batches de 50 órdenes y max 3 workers para evitar rate limiting.
     """
     if not order_names:
         return {}
@@ -230,10 +231,11 @@ def get_discount_codes(order_names: list[str]) -> dict[str, str]:
     session = requests.Session()
     session.headers.update(headers)
 
-    batches = list(chunk_list(order_names, 10))
+    batches = list(chunk_list(order_names, 50))
     all_results = {}
+    print(f"[DISCOUNTS] Total: {len(order_names)} orders in {len(batches)} batches", flush=True)
 
-    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         futures = {
             executor.submit(_fetch_discount_batch, session, batch): i
             for i, batch in enumerate(batches)
@@ -241,6 +243,8 @@ def get_discount_codes(order_names: list[str]) -> dict[str, str]:
         for future in as_completed(futures):
             all_results.update(future.result())
 
+    found_with_codes = sum(1 for v in all_results.values() if v)
+    print(f"[DISCOUNTS] Done: {len(all_results)} orders found, {found_with_codes} with discount codes", flush=True)
     return all_results
 
 
