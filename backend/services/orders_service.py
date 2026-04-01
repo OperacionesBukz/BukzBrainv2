@@ -178,14 +178,20 @@ def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> 
     results = {}
 
     try:
+        print(f"[DISCOUNTS] Querying {len(order_names)} orders: {order_names[:5]}...", flush=True)
         response = session.post(
             graphql_url,
             json={"query": query},
             timeout=30,
         )
+        print(f"[DISCOUNTS] Response status: {response.status_code}", flush=True)
         if response.status_code == 200:
             data = response.json()
+            errors = data.get("errors", [])
+            if errors:
+                print(f"[DISCOUNTS] GraphQL errors: {errors}", flush=True)
             edges = data.get("data", {}).get("orders", {}).get("edges", [])
+            print(f"[DISCOUNTS] Found {len(edges)} orders", flush=True)
             for edge in edges:
                 node = edge["node"]
                 name = node.get("name", "")
@@ -200,8 +206,10 @@ def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> 
                     code = codes[0].get("code", "")
                 if name:
                     results[name] = code
+        else:
+            print(f"[DISCOUNTS] HTTP error: {response.status_code} - {response.text[:200]}", flush=True)
     except Exception as e:
-        print(f"[ORDERS] Error fetching discount batch: {e}", flush=True)
+        print(f"[DISCOUNTS] Error fetching discount batch: {e}", flush=True)
 
     return results
 

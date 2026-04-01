@@ -614,7 +614,10 @@ def orders_discount_lookup(body: dict):
     order_names = body.get("orders", [])
     if not order_names:
         return {}
-    return get_discount_codes(order_names)
+    print(f"[CMV] Discount lookup request: {len(order_names)} orders, sample: {order_names[:5]}", flush=True)
+    result = get_discount_codes(order_names)
+    print(f"[CMV] Discount lookup result: {len(result)} orders with data", flush=True)
+    return result
 
 
 # ---------------------------------------------------------------------------
