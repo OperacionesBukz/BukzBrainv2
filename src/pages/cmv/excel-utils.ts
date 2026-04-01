@@ -252,7 +252,7 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     "ISBN": p.isbn,
     "Producto": p.producto,
     "Cantidad": p.cantidad,
-    "Valor Unitario": p.valorUnitario,
+    "Valor Unitario": p.valorUnitario * p.cantidad,
     "Descuento %": p.descuentoPct,
     "Valor Total": p.valorTotal,
     "Pedido": p.pedido,
