@@ -569,6 +569,39 @@ def get_catalog_status():
     return {"catalog": catalog, "bulk_op": bulk_op}
 
 
+@router.post("/catalog/lookup")
+def catalog_lookup(body: dict):
+    """
+    Recibe una lista de SKUs y devuelve el vendor de cada uno.
+    Body: {"skus": ["9788413140025", "9789584238597", ...]}
+    Returns: {"9788413140025": "Bukz España", "9789584238597": "Grupo Editorial Planeta", ...}
+    """
+    from services.scheduler_service import read_product_catalog
+    skus = body.get("skus", [])
+    if not skus:
+        return {}
+
+    items, meta = read_product_catalog(check_ttl=False)
+    if not items:
+        return {}
+
+    # Construir mapa SKU→vendor en el servidor
+    sku_vendor_map = {}
+    for item in items:
+        sku = (item.get("sku") or "").strip()
+        if sku:
+            sku_vendor_map[sku] = item.get("vendor", "")
+
+    # Devolver solo los vendors de los SKUs solicitados
+    result = {}
+    for sku in skus:
+        s = str(sku).strip()
+        if s in sku_vendor_map:
+            result[s] = sku_vendor_map[s]
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Constantes para Motor de Cálculo de Reposición
 # ---------------------------------------------------------------------------

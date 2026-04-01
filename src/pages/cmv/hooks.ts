@@ -3,11 +3,7 @@ import {
   collection,
   onSnapshot,
   addDoc,
-  doc,
-  getDoc,
-  getDocs,
   query,
-  orderBy,
   where,
   serverTimestamp,
 } from "firebase/firestore";
@@ -65,72 +61,33 @@ export function useVendors() {
   return { vendors, loading };
 }
 
-// --- Hook: SKU → Vendor (desde product_catalog) ---
+// --- Lookup SKU → Vendor via backend (no carga 176K items en browser) ---
 
-export function useSkuVendorMap() {
-  const [skuVendorMap, setSkuVendorMap] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(true);
+const API_BASE = import.meta.env.VITE_API_URL || "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
 
-  useEffect(() => {
-    let cancelled = false;
+async function lookupVendorsBatch(skus: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (skus.length === 0) return map;
 
-    async function loadProductCatalog() {
-      try {
-        const docSnap = await getDoc(doc(db, "product_catalog", "global"));
-        const map = new Map<string, string>();
+  try {
+    const resp = await fetch(`${API_BASE}/api/reposiciones/catalog/lookup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skus }),
+    });
 
-        if (!docSnap.exists()) {
-          // Catalog not yet populated, fall back silently
-          if (!cancelled) { setSkuVendorMap(map); setLoading(false); }
-          return;
-        }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-        const data = docSnap.data();
-
-        // Inline data (not chunked)
-        if (!data.chunked && Array.isArray(data.data)) {
-          for (const item of data.data) {
-            if (item.sku && item.vendor) {
-              map.set(item.sku.trim(), item.vendor);
-            }
-          }
-        }
-
-        // Chunked data
-        if (data.chunked) {
-          const chunksSnap = await getDocs(
-            collection(db, "product_catalog", "global", "chunks")
-          );
-          for (const chunkDoc of chunksSnap.docs) {
-            const chunkData = chunkDoc.data().data;
-            if (Array.isArray(chunkData)) {
-              for (const item of chunkData) {
-                if (item.sku && item.vendor) {
-                  map.set(item.sku.trim(), item.vendor);
-                }
-              }
-            }
-          }
-        }
-
-        if (!cancelled) {
-          setSkuVendorMap(map);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Error cargando product_catalog:", err);
-        if (!cancelled) {
-          toast.error("Error al cargar catálogo de productos");
-          setLoading(false);
-        }
-      }
+    const data: Record<string, string> = await resp.json();
+    for (const [sku, vendor] of Object.entries(data)) {
+      map.set(sku, vendor);
     }
+  } catch (err) {
+    console.error("Error en catalog lookup:", err);
+    toast.error("Error al buscar vendors en el catálogo");
+  }
 
-    loadProductCatalog();
-    return () => { cancelled = true; };
-  }, []);
-
-  return { skuVendorMap, loading };
+  return map;
 }
 
 // --- Hook: Historial CMV ---
@@ -206,8 +163,7 @@ export function useCmvProcessor() {
   const [state, setState] = useState<CmvState>(INITIAL_CMV_STATE);
   const { user } = useAuth();
   const { vendors, loading: vendorsLoading } = useVendors();
-  const { skuVendorMap, loading: skuMapLoading } = useSkuVendorMap();
-  const dataReady = !vendorsLoading && !skuMapLoading;
+  const dataReady = !vendorsLoading;
 
   const setSalesFile = useCallback((file: File | null) => {
     setState((s) => ({ ...s, salesFile: file }));
@@ -228,6 +184,13 @@ export function useCmvProcessor() {
     try {
       const salesBuffer = await state.salesFile.arrayBuffer();
       const notesBuffer = state.notesFile ? await state.notesFile.arrayBuffer() : null;
+
+      // Parsear Excel primero para extraer ISBNs únicos
+      const { extractUniqueIsbns } = await import("./excel-utils");
+      const uniqueIsbns = extractUniqueIsbns(salesBuffer);
+
+      // Lookup de vendors via backend (no carga 176K items en browser)
+      const skuVendorMap = await lookupVendorsBatch(uniqueIsbns);
 
       const result = await processCmv(salesBuffer, notesBuffer, vendors, skuVendorMap);
 
@@ -256,7 +219,7 @@ export function useCmvProcessor() {
       setState((s) => ({ ...s, isProcessing: false, error: message, step: "upload" }));
       toast.error(`Error al procesar: ${message}`);
     }
-  }, [state.salesFile, state.notesFile, vendors, skuVendorMap]);
+  }, [state.salesFile, state.notesFile, vendors]);
 
   // Resolver excepciones: asignar vendor a productos desconocidos
   const resolveVendorException = useCallback(

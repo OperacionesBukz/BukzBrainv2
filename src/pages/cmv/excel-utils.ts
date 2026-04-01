@@ -72,6 +72,23 @@ export function parseSalesExcel(file: ArrayBuffer): RawSaleRecord[] {
   });
 }
 
+/** Extrae ISBNs únicos del Excel de ventas sin procesar todo el archivo */
+export function extractUniqueIsbns(file: ArrayBuffer): string[] {
+  const records = parseSalesExcel(file);
+  const isbns = new Set<string>();
+  for (const row of records) {
+    const isbn = String(
+      row[normalizeHeader("Código")] ||
+      row[normalizeHeader("Referencia")] ||
+      row[normalizeHeader("ISBN")] ||
+      row[normalizeHeader("SKU")] ||
+      ""
+    ).trim();
+    if (isbn) isbns.add(isbn);
+  }
+  return Array.from(isbns);
+}
+
 /** Convierte índice de columna (0-based) a letras Excel (0=A, 25=Z, 26=AA, etc.) */
 function colToLetter(col: number): string {
   let s = "";
