@@ -12,7 +12,6 @@ import json
 import threading
 import time
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter
@@ -434,7 +433,7 @@ def _run_sales_pipeline(months: int, locations: dict[str, str]) -> dict[str, dic
 
 
 def _turnover_worker(months: int):
-    """Ejecuta calculo con 2 bulk operations en paralelo."""
+    """Ejecuta calculo secuencial: inventario bulk op, luego ventas bulk op."""
     try:
         # Fase 1: Locations
         _job["phase"] = "locations"
@@ -443,36 +442,22 @@ def _turnover_worker(months: int):
             raise RuntimeError("No se encontraron sedes objetivo en Shopify")
         print(f"[TURNOVER] Sedes: {list(locations.keys())}", flush=True)
 
-        # Fase 2: Lanzar ambas bulk ops en paralelo
-        _job["phase"] = "bulk_parallel"
-        inventory = None
-        sales = None
-        errors = []
+        # Fase 2: Bulk op inventario
+        _job["phase"] = "inventory"
+        print("[TURNOVER] === FASE INVENTARIO ===", flush=True)
+        inventory = _run_inventory_pipeline(locations)
+        total_inv = sum(v["total_units"] for v in inventory.values())
+        total_skus = sum(v["product_count"] for v in inventory.values())
+        print(f"[TURNOVER] Inventario total: {total_inv} unidades, {total_skus} SKUs", flush=True)
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            inv_future = executor.submit(_run_inventory_pipeline, locations)
-            sales_future = executor.submit(_run_sales_pipeline, months, locations)
+        # Fase 3: Bulk op ventas (secuencial — Shopify solo permite 1 bulk query a la vez)
+        _job["phase"] = "sales"
+        print(f"[TURNOVER] === FASE VENTAS ({months} meses) ===", flush=True)
+        sales = _run_sales_pipeline(months, locations)
+        total_sold = sum(v["total_units_sold"] for v in sales.values())
+        print(f"[TURNOVER] Ventas total: {total_sold} unidades", flush=True)
 
-            for future in as_completed([inv_future, sales_future]):
-                try:
-                    result = future.result()
-                    if future == inv_future:
-                        inventory = result
-                        print("[TURNOVER] Inventario pipeline completado", flush=True)
-                    else:
-                        sales = result
-                        print("[TURNOVER] Ventas pipeline completado", flush=True)
-                except Exception as e:
-                    errors.append(str(e))
-                    print(f"[TURNOVER] Pipeline error: {e}", flush=True)
-
-        if errors:
-            raise RuntimeError(f"Pipeline errors: {'; '.join(errors)}")
-
-        if not inventory or not sales:
-            raise RuntimeError("Inventario o ventas no completaron")
-
-        # Fase 3: Calcular rotacion
+        # Fase 4: Calcular rotacion
         _job["phase"] = "processing"
         _job["result"] = _build_result(locations, inventory, sales, months)
         _job["error"] = None

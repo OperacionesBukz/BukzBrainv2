@@ -15,13 +15,15 @@ import {
 
 const PHASE_LABELS: Record<string, string> = {
   locations: "Buscando sedes...",
-  bulk_parallel: "Consultando inventario y ventas en paralelo...",
+  inventory: "Exportando inventario de Shopify...",
+  sales: "Exportando ventas de Shopify...",
   processing: "Calculando rotacion...",
 };
 
 const PHASE_PROGRESS: Record<string, number> = {
-  locations: 10,
-  bulk_parallel: 50,
+  locations: 5,
+  inventory: 30,
+  sales: 65,
   processing: 90,
 };
 
