@@ -1,14 +1,18 @@
 """
-Router: Rotación de Inventario por Sede
+Router: Rotacion de Inventario por Sede
 Endpoints:
   POST /api/turnover/start   -> Inicia calculo (background)
   GET  /api/turnover/status  -> Estado y resultados
+
+Optimizado: usa 2 Bulk Operations en paralelo (inventario + ventas).
+Requiere API version 2026-01+ para bulk ops concurrentes.
 """
 
 import json
 import threading
 import time
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter
@@ -52,15 +56,10 @@ def _gql(query: str, timeout: int = 30) -> dict:
     return body["data"]
 
 
-def _get_target_locations() -> dict[str, int]:
-    """Retorna {name: numeric_id} para las sedes objetivo."""
+def _get_target_locations() -> dict[str, str]:
+    """Retorna {name: gid} para las sedes objetivo."""
     data = _gql("{ locations(first: 50) { edges { node { id name } } } }")
-    all_locs = {}
-    for e in data["locations"]["edges"]:
-        name = e["node"]["name"]
-        gid = e["node"]["id"]  # gid://shopify/Location/12345
-        numeric_id = int(gid.split("/")[-1])
-        all_locs[name] = numeric_id
+    all_locs = {e["node"]["name"]: e["node"]["id"] for e in data["locations"]["edges"]}
 
     found = {}
     for name in TARGET_LOCATIONS:
@@ -74,97 +73,127 @@ def _get_target_locations() -> dict[str, int]:
     return found
 
 
-def _get_inventory_per_location(locations: dict[str, int]) -> dict[str, dict]:
-    """
-    Inventario actual por sede usando REST API (mas confiable para grandes volumenes).
-    Retorna: {name: {total_units, product_count}}
-    """
-    rest_url = settings.get_rest_url()
-    headers = settings.get_shopify_headers()
-    results = {}
+# -- Bulk Operation: Inventario ------------------------------------------
 
-    for loc_name, loc_id in locations.items():
-        print(f"[TURNOVER] Consultando inventario: {loc_name} (id={loc_id})...", flush=True)
-        total_units = 0
-        product_count = 0
-        page = 0
-
-        # REST API: /inventory_levels.json?location_ids=X&limit=250
-        # Paginacion via Link header
-        url = f"{rest_url}/inventory_levels.json"
-        params = {"location_ids": str(loc_id), "limit": 250}
-
-        while url:
-            try:
-                resp = requests.get(url, headers=headers, params=params, timeout=30)
-
-                if resp.status_code == 429:
-                    retry_after = float(resp.headers.get("Retry-After", "2"))
-                    print(f"[TURNOVER] Rate limited, waiting {retry_after}s...", flush=True)
-                    time.sleep(retry_after)
-                    continue
-
-                resp.raise_for_status()
-                data = resp.json()
-                levels = data.get("inventory_levels", [])
-
-                for level in levels:
-                    available = level.get("available", 0) or 0
-                    if available > 0:
-                        product_count += 1
-                        total_units += available
-
-                page += 1
-
-                # Paginacion: buscar Link header con rel="next"
-                url = None
-                params = None  # Los params van en la URL del Link header
-                link_header = resp.headers.get("Link", "")
-                if 'rel="next"' in link_header:
-                    for part in link_header.split(","):
-                        if 'rel="next"' in part:
-                            url = part.split("<")[1].split(">")[0]
-                            break
-
-                # Rate limiting basico
-                time.sleep(0.3)
-
-            except Exception as e:
-                print(f"[TURNOVER] Error inventory {loc_name} page {page}: {e}", flush=True)
-                # NO hacer break silencioso — reintentar una vez
-                time.sleep(2)
-                try:
-                    resp = requests.get(
-                        url or f"{rest_url}/inventory_levels.json",
-                        headers=headers,
-                        params=params or {"location_ids": str(loc_id), "limit": 250},
-                        timeout=30,
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    levels = data.get("inventory_levels", [])
-                    for level in levels:
-                        available = level.get("available", 0) or 0
-                        if available > 0:
-                            product_count += 1
-                            total_units += available
-                    # No seguir paginando despues de un retry
-                    url = None
-                except Exception as e2:
-                    print(f"[TURNOVER] Retry also failed {loc_name}: {e2}", flush=True)
-                    url = None
-
-        results[loc_name] = {
-            "total_units": total_units,
-            "product_count": product_count,
+def _start_inventory_bulk() -> str | None:
+    """Lanza bulk operation para inventario completo con locations."""
+    mutation = """
+    mutation {
+      bulkOperationRunQuery(
+        query: \"\"\"
+        {
+          inventoryItems {
+            edges {
+              node {
+                id
+                sku
+                variant {
+                  id
+                  product {
+                    id
+                    title
+                  }
+                }
+                inventoryLevels {
+                  edges {
+                    node {
+                      location {
+                        id
+                        name
+                      }
+                      quantities(names: ["available"]) {
+                        name
+                        quantity
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
-        print(f"[TURNOVER] {loc_name}: {total_units} unidades, {product_count} SKUs, {page} paginas", flush=True)
+        \"\"\"
+      ) {
+        bulkOperation { id status }
+        userErrors { field message }
+      }
+    }
+    """
+    resp = requests.post(
+        settings.get_graphql_url(),
+        json={"query": mutation},
+        headers=settings.get_shopify_headers(),
+        timeout=30,
+    )
+    body = resp.json()
 
-    return results
+    if "errors" in body:
+        raise RuntimeError(f"GraphQL inventory bulk: {body['errors']}")
 
+    result = body.get("data", {}).get("bulkOperationRunQuery", {})
+    errors = result.get("userErrors", [])
+    if errors:
+        raise RuntimeError(f"Inventory bulk user errors: {errors}")
+
+    op_id = result.get("bulkOperation", {}).get("id")
+    print(f"[TURNOVER] Inventory bulk op started: {op_id}", flush=True)
+    return op_id
+
+
+def _process_inventory_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]:
+    """Descarga JSONL de inventario y suma por sede."""
+    loc_names = set(locations.keys())
+    inventory = {name: {"total_units": 0, "product_count": 0} for name in loc_names}
+
+    resp = requests.get(url, timeout=180, stream=True)
+
+    # Mapear inventoryItem -> sku (para contar SKUs unicos por sede)
+    # En JSONL flat: InventoryItem tiene sku, InventoryLevel tiene __parentId -> InventoryItem
+    items_seen = {}  # item_gid -> sku
+
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        try:
+            obj = json.loads(line.decode("utf-8"))
+        except json.JSONDecodeError:
+            continue
+
+        obj_id = obj.get("id", "")
+        parent_id = obj.get("__parentId", "")
+
+        # InventoryItem row
+        if "gid://shopify/InventoryItem/" in obj_id and "InventoryLevel" not in obj_id:
+            items_seen[obj_id] = obj.get("sku", "")
+
+        # InventoryLevel row (child of InventoryItem)
+        elif "gid://shopify/InventoryLevel/" in obj_id:
+            loc_data = obj.get("location", {})
+            loc_name = loc_data.get("name", "")
+
+            if loc_name not in loc_names:
+                continue
+
+            qty = 0
+            for q in obj.get("quantities", []):
+                if q.get("name") == "available":
+                    qty = q.get("quantity", 0)
+                    break
+
+            if qty > 0:
+                inventory[loc_name]["total_units"] += qty
+                inventory[loc_name]["product_count"] += 1
+
+    for name, data in inventory.items():
+        print(f"[TURNOVER] Inventario {name}: {data['total_units']} unidades, {data['product_count']} SKUs", flush=True)
+
+    return inventory
+
+
+# -- Bulk Operation: Ventas ----------------------------------------------
 
 def _start_sales_bulk(months: int) -> str | None:
-    """Lanza bulk operation para ventas con fulfillment location. Retorna op ID."""
+    """Lanza bulk operation para ventas con fulfillment location."""
     date_start = (datetime.now() - timedelta(days=months * 30)).strftime("%Y-%m-%dT00:00:00Z")
 
     mutation = """
@@ -214,33 +243,58 @@ def _start_sales_bulk(months: int) -> str | None:
     body = resp.json()
 
     if "errors" in body:
-        raise RuntimeError(f"GraphQL: {body['errors']}")
+        raise RuntimeError(f"GraphQL sales bulk: {body['errors']}")
 
     result = body.get("data", {}).get("bulkOperationRunQuery", {})
     errors = result.get("userErrors", [])
     if errors:
-        raise RuntimeError(f"User errors: {errors}")
+        raise RuntimeError(f"Sales bulk user errors: {errors}")
 
-    return result.get("bulkOperation", {}).get("id")
+    op_id = result.get("bulkOperation", {}).get("id")
+    print(f"[TURNOVER] Sales bulk op started: {op_id}", flush=True)
+    return op_id
 
 
-def _poll_bulk(max_wait: int = 600) -> str | None:
-    """Espera bulk operation y retorna URL de descarga."""
-    query = "{ currentBulkOperation { id status errorCode objectCount url } }"
+def _poll_bulk_by_id(op_id: str, label: str, max_wait: int = 600) -> str | None:
+    """Espera una bulk operation especifica y retorna URL de descarga."""
+    # Intentar primero con node query (funciona en 2026-01+)
+    # Fallback a currentBulkOperation si no soporta node query
+    query_by_id = '{ node(id: "%s") { ... on BulkOperation { id status errorCode objectCount url } } }' % op_id
+    query_current = "{ currentBulkOperation { id status errorCode objectCount url } }"
+
     start = time.time()
+    use_node_query = True
 
     while time.time() - start < max_wait:
         try:
-            data = _gql(query)
-            op = data.get("currentBulkOperation")
+            if use_node_query:
+                try:
+                    data = _gql(query_by_id)
+                    op = data.get("node")
+                except Exception:
+                    # node query no soportada — fallback a currentBulkOperation
+                    use_node_query = False
+                    data = _gql(query_current)
+                    op = data.get("currentBulkOperation")
+            else:
+                data = _gql(query_current)
+                op = data.get("currentBulkOperation")
+
             if not op:
-                return None
+                time.sleep(3)
+                continue
 
             status = op.get("status")
+            count = op.get("objectCount", 0)
+            print(f"\r[TURNOVER] {label}: {status} ({count} objects)     ", end="", flush=True)
+
             if status == "COMPLETED":
+                print(flush=True)
                 return op.get("url")
             elif status in ("FAILED", "CANCELED"):
-                raise RuntimeError(f"Bulk operation {status}: {op.get('errorCode')}")
+                print(flush=True)
+                raise RuntimeError(f"{label} bulk op {status}: {op.get('errorCode')}")
+
         except RuntimeError:
             raise
         except Exception:
@@ -248,27 +302,25 @@ def _poll_bulk(max_wait: int = 600) -> str | None:
 
         time.sleep(5)
 
-    raise RuntimeError(f"Bulk operation timeout ({max_wait}s)")
+    raise RuntimeError(f"{label} bulk operation timeout ({max_wait}s)")
 
 
-def _process_sales_jsonl(url: str, locations: dict[str, int]) -> dict[str, dict]:
+def _process_sales_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]:
     """Descarga JSONL y calcula ventas por sede (solo unidades)."""
     sales = {name: {"total_units_sold": 0, "sku_count": 0, "_skus": set()}
              for name in locations}
 
-    resp = requests.get(url, timeout=120, stream=True)
-    lines = []
-    for line in resp.iter_lines():
-        if line:
-            try:
-                lines.append(json.loads(line.decode("utf-8")))
-            except json.JSONDecodeError:
-                continue
-
-    # Bulk JSONL flatten: objetos con __parentId
+    resp = requests.get(url, timeout=180, stream=True)
     objects_by_id = {}
 
-    for obj in lines:
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        try:
+            obj = json.loads(line.decode("utf-8"))
+        except json.JSONDecodeError:
+            continue
+
         obj_id = obj.get("id", "")
         parent_id = obj.get("__parentId", "")
 
@@ -283,11 +335,8 @@ def _process_sales_jsonl(url: str, locations: dict[str, int]) -> dict[str, dict]
         elif "sku" in obj:
             sku = str(obj.get("sku", "")).strip()
             qty = obj.get("quantity", 0)
-
             if parent_id in objects_by_id:
-                objects_by_id[parent_id]["items"].append(
-                    {"sku": sku, "quantity": qty}
-                )
+                objects_by_id[parent_id]["items"].append({"sku": sku, "quantity": qty})
 
     # Agregar por sede
     for order_data in objects_by_id.values():
@@ -311,7 +360,6 @@ def _process_sales_jsonl(url: str, locations: dict[str, int]) -> dict[str, dict]
                 sales[matched]["total_units_sold"] += item["quantity"]
                 sales[matched]["_skus"].add(item["sku"])
 
-    # Convertir sets a counts
     for loc in sales:
         sales[loc]["sku_count"] = len(sales[loc]["_skus"])
         del sales[loc]["_skus"]
@@ -319,13 +367,14 @@ def _process_sales_jsonl(url: str, locations: dict[str, int]) -> dict[str, dict]
     return sales
 
 
+# -- Result builder ------------------------------------------------------
+
 def _build_result(
-    locations: dict[str, int],
+    locations: dict[str, str],
     inventory: dict[str, dict],
     sales: dict[str, dict],
     months: int,
 ) -> dict:
-    """Construye resultado final con rotacion por sede (solo unidades)."""
     rows = []
     for loc_name in locations:
         inv = inventory.get(loc_name, {})
@@ -348,7 +397,6 @@ def _build_result(
             "dias_inventario": days_of_inv,
         })
 
-    # Totales
     total_inv = sum(r["inventario_unidades"] for r in rows)
     total_sold = sum(r["vendidas_unidades"] for r in rows)
 
@@ -367,8 +415,26 @@ def _build_result(
 
 # -- Background worker ---------------------------------------------------
 
+def _run_inventory_pipeline(locations: dict[str, str]) -> dict[str, dict]:
+    """Lanza bulk op de inventario, pollea, procesa JSONL."""
+    op_id = _start_inventory_bulk()
+    url = _poll_bulk_by_id(op_id, "Inventario", max_wait=600)
+    if not url:
+        raise RuntimeError("Inventory bulk op no retorno URL")
+    return _process_inventory_jsonl(url, locations)
+
+
+def _run_sales_pipeline(months: int, locations: dict[str, str]) -> dict[str, dict]:
+    """Lanza bulk op de ventas, pollea, procesa JSONL."""
+    op_id = _start_sales_bulk(months)
+    url = _poll_bulk_by_id(op_id, "Ventas", max_wait=600)
+    if not url:
+        raise RuntimeError("Sales bulk op no retorno URL")
+    return _process_sales_jsonl(url, locations)
+
+
 def _turnover_worker(months: int):
-    """Ejecuta todo el calculo en background."""
+    """Ejecuta calculo con 2 bulk operations en paralelo."""
     try:
         # Fase 1: Locations
         _job["phase"] = "locations"
@@ -377,28 +443,37 @@ def _turnover_worker(months: int):
             raise RuntimeError("No se encontraron sedes objetivo en Shopify")
         print(f"[TURNOVER] Sedes: {list(locations.keys())}", flush=True)
 
-        # Fase 2: Inventario actual via REST API
-        _job["phase"] = "inventory"
-        inventory = _get_inventory_per_location(locations)
+        # Fase 2: Lanzar ambas bulk ops en paralelo
+        _job["phase"] = "bulk_parallel"
+        inventory = None
+        sales = None
+        errors = []
 
-        # Fase 3: Bulk operation de ventas
-        _job["phase"] = "bulk_start"
-        op_id = _start_sales_bulk(months)
-        print(f"[TURNOVER] Bulk operation started: {op_id}", flush=True)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            inv_future = executor.submit(_run_inventory_pipeline, locations)
+            sales_future = executor.submit(_run_sales_pipeline, months, locations)
 
-        _job["phase"] = "bulk_poll"
-        url = _poll_bulk(max_wait=600)
-        if not url:
-            raise RuntimeError("Bulk operation no retorno URL de descarga")
+            for future in as_completed([inv_future, sales_future]):
+                try:
+                    result = future.result()
+                    if future == inv_future:
+                        inventory = result
+                        print("[TURNOVER] Inventario pipeline completado", flush=True)
+                    else:
+                        sales = result
+                        print("[TURNOVER] Ventas pipeline completado", flush=True)
+                except Exception as e:
+                    errors.append(str(e))
+                    print(f"[TURNOVER] Pipeline error: {e}", flush=True)
 
-        # Fase 4: Procesar resultados
+        if errors:
+            raise RuntimeError(f"Pipeline errors: {'; '.join(errors)}")
+
+        if not inventory or not sales:
+            raise RuntimeError("Inventario o ventas no completaron")
+
+        # Fase 3: Calcular rotacion
         _job["phase"] = "processing"
-        sales = _process_sales_jsonl(url, locations)
-
-        for loc, data in sales.items():
-            print(f"[TURNOVER] Ventas {loc}: {data['total_units_sold']} unidades, {data['sku_count']} SKUs", flush=True)
-
-        # Fase 5: Calcular rotacion
         _job["result"] = _build_result(locations, inventory, sales, months)
         _job["error"] = None
         print("[TURNOVER] Calculo completado", flush=True)
@@ -417,6 +492,7 @@ def _turnover_worker(months: int):
 def start_turnover(months: int = 12):
     """
     Inicia el calculo de rotacion de inventario en background.
+    Usa 2 bulk operations en paralelo (inventario + ventas).
     Consultar GET /status para ver progreso y resultados.
     """
     with _job_lock:
