@@ -192,8 +192,9 @@ def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> 
             for edge in edges:
                 node = edge["node"]
                 name = node.get("name", "")
-                # discountCodes es un String escalar (puede ser vacío, un código, o varios separados por coma)
-                codes = str(node.get("discountCodes", "") or "").strip()
+                # discountCodes puede venir como string con corchetes: "['CODE1', 'CODE2']"
+                raw = str(node.get("discountCodes", "") or "").strip()
+                codes = raw.strip("[]").replace("'", "").replace('"', '').strip()
                 if name:
                     results[name] = codes
         else:
