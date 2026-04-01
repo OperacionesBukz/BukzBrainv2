@@ -142,15 +142,33 @@ export interface ProcessResult {
   totals: CmvTotals;
 }
 
-export async function processCmv(
+/** Parsea los Excels y devuelve registros crudos + ISBNs únicos (para lookup previo) */
+export function parseExcelFiles(
   salesBuffer: ArrayBuffer,
   notesBuffer: ArrayBuffer | null,
-  vendors: Vendor[],
-  skuVendorMap: Map<string, string>
-): Promise<ProcessResult> {
-  // 1. Parsear archivos
+): { rawRecords: RawSaleRecord[]; creditNotes: CreditNote[]; uniqueIsbns: string[] } {
   const rawRecords = parseSalesExcel(salesBuffer);
   const creditNotes = notesBuffer ? parseNotesExcel(notesBuffer) : [];
+
+  // Extraer ISBNs únicos de los registros
+  const isbnSet = new Set<string>();
+  for (const row of rawRecords) {
+    if (!isProductRecord(row)) continue;
+    const partial = mapRawToProduct(row);
+    const isbn = (partial.isbn || "").trim();
+    if (isbn) isbnSet.add(isbn);
+  }
+
+  return { rawRecords, creditNotes, uniqueIsbns: Array.from(isbnSet) };
+}
+
+/** Procesa CMV a partir de registros ya parseados + mapa de vendors */
+export function processCmvFromRecords(
+  rawRecords: RawSaleRecord[],
+  creditNotes: CreditNote[],
+  vendors: Vendor[],
+  skuVendorMap: Map<string, string>
+): ProcessResult {
 
   // 2. Eliminar notas crédito
   const { filtered: afterNotes, removed: removedByNotes } = removeCreditNotes(rawRecords, creditNotes);

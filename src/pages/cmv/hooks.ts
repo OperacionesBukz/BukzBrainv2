@@ -18,7 +18,7 @@ import type {
   VendorBreakdown,
 } from "./types";
 import { INITIAL_CMV_STATE } from "./types";
-import { processCmv, calculateTotals, recalculateProduct } from "./processing";
+import { parseExcelFiles, processCmvFromRecords, calculateTotals, recalculateProduct } from "./processing";
 
 // --- Hook: Vendors (lee proveedores del Directorio) ---
 
@@ -185,14 +185,14 @@ export function useCmvProcessor() {
       const salesBuffer = await state.salesFile.arrayBuffer();
       const notesBuffer = state.notesFile ? await state.notesFile.arrayBuffer() : null;
 
-      // Parsear Excel primero para extraer ISBNs únicos
-      const { extractUniqueIsbns } = await import("./excel-utils");
-      const uniqueIsbns = extractUniqueIsbns(salesBuffer);
+      // 1. Parsear Excel UNA sola vez y extraer ISBNs únicos
+      const { rawRecords, creditNotes, uniqueIsbns } = parseExcelFiles(salesBuffer, notesBuffer);
 
-      // Lookup de vendors via backend (no carga 176K items en browser)
+      // 2. Lookup de vendors via backend (envía ~3K ISBNs, recibe ~3K vendors)
       const skuVendorMap = await lookupVendorsBatch(uniqueIsbns);
 
-      const result = await processCmv(salesBuffer, notesBuffer, vendors, skuVendorMap);
+      // 3. Procesar con los datos ya parseados
+      const result = processCmvFromRecords(rawRecords, creditNotes, vendors, skuVendorMap);
 
       const hasExceptions = result.unknownVendorProducts.length > 0 || result.missingMarginProducts.length > 0;
 
