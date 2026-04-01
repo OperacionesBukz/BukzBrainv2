@@ -3,19 +3,17 @@ import {
   collection,
   onSnapshot,
   addDoc,
-  doc,
+  getDocs,
   query,
   orderBy,
   where,
   serverTimestamp,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type {
   Vendor,
-  IsbnVendorMapping,
   CmvHistoryRecord,
   CmvState,
   CmvProduct,
@@ -65,60 +63,68 @@ export function useVendors() {
   return { vendors, loading };
 }
 
-// --- Hook: ISBN → Vendor mappings ---
+// --- Hook: SKU → Vendor (desde inventory_cache de reposiciones) ---
 
-export function useIsbnVendorMap() {
-  const [mappings, setMappings] = useState<IsbnVendorMapping[]>([]);
+export function useSkuVendorMap() {
+  const [skuVendorMap, setSkuVendorMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "cmv_isbn_vendor"), orderBy("vendorName", "asc"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setMappings(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() } as IsbnVendorMapping))
-        );
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Error cargando mapeo ISBN:", err);
-        toast.error("Error al cargar mapeo ISBN→Vendor");
-        setLoading(false);
+    let cancelled = false;
+
+    async function loadInventoryCache() {
+      try {
+        const snap = await getDocs(collection(db, "inventory_cache"));
+        const map = new Map<string, string>();
+
+        for (const docSnap of snap.docs) {
+          const data = docSnap.data();
+
+          // Datos inline (no chunked)
+          if (!data.chunked && Array.isArray(data.data)) {
+            for (const item of data.data) {
+              if (item.sku && item.vendor) {
+                map.set(item.sku.trim(), item.vendor);
+              }
+            }
+          }
+
+          // Datos chunked — leer subcollection
+          if (data.chunked) {
+            const chunksSnap = await getDocs(
+              collection(db, "inventory_cache", docSnap.id, "chunks")
+            );
+            for (const chunkDoc of chunksSnap.docs) {
+              const chunkData = chunkDoc.data().data;
+              if (Array.isArray(chunkData)) {
+                for (const item of chunkData) {
+                  if (item.sku && item.vendor) {
+                    map.set(item.sku.trim(), item.vendor);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (!cancelled) {
+          setSkuVendorMap(map);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Error cargando inventory_cache:", err);
+        if (!cancelled) {
+          toast.error("Error al cargar mapeo SKU→Vendor del inventario");
+          setLoading(false);
+        }
       }
-    );
-    return unsub;
+    }
+
+    loadInventoryCache();
+    return () => { cancelled = true; };
   }, []);
 
-  const saveMapping = async (isbn: string, productName: string, vendorName: string) => {
-    await addDoc(collection(db, "cmv_isbn_vendor"), {
-      isbn: isbn.trim(),
-      productName,
-      vendorName: vendorName.trim(),
-      updatedAt: serverTimestamp(),
-    });
-  };
-
-  const saveMappingsBatch = async (
-    items: Array<{ isbn: string; productName: string; vendorName: string }>
-  ) => {
-    const batch = writeBatch(db);
-    for (const item of items) {
-      const isbn = item.isbn.trim();
-      if (!isbn) continue;
-      // Usar ISBN como document ID para writes idempotentes (evitar duplicados)
-      const ref = doc(db, "cmv_isbn_vendor", isbn);
-      batch.set(ref, {
-        isbn,
-        productName: item.productName,
-        vendorName: item.vendorName.trim(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-    }
-    await batch.commit();
-  };
-
-  return { mappings, loading, saveMapping, saveMappingsBatch };
+  return { skuVendorMap, loading };
 }
 
 // --- Hook: Historial CMV ---
@@ -194,7 +200,7 @@ export function useCmvProcessor() {
   const [state, setState] = useState<CmvState>(INITIAL_CMV_STATE);
   const { user } = useAuth();
   const { vendors } = useVendors();
-  const { mappings, saveMappingsBatch } = useIsbnVendorMap();
+  const { skuVendorMap } = useSkuVendorMap();
 
   const setSalesFile = useCallback((file: File | null) => {
     setState((s) => ({ ...s, salesFile: file }));
@@ -216,7 +222,7 @@ export function useCmvProcessor() {
       const salesBuffer = await state.salesFile.arrayBuffer();
       const notesBuffer = state.notesFile ? await state.notesFile.arrayBuffer() : null;
 
-      const result = await processCmv(salesBuffer, notesBuffer, vendors, mappings);
+      const result = await processCmv(salesBuffer, notesBuffer, vendors, skuVendorMap);
 
       const hasExceptions = result.unknownVendorProducts.length > 0 || result.missingMarginProducts.length > 0;
 
@@ -243,7 +249,7 @@ export function useCmvProcessor() {
       setState((s) => ({ ...s, isProcessing: false, error: message, step: "upload" }));
       toast.error(`Error al procesar: ${message}`);
     }
-  }, [state.salesFile, state.notesFile, vendors, mappings]);
+  }, [state.salesFile, state.notesFile, vendors, skuVendorMap]);
 
   // Resolver excepciones: asignar vendor a productos desconocidos
   const resolveVendorException = useCallback(
@@ -316,24 +322,9 @@ export function useCmvProcessor() {
   }, []);
 
   // Finalizar revisión y pasar a resultados
-  const finishReview = useCallback(async () => {
-    // Guardar los nuevos mapeos ISBN→Vendor en Firestore
-    const newMappings = state.products
-      .filter((p) => !mappings.some((m) => m.isbn === p.isbn))
-      .map((p) => ({ isbn: p.isbn, productName: p.producto, vendorName: p.vendor }))
-      .filter((m) => m.isbn && m.vendorName);
-
-    if (newMappings.length > 0) {
-      try {
-        await saveMappingsBatch(newMappings);
-        toast.success(`${newMappings.length} nuevos mapeos ISBN guardados`);
-      } catch {
-        toast.warning("No se pudieron guardar algunos mapeos ISBN");
-      }
-    }
-
+  const finishReview = useCallback(() => {
     setState((s) => ({ ...s, step: "results" }));
-  }, [state.products, mappings, saveMappingsBatch]);
+  }, []);
 
   const reset = useCallback(() => {
     setState(INITIAL_CMV_STATE);
