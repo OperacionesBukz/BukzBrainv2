@@ -160,10 +160,7 @@ def _build_discount_query(order_names: list[str]) -> str:
         edges {
           node {
             name
-            discountCodes {
-              code
-              applicable
-            }
+            discountCodes
           }
         }
       }
@@ -195,17 +192,10 @@ def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> 
             for edge in edges:
                 node = edge["node"]
                 name = node.get("name", "")
-                codes = node.get("discountCodes", [])
-                # Tomar el primer discount code aplicable, o el primero disponible
-                code = ""
-                for dc in codes:
-                    if dc.get("applicable"):
-                        code = dc.get("code", "")
-                        break
-                if not code and codes:
-                    code = codes[0].get("code", "")
+                # discountCodes es un String escalar (puede ser vacío, un código, o varios separados por coma)
+                codes = str(node.get("discountCodes", "") or "").strip()
                 if name:
-                    results[name] = code
+                    results[name] = codes
         else:
             print(f"[DISCOUNTS] HTTP error: {response.status_code} - {response.text[:200]}", flush=True)
     except Exception as e:
