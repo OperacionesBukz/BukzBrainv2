@@ -4,7 +4,6 @@ import type {
   CmvProduct,
   CmvTotals,
   ProcessingStats,
-  Vendor,
 } from "./types";
 import {
   parseSalesExcel,
@@ -65,50 +64,34 @@ function filterProducts(records: RawSaleRecord[]): {
   return { products, removedPayments, removedServices };
 }
 
-// --- Pasos 6-7: Asignar vendor y margen ---
+// --- Paso 6: Asignar vendor (sin margen) ---
 
-function assignVendorAndMargin(
+function assignVendor(
   products: CmvProduct[],
   isbnMap: Map<string, string>,
-  vendorMargins: Map<string, number>
 ): {
   assigned: CmvProduct[];
   unknownVendors: CmvProduct[];
-  missingMargins: CmvProduct[];
 } {
   const assigned: CmvProduct[] = [];
   const unknownVendors: CmvProduct[] = [];
-  const missingMargins: CmvProduct[] = [];
 
   for (const product of products) {
     const isbn = product.isbn.trim();
     const vendorName = isbnMap.get(isbn) || "";
 
     if (!vendorName) {
-      unknownVendors.push({ ...product, vendor: "", margen: 0, costo: 0, costoTotal: 0 });
+      unknownVendors.push({ ...product, vendor: "" });
       continue;
     }
-
-    const margin = vendorMargins.get(vendorName.toUpperCase());
-
-    if (margin === undefined) {
-      missingMargins.push({ ...product, vendor: vendorName, margen: 0, costo: 0, costoTotal: 0 });
-      continue;
-    }
-
-    const costo = product.valorUnitario * (1 - margin);
-    const costoTotal = costo * product.cantidad;
 
     assigned.push({
       ...product,
       vendor: vendorName,
-      margen: margin,
-      costo: Math.round(costo),
-      costoTotal: Math.round(costoTotal),
     });
   }
 
-  return { assigned, unknownVendors, missingMargins };
+  return { assigned, unknownVendors };
 }
 
 // --- Paso 8-9: Calcular totales ---
@@ -137,7 +120,6 @@ export function calculateTotals(products: CmvProduct[]): CmvTotals {
 export interface ProcessResult {
   products: CmvProduct[];
   unknownVendorProducts: CmvProduct[];
-  missingMarginProducts: CmvProduct[];
   stats: ProcessingStats;
   totals: CmvTotals;
 }
@@ -166,7 +148,6 @@ export function parseExcelFiles(
 export function processCmvFromRecords(
   rawRecords: RawSaleRecord[],
   creditNotes: CreditNote[],
-  vendors: Vendor[],
   skuVendorMap: Map<string, string>
 ): ProcessResult {
 
@@ -215,20 +196,10 @@ export function processCmvFromRecords(
     return true;
   });
 
-  // 5. Crear mapa de márgenes por vendor
-  const vendorMargins = new Map<string, number>();
-  for (const v of vendors) {
-    vendorMargins.set(v.name.toUpperCase(), v.margin);
-  }
+  // 5. Asignar vendor (sin margen — se completa manualmente)
+  const { assigned, unknownVendors } = assignVendor(withIsbn, skuVendorMap);
 
-  // 6. Asignar vendor y margen
-  const { assigned, unknownVendors, missingMargins } = assignVendorAndMargin(
-    withIsbn,
-    skuVendorMap,
-    vendorMargins
-  );
-
-  // 7. Calcular totales (solo de productos asignados)
+  // 6. Calcular totales (solo ventas, costo queda en 0)
   const totals = calculateTotals(assigned);
 
   const stats: ProcessingStats = {
@@ -238,32 +209,13 @@ export function processCmvFromRecords(
     removedServices,
     totalProducts: withIsbn.length,
     unknownVendors: unknownVendors.length,
-    missingMargins: missingMargins.length,
   };
 
   return {
     products: assigned,
     unknownVendorProducts: unknownVendors,
-    missingMarginProducts: missingMargins,
     stats,
     totals,
   };
 }
 
-// --- Recalcular después de resolver excepciones ---
-
-export function recalculateProduct(
-  product: CmvProduct,
-  vendor: string,
-  margin: number
-): CmvProduct {
-  const costo = product.valorUnitario * (1 - margin);
-  const costoTotal = costo * product.cantidad;
-  return {
-    ...product,
-    vendor,
-    margen: margin,
-    costo: Math.round(costo),
-    costoTotal: Math.round(costoTotal),
-  };
-}

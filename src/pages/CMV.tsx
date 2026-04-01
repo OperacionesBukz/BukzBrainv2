@@ -35,7 +35,6 @@ const CMV = () => {
     setNotesFile,
     process,
     resolveVendorException,
-    resolveMarginException,
     finishReview,
     reset,
     goToStep,
@@ -96,10 +95,8 @@ const CMV = () => {
             <ProcessingStep
               stats={state.stats}
               unknownVendorProducts={state.unknownVendorProducts}
-              missingMarginProducts={state.missingMarginProducts}
               vendors={vendors}
               onResolveVendor={resolveVendorException}
-              onResolveMargin={resolveMarginException}
               onFinishReview={finishReview}
               onBack={() => goToStep("upload")}
             />

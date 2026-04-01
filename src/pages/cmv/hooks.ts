@@ -19,7 +19,7 @@ import type {
   VendorBreakdown,
 } from "./types";
 import { INITIAL_CMV_STATE } from "./types";
-import { parseExcelFiles, processCmvFromRecords, calculateTotals, recalculateProduct } from "./processing";
+import { parseExcelFiles, processCmvFromRecords, calculateTotals } from "./processing";
 
 // --- Hook: Vendors (lee proveedores del Directorio) ---
 
@@ -163,8 +163,7 @@ export function useCmvHistory() {
 export function useCmvProcessor() {
   const [state, setState] = useState<CmvState>(INITIAL_CMV_STATE);
   const { user } = useAuth();
-  const { vendors, loading: vendorsLoading } = useVendors();
-  const dataReady = !vendorsLoading;
+  const dataReady = true;
 
   const setSalesFile = useCallback((file: File | null) => {
     setState((s) => ({ ...s, salesFile: file }));
@@ -194,17 +193,16 @@ export function useCmvProcessor() {
       const skuVendorMap = await lookupVendorsBatch(uniqueIsbns);
       console.log("[CMV] Lookup returned:", skuVendorMap.size, "vendors");
 
-      // 3. Procesar con los datos ya parseados
-      const result = processCmvFromRecords(rawRecords, creditNotes, vendors, skuVendorMap);
-      console.log("[CMV] Result:", result.products.length, "assigned,", result.unknownVendorProducts.length, "unknown,", result.missingMarginProducts.length, "missing margin");
+      // 3. Procesar con los datos ya parseados (sin márgenes)
+      const result = processCmvFromRecords(rawRecords, creditNotes, skuVendorMap);
+      console.log("[CMV] Result:", result.products.length, "assigned,", result.unknownVendorProducts.length, "unknown");
 
-      const hasExceptions = result.unknownVendorProducts.length > 0 || result.missingMarginProducts.length > 0;
+      const hasExceptions = result.unknownVendorProducts.length > 0;
 
       setState((s) => ({
         ...s,
         products: result.products,
         unknownVendorProducts: result.unknownVendorProducts,
-        missingMarginProducts: result.missingMarginProducts,
         stats: result.stats,
         totals: result.totals,
         isProcessing: false,
@@ -213,7 +211,7 @@ export function useCmvProcessor() {
 
       if (hasExceptions) {
         toast.warning(
-          `Procesado con ${result.unknownVendorProducts.length + result.missingMarginProducts.length} excepciones por resolver`
+          `Procesado con ${result.unknownVendorProducts.length} productos sin vendor por resolver`
         );
       } else {
         toast.success("CMV procesado exitosamente");
@@ -223,77 +221,39 @@ export function useCmvProcessor() {
       setState((s) => ({ ...s, isProcessing: false, error: message, step: "upload" }));
       toast.error(`Error al procesar: ${message}`);
     }
-  }, [state.salesFile, state.notesFile, vendors]);
+  }, [state.salesFile, state.notesFile]);
 
   // Resolver excepciones: asignar vendor a productos desconocidos
   const resolveVendorException = useCallback(
     (isbn: string, vendorName: string) => {
       setState((s) => {
-        const vendor = vendors.find((v) => v.name.toUpperCase() === vendorName.toUpperCase());
-        const margin = vendor?.margin || 0;
-
         const resolved: CmvProduct[] = [];
         const stillUnknown: CmvProduct[] = [];
-        const movedToMissing: CmvProduct[] = [];
 
         for (const p of s.unknownVendorProducts) {
           if (p.isbn === isbn) {
-            if (margin > 0) {
-              resolved.push(recalculateProduct(p, vendorName, margin));
-            } else {
-              // Tiene vendor pero sin margen — mover a missingMarginProducts
-              movedToMissing.push({ ...p, vendor: vendorName });
-            }
+            resolved.push({ ...p, vendor: vendorName });
           } else {
             stillUnknown.push(p);
           }
         }
 
         const newProducts = [...s.products, ...resolved];
-        const newMissingMargins = [...s.missingMarginProducts, ...movedToMissing];
 
         return {
           ...s,
           products: newProducts,
           unknownVendorProducts: stillUnknown,
-          missingMarginProducts: newMissingMargins,
           totals: calculateTotals(newProducts),
           stats: {
             ...s.stats,
             unknownVendors: stillUnknown.length,
-            missingMargins: newMissingMargins.length,
           },
         };
       });
     },
-    [vendors]
+    []
   );
-
-  // Resolver excepciones: asignar margen a vendor sin margen
-  const resolveMarginException = useCallback((vendorName: string, margin: number) => {
-    setState((s) => {
-      const resolved: CmvProduct[] = [];
-      const stillMissing: CmvProduct[] = [];
-
-      for (const p of s.missingMarginProducts) {
-        if (p.vendor.toUpperCase() === vendorName.toUpperCase()) {
-          resolved.push(recalculateProduct(p, p.vendor, margin));
-        } else {
-          stillMissing.push(p);
-        }
-      }
-
-      const newProducts = [...s.products, ...resolved];
-
-      return {
-        ...s,
-        products: newProducts,
-        missingMarginProducts: stillMissing,
-        totals: calculateTotals(newProducts),
-        stats: { ...s.stats, missingMargins: stillMissing.length },
-      };
-    });
-  }, []);
 
   // Finalizar revisión y pasar a resultados
   const finishReview = useCallback(() => {
@@ -314,7 +274,6 @@ export function useCmvProcessor() {
     setNotesFile,
     process,
     resolveVendorException,
-    resolveMarginException,
     finishReview,
     reset,
     goToStep,

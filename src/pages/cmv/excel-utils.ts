@@ -172,16 +172,6 @@ function extractPedido(obs: string): { pedido: string; numeroPedido: string } {
   return { pedido: "", numeroPedido: "" };
 }
 
-// Clasificar tipo de descuento
-function classifyDiscount(row: RawSaleRecord): "BUKZ" | "PROVEEDOR" | "VACIO" {
-  const desc = findNumber(row, "descuento", "% descuento", "desc", "descuento %");
-  const obs = findField(row, "observaciones", "observacion", "obs").toLowerCase();
-
-  if (desc > 0 && obs.includes("proveedor")) return "PROVEEDOR";
-  if (desc > 0) return "BUKZ";
-  return "VACIO";
-}
-
 export function mapRawToProduct(row: RawSaleRecord): Partial<CmvProduct> {
   const obs = findField(row, "observaciones", "observacion", "obs");
   const { pedido, numeroPedido } = extractPedido(obs);
@@ -202,7 +192,7 @@ export function mapRawToProduct(row: RawSaleRecord): Partial<CmvProduct> {
     observaciones: obs,
     pedido,
     numeroPedido,
-    descuento: classifyDiscount(row),
+    descuento: "VACIO" as const,
     formaPago: findField(row, "forma pago", "medio pago", "forma de pago"),
     tipoDocumento: findField(row, "tipo transaccion", "tipo documento", "tipo doc", "tipo comprobante"),
     secuencia: findField(row, "tipo de registro", "secuencia", "sec"),
@@ -257,11 +247,11 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     "Valor Total": p.valorTotal,
     "Pedido": p.pedido,
     "No. Pedido": p.numeroPedido,
-    "Tipo Descuento": p.descuento,
+    "Descuento": "",
     "Vendor": p.vendor,
-    "Margen": p.margen,
-    "Costo Unitario": p.costo,
-    "Costo Total": p.costoTotal,
+    "Margen": "",
+    "Costo Unitario": "",
+    "Costo Total": "",
   }));
 
   const ws = utils.json_to_sheet(data);
@@ -293,38 +283,3 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
-// --- Parseo del archivo de márgenes ---
-
-export interface MarginImportRow {
-  vendor: string;
-  margin: number;
-}
-
-export function parseMarginsExcel(file: ArrayBuffer): MarginImportRow[] {
-  const wb = read(new Uint8Array(file));
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const raw = utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-
-  return raw
-    .map((row) => {
-      const normalized: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(row)) {
-        normalized[normalizeHeader(key)] = value;
-      }
-
-      const vendor =
-        String(normalized["vendor"] || normalized["editorial"] || normalized["proveedor"] || normalized["nombre"] || "").trim();
-
-      let margin = Number(
-        normalized["margen"] || normalized["margin"] || normalized["%"] || normalized["porcentaje"] || 0
-      );
-
-      // Si el margen viene como porcentaje entero (40 en vez de 0.40)
-      if (margin > 1) {
-        margin = margin / 100;
-      }
-
-      return { vendor, margin };
-    })
-    .filter((r) => r.vendor !== "" && r.margin > 0);
-}
