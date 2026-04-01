@@ -207,15 +207,18 @@ export function processCmvFromRecords(
     };
   });
 
+  // 4b. Descartar filas sin ISBN (no se pueden cruzar con vendor)
+  const withIsbn = mapped.filter((p) => p.isbn.trim() !== "");
+
   // 5. Crear mapa de márgenes por vendor
   const vendorMargins = new Map<string, number>();
   for (const v of vendors) {
     vendorMargins.set(v.name.toUpperCase(), v.margin);
   }
 
-  // 6. Asignar vendor y margen (usando inventory_cache SKU→vendor)
+  // 6. Asignar vendor y margen
   const { assigned, unknownVendors, missingMargins } = assignVendorAndMargin(
-    mapped,
+    withIsbn,
     skuVendorMap,
     vendorMargins
   );
@@ -228,7 +231,7 @@ export function processCmvFromRecords(
     removedByNotes,
     removedPayments,
     removedServices,
-    totalProducts: mapped.length,
+    totalProducts: withIsbn.length,
     unknownVendors: unknownVendors.length,
     missingMargins: missingMargins.length,
   };
