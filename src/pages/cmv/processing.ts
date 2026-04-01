@@ -185,6 +185,7 @@ export function processCmvFromRecords(
       margen: 0,
       costo: 0,
       costoTotal: 0,
+      discountCode: "",
     };
   });
 

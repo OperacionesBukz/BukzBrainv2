@@ -146,6 +146,92 @@ def get_orders_details(order_names: list[str]) -> dict[str, list[dict]]:
     return all_results
 
 
+# ---------------------------------------------------------------------------
+# Discount code lookup por orden
+# ---------------------------------------------------------------------------
+
+
+def _build_discount_query(order_names: list[str]) -> str:
+    """Construye query GraphQL para buscar discount codes por nombre de orden."""
+    name_filter = " OR ".join(f"name:{_sanitize_graphql_value(n)}" for n in order_names)
+    return """
+    {
+      orders(first: %d, query: "%s") {
+        edges {
+          node {
+            name
+            discountCodes {
+              code
+              applicable
+            }
+          }
+        }
+      }
+    }
+    """ % (len(order_names), name_filter)
+
+
+def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> dict[str, str]:
+    """Consulta un batch de ordenes y retorna dict {order_name: discount_code}."""
+    graphql_url = settings.get_graphql_url()
+    query = _build_discount_query(order_names)
+    results = {}
+
+    try:
+        response = session.post(
+            graphql_url,
+            json={"query": query},
+            timeout=30,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            edges = data.get("data", {}).get("orders", {}).get("edges", [])
+            for edge in edges:
+                node = edge["node"]
+                name = node.get("name", "")
+                codes = node.get("discountCodes", [])
+                # Tomar el primer discount code aplicable, o el primero disponible
+                code = ""
+                for dc in codes:
+                    if dc.get("applicable"):
+                        code = dc.get("code", "")
+                        break
+                if not code and codes:
+                    code = codes[0].get("code", "")
+                if name:
+                    results[name] = code
+    except Exception as e:
+        print(f"[ORDERS] Error fetching discount batch: {e}", flush=True)
+
+    return results
+
+
+def get_discount_codes(order_names: list[str]) -> dict[str, str]:
+    """
+    Consulta discount codes de ordenes Shopify por nombre.
+    Retorna dict {order_name: discount_code}.
+    """
+    if not order_names:
+        return {}
+
+    headers = settings.get_shopify_headers()
+    session = requests.Session()
+    session.headers.update(headers)
+
+    batches = list(chunk_list(order_names, 10))
+    all_results = {}
+
+    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(_fetch_discount_batch, session, batch): i
+            for i, batch in enumerate(batches)
+        }
+        for future in as_completed(futures):
+            all_results.update(future.result())
+
+    return all_results
+
+
 def identify_gifts(line_items: list[dict]) -> dict[str, int]:
     """
     Identifica los SKUs regalados en una orden 3X2.

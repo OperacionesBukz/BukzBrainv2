@@ -92,6 +92,33 @@ async function lookupVendorsBatch(skus: string[]): Promise<Map<string, string>> 
   return map;
 }
 
+// --- Lookup Order → Discount Code via Shopify ---
+
+async function lookupDiscountCodes(orderNames: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (orderNames.length === 0) return map;
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/reposiciones/orders/discounts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orders: orderNames }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const data: Record<string, string> = await resp.json();
+    for (const [order, code] of Object.entries(data)) {
+      map.set(order, code);
+    }
+  } catch (err) {
+    console.error("Error en discount lookup:", err);
+    toast.error("Error al buscar descuentos en Shopify");
+  }
+
+  return map;
+}
+
 // --- Hook: Historial CMV ---
 
 export function useCmvHistory() {
@@ -198,12 +225,30 @@ export function useCmvProcessor() {
       const result = processCmvFromRecords(rawRecords, creditNotes, skuVendorMap);
       console.log("[CMV] Result:", result.products.length, "assigned,", result.unknownVendorProducts.length, "unknown");
 
-      const hasExceptions = result.unknownVendorProducts.length > 0;
+      // 4. Lookup de discount codes via Shopify (por número de pedido)
+      const allProducts = [...result.products, ...result.unknownVendorProducts];
+      const uniqueOrders = [...new Set(
+        allProducts.map((p) => p.numeroPedido).filter((n) => n.startsWith("#"))
+      )];
+      const discountMap = await lookupDiscountCodes(uniqueOrders);
+      console.log("[CMV] Discount lookup returned:", discountMap.size, "orders with codes");
+
+      // Asignar discount code a cada producto
+      const applyDiscounts = (products: typeof allProducts) =>
+        products.map((p) => {
+          const code = discountMap.get(p.numeroPedido) || "";
+          return { ...p, discountCode: code };
+        });
+
+      const productsWithDiscounts = applyDiscounts(result.products);
+      const unknownWithDiscounts = applyDiscounts(result.unknownVendorProducts);
+
+      const hasExceptions = unknownWithDiscounts.length > 0;
 
       setState((s) => ({
         ...s,
-        products: result.products,
-        unknownVendorProducts: result.unknownVendorProducts,
+        products: productsWithDiscounts,
+        unknownVendorProducts: unknownWithDiscounts,
         stats: result.stats,
         totals: result.totals,
         isProcessing: false,

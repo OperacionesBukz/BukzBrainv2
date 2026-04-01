@@ -205,6 +205,7 @@ export function mapRawToProduct(row: RawSaleRecord): Partial<CmvProduct> {
     margen: 0,
     costo: 0,
     costoTotal: 0,
+    discountCode: "",
   };
 }
 
@@ -256,6 +257,7 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     "Valor Total": p.valorTotal,
     "Pedido": p.pedido,
     "No. Pedido": p.numeroPedido,
+    "Discount Code": p.discountCode || "",
     "Descuento": "",
     "Vendor": p.vendor,
     "Margen": "",
@@ -372,6 +374,7 @@ export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
         margen,
         costo: costoUnitario,
         costoTotal,
+        discountCode: findStr("Discount Code", "Discount_Code"),
       } as CmvProduct;
     })
     .filter((p) => p.isbn !== "");

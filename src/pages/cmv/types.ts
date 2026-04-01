@@ -44,6 +44,7 @@ export interface CmvProduct {
   margen: number;
   costo: number;
   costoTotal: number;
+  discountCode: string;
 }
 
 // --- Firestore: Vendors y márgenes ---

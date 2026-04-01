@@ -602,6 +602,21 @@ def catalog_lookup(body: dict):
     return result
 
 
+@router.post("/orders/discounts")
+def orders_discount_lookup(body: dict):
+    """
+    Recibe una lista de nombres de orden (ej: ["#187120", "#185472"])
+    y devuelve el discount code de cada una.
+    Body: {"orders": ["#187120", "#185472", ...]}
+    Returns: {"#187120": "3X2", "#185472": "", ...}
+    """
+    from services.orders_service import get_discount_codes
+    order_names = body.get("orders", [])
+    if not order_names:
+        return {}
+    return get_discount_codes(order_names)
+
+
 # ---------------------------------------------------------------------------
 # Constantes para Motor de Cálculo de Reposición
 # ---------------------------------------------------------------------------
