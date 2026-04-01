@@ -1642,8 +1642,12 @@ def get_inventory_by_location(location_gid: str, vendor_filter: list[str] | None
 
 def get_all_products_catalog() -> list[dict]:
     """
-    Pagina a través de TODOS los productos de Shopify y devuelve un catálogo
-    de SKU→vendor+title para cada variante.
+    Usa Bulk Operation para exportar TODOS los productos de Shopify con sus
+    variantes y devuelve un catálogo SKU→vendor+title.
+
+    Bulk Op es ~100x más rápido que paginación GraphQL para 176K+ productos.
+    Exporta JSONL con nodos Product (vendor, title) y ProductVariant (sku)
+    vinculados por __parentId.
 
     Returns: [{"sku": str, "vendor": str, "title": str}, ...]
     """
@@ -1653,22 +1657,19 @@ def get_all_products_catalog() -> list[dict]:
     graphql_url = settings.get_graphql_url()
     headers = settings.get_shopify_headers()
 
-    results: list[dict] = []
-    cursor = None
-    page = 0
-    max_retries = 3
-
-    while True:
-        after_clause = f', after: "{cursor}"' if cursor else ""
-        query = """
+    # 1. Iniciar Bulk Operation
+    mutation = """
+    mutation {
+      bulkOperationRunQuery(
+        query: \"\"\"
         {
-          products(first: 250%s) {
-            pageInfo { hasNextPage endCursor }
+          products {
             edges {
               node {
-                vendor
+                id
                 title
-                variants(first: 100) {
+                vendor
+                variants {
                   edges {
                     node {
                       sku
@@ -1679,78 +1680,113 @@ def get_all_products_catalog() -> list[dict]:
             }
           }
         }
-        """ % after_clause
+        \"\"\"
+      ) {
+        bulkOperation { id status }
+        userErrors { field message }
+      }
+    }
+    """
 
-        _throttler.wait_if_needed()
+    try:
+        resp = requests.post(graphql_url, json={"query": mutation}, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            logger.error(f"[catalog] Bulk Op start HTTP {resp.status_code}")
+            return []
 
-        retries = 0
-        success = False
-        while retries < max_retries:
-            try:
-                resp = requests.post(
-                    graphql_url,
-                    json={"query": query},
-                    headers=headers,
-                    timeout=60,
-                )
-                _throttler.update_from_response(resp)
+        data = resp.json()
+        if "errors" in data:
+            logger.error(f"[catalog] Bulk Op start errors: {data['errors']}")
+            return []
 
-                if resp.status_code == 429:
-                    wait = _throttler.handle_429(resp)
-                    logger.info(f"[catalog] Rate limited, waiting {wait}s")
-                    time.sleep(wait)
-                    retries += 1
-                    continue
+        bulk_result = data.get("data", {}).get("bulkOperationRunQuery", {})
+        user_errors = bulk_result.get("userErrors", [])
+        if user_errors:
+            logger.error(f"[catalog] Bulk Op userErrors: {user_errors}")
+            return []
 
-                if resp.status_code != 200:
-                    logger.warning(f"[catalog] HTTP {resp.status_code} on page {page}")
-                    retries += 1
-                    time.sleep(2)
-                    continue
+        op = bulk_result.get("bulkOperation", {})
+        op_id = op.get("id")
+        logger.info(f"[catalog] Bulk Op started: {op_id}")
+    except Exception as e:
+        logger.error(f"[catalog] Bulk Op start exception: {e}")
+        return []
 
-                data = resp.json()
-                if "errors" in data:
-                    logger.warning(f"[catalog] GraphQL errors on page {page}: {data['errors']}")
-                    retries += 1
-                    time.sleep(2)
-                    continue
+    # 2. Poll hasta completar (max 15 min = 180 x 5s)
+    download_url = None
+    for i in range(180):
+        time.sleep(5)
+        try:
+            status_resp = requests.post(
+                graphql_url,
+                json={"query": "{ currentBulkOperation { id status url objectCount errorCode } }"},
+                headers=headers,
+                timeout=30,
+            )
+            if status_resp.status_code != 200:
+                continue
 
-                success = True
+            op_data = status_resp.json().get("data", {}).get("currentBulkOperation") or {}
+            status = op_data.get("status")
+
+            if i % 12 == 0:  # Log cada ~60s
+                logger.info(f"[catalog] Poll #{i}: status={status}, objects={op_data.get('objectCount', 0)}")
+
+            if status == "COMPLETED":
+                download_url = op_data.get("url")
+                logger.info(f"[catalog] Bulk Op completed, objects={op_data.get('objectCount', 0)}")
                 break
-            except Exception as e:
-                logger.warning(f"[catalog] Exception on page {page}: {e}")
-                retries += 1
-                time.sleep(2)
+            elif status in ("FAILED", "CANCELED"):
+                logger.error(f"[catalog] Bulk Op {status}: {op_data.get('errorCode')}")
+                return []
+        except Exception as e:
+            logger.warning(f"[catalog] Poll exception: {e}")
 
-        if not success:
-            logger.error(f"[catalog] Failed page {page} after {max_retries} retries, stopping. Got {len(results)} SKUs so far.")
-            break
+    if not download_url:
+        logger.error("[catalog] Bulk Op timeout (15 min)")
+        return []
 
-        products_data = data.get("data", {}).get("products", {})
+    # 3. Descargar JSONL y parsear
+    results: list[dict] = []
+    products_by_id: dict[str, dict] = {}  # gid → {vendor, title}
 
-        for edge in products_data.get("edges", []):
-            node = edge.get("node", {})
-            vendor = (node.get("vendor") or "").strip()
-            title = (node.get("title") or "").strip()
+    try:
+        resp = requests.get(download_url, timeout=300, stream=True)
+        if resp.status_code != 200:
+            logger.error(f"[catalog] Download failed: HTTP {resp.status_code}")
+            return []
 
-            for v_edge in node.get("variants", {}).get("edges", []):
-                v_node = v_edge.get("node", {})
-                sku = (v_node.get("sku") or "").strip()
-                if sku:
-                    results.append({
-                        "sku": sku,
-                        "vendor": vendor,
-                        "title": title,
-                    })
+        for line in resp.iter_lines():
+            if not line:
+                continue
+            try:
+                row = json.loads(line.decode("utf-8") if isinstance(line, bytes) else line)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
 
-        page += 1
-        if page % 50 == 0:
-            logger.info(f"[catalog] Page {page}, {len(results)} SKUs so far")
+            gid = row.get("id", "")
 
-        page_info = products_data.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        cursor = page_info.get("endCursor")
+            if "Product/" in gid:
+                # Nodo producto — guardar vendor y title
+                products_by_id[gid] = {
+                    "vendor": (row.get("vendor") or "").strip(),
+                    "title": (row.get("title") or "").strip(),
+                }
+            elif "ProductVariant/" in gid:
+                # Nodo variante — vincular con producto padre
+                sku = (row.get("sku") or "").strip()
+                if not sku:
+                    continue
+                parent_id = row.get("__parentId", "")
+                parent = products_by_id.get(parent_id, {})
+                results.append({
+                    "sku": sku,
+                    "vendor": parent.get("vendor", ""),
+                    "title": parent.get("title", ""),
+                })
 
-    logger.info(f"[catalog] Done. {page} pages, {len(results)} total SKUs")
+    except Exception as e:
+        logger.error(f"[catalog] Download/parse exception: {e}")
+
+    logger.info(f"[catalog] Done. {len(products_by_id)} products, {len(results)} SKUs")
     return results
