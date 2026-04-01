@@ -161,12 +161,12 @@ function extractPedido(obs: string): { pedido: string; numeroPedido: string } {
   // Buscar patrones como #187120, Pedido 187120, Pedido #187120
   const match = obs.match(/#(\d+)/);
   if (match) {
-    return { pedido: "Sí", numeroPedido: match[1] };
+    return { pedido: "Sí", numeroPedido: `#${match[1]}` };
   }
 
   const matchPedido = obs.match(/[Pp]edido\s*#?\s*(\d+)/);
   if (matchPedido) {
-    return { pedido: "Sí", numeroPedido: matchPedido[1] };
+    return { pedido: "Sí", numeroPedido: `#${matchPedido[1]}` };
   }
 
   return { pedido: "", numeroPedido: "" };
