@@ -177,53 +177,66 @@ def _build_discount_query(order_names: list[str]) -> str:
     """ % (len(order_names), name_filter)
 
 
-def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> dict[str, str]:
-    """Consulta un batch de ordenes y retorna dict {order_name: discount_code}."""
+def _parse_discount_edges(edges: list) -> dict[str, str]:
+    """Extrae discount names de los edges de GraphQL."""
+    results = {}
+    for edge in edges:
+        node = edge["node"]
+        name = node.get("name", "")
+        apps = node.get("discountApplications", {}).get("edges", [])
+        titles = []
+        for app in apps:
+            title = app.get("node", {}).get("title", "").strip()
+            if title:
+                titles.append(title)
+        if name:
+            results[name] = ", ".join(titles)
+    return results
+
+
+def _fetch_discount_batch(session: requests.Session, order_names: list[str], retries: int = 2) -> dict[str, str]:
+    """Consulta un batch de ordenes con reintentos."""
+    import time
     graphql_url = settings.get_graphql_url()
     query = _build_discount_query(order_names)
-    results = {}
 
-    try:
-        print(f"[DISCOUNTS] Querying {len(order_names)} orders: {order_names[:5]}...", flush=True)
-        response = session.post(
-            graphql_url,
-            json={"query": query},
-            timeout=30,
-        )
-        print(f"[DISCOUNTS] Response status: {response.status_code}", flush=True)
-        if response.status_code == 200:
-            data = response.json()
-            errors = data.get("errors", [])
-            if errors:
-                print(f"[DISCOUNTS] GraphQL errors: {errors}", flush=True)
-            edges = data.get("data", {}).get("orders", {}).get("edges", [])
-            print(f"[DISCOUNTS] Found {len(edges)} orders", flush=True)
-            for edge in edges:
-                node = edge["node"]
-                name = node.get("name", "")
-                # Extraer titles de todas las discount applications
-                apps = node.get("discountApplications", {}).get("edges", [])
-                titles = []
-                for app in apps:
-                    title = app.get("node", {}).get("title", "").strip()
-                    if title:
-                        titles.append(title)
-                if name:
-                    results[name] = ", ".join(titles)
-        else:
-            print(f"[DISCOUNTS] HTTP error: {response.status_code} - {response.text[:200]}", flush=True)
-    except Exception as e:
-        print(f"[DISCOUNTS] Error fetching discount batch: {e}", flush=True)
+    for attempt in range(retries + 1):
+        try:
+            response = session.post(graphql_url, json={"query": query}, timeout=30)
 
-    return results
+            if response.status_code == 429:
+                wait = int(response.headers.get("Retry-After", "2"))
+                print(f"[DISCOUNTS] Rate limited, waiting {wait}s...", flush=True)
+                time.sleep(wait)
+                continue
+
+            if response.status_code == 200:
+                data = response.json()
+                errors = data.get("errors", [])
+                if errors:
+                    print(f"[DISCOUNTS] GraphQL errors: {errors[:1]}", flush=True)
+                    return {}
+                edges = data.get("data", {}).get("orders", {}).get("edges", [])
+                return _parse_discount_edges(edges)
+            else:
+                print(f"[DISCOUNTS] HTTP {response.status_code}, attempt {attempt + 1}", flush=True)
+        except Exception as e:
+            print(f"[DISCOUNTS] Error attempt {attempt + 1}: {e}", flush=True)
+
+        if attempt < retries:
+            time.sleep(1)
+
+    return {}
 
 
 def get_discount_codes(order_names: list[str]) -> dict[str, str]:
     """
     Consulta discount codes de ordenes Shopify por nombre.
     Retorna dict {order_name: discount_code}.
-    Usa batches de 50 órdenes y max 3 workers para evitar rate limiting.
+    Procesa secuencialmente con batches de 20 para máxima confiabilidad.
     """
+    import time
+
     if not order_names:
         return {}
 
@@ -231,17 +244,16 @@ def get_discount_codes(order_names: list[str]) -> dict[str, str]:
     session = requests.Session()
     session.headers.update(headers)
 
-    batches = list(chunk_list(order_names, 50))
+    batches = list(chunk_list(order_names, 20))
     all_results = {}
-    print(f"[DISCOUNTS] Total: {len(order_names)} orders in {len(batches)} batches", flush=True)
+    print(f"[DISCOUNTS] Total: {len(order_names)} orders in {len(batches)} batches (sequential)", flush=True)
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {
-            executor.submit(_fetch_discount_batch, session, batch): i
-            for i, batch in enumerate(batches)
-        }
-        for future in as_completed(futures):
-            all_results.update(future.result())
+    for i, batch in enumerate(batches):
+        results = _fetch_discount_batch(session, batch)
+        all_results.update(results)
+        # Pequeña pausa entre batches para no saturar Shopify
+        if i < len(batches) - 1:
+            time.sleep(0.3)
 
     found_with_codes = sum(1 for v in all_results.values() if v)
     print(f"[DISCOUNTS] Done: {len(all_results)} orders found, {found_with_codes} with discount codes", flush=True)
