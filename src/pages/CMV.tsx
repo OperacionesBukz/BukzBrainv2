@@ -40,6 +40,7 @@ const CMV = () => {
     reset,
     goToStep,
     userEmail,
+    dataReady,
   } = useCmvProcessor();
 
   const { vendors, loading: vendorsLoading } = useVendors();
@@ -84,6 +85,7 @@ const CMV = () => {
               salesFile={state.salesFile}
               notesFile={state.notesFile}
               isProcessing={state.isProcessing}
+              dataReady={dataReady}
               onSalesFileSelected={setSalesFile}
               onNotesFileSelected={setNotesFile}
               onProcess={process}

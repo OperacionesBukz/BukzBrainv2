@@ -199,8 +199,9 @@ export function useCmvHistory() {
 export function useCmvProcessor() {
   const [state, setState] = useState<CmvState>(INITIAL_CMV_STATE);
   const { user } = useAuth();
-  const { vendors } = useVendors();
-  const { skuVendorMap } = useSkuVendorMap();
+  const { vendors, loading: vendorsLoading } = useVendors();
+  const { skuVendorMap, loading: skuMapLoading } = useSkuVendorMap();
+  const dataReady = !vendorsLoading && !skuMapLoading;
 
   const setSalesFile = useCallback((file: File | null) => {
     setState((s) => ({ ...s, salesFile: file }));
@@ -345,5 +346,6 @@ export function useCmvProcessor() {
     reset,
     goToStep,
     userEmail: user?.email || "",
+    dataReady,
   };
 }
