@@ -158,13 +158,13 @@ function findNumber(row: RawSaleRecord, ...candidates: string[]): number {
 function extractPedido(obs: string): { pedido: string; numeroPedido: string } {
   if (!obs) return { pedido: "", numeroPedido: "" };
 
-  // Buscar patrones como #187120, Pedido 187120, Pedido #187120
-  const match = obs.match(/#(\d+)/);
+  // Buscar patrones: #187120, #100-7710, Pedido #187120
+  const match = obs.match(/#(\d+(?:-\d+)?)/);
   if (match) {
     return { pedido: "Sí", numeroPedido: `#${match[1]}` };
   }
 
-  const matchPedido = obs.match(/[Pp]edido\s*#?\s*(\d+)/);
+  const matchPedido = obs.match(/[Pp]edido\s*#?\s*(\d+(?:-\d+)?)/);
   if (matchPedido) {
     return { pedido: "Sí", numeroPedido: `#${matchPedido[1]}` };
   }
@@ -258,7 +258,7 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     "Pedido": p.pedido,
     "No. Pedido": p.numeroPedido,
     "Discount Code": p.discountCode || "",
-    "Descuento": "",
+    "Descuento": p.descuento,
     "Vendor": p.vendor,
     "Margen": "",
     "Costo Unitario": "",
