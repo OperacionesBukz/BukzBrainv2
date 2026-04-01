@@ -154,7 +154,7 @@ def _start_sales_bulk(months: int) -> str | None:
     mutation = """
     mutation {
       bulkOperationRunQuery(
-        query: \\"\\"\\"
+        query: \"\"\"
         {
           orders(query: "created_at:>=%s AND financial_status:paid") {
             edges {
@@ -188,7 +188,7 @@ def _start_sales_bulk(months: int) -> str | None:
             }
           }
         }
-        \\"\\"\\"
+        \"\"\"
       ) {
         bulkOperation { id status }
         userErrors { field message }
