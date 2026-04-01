@@ -1647,11 +1647,16 @@ def get_all_products_catalog() -> list[dict]:
 
     Returns: [{"sku": str, "vendor": str, "title": str}, ...]
     """
+    import logging
+    logger = logging.getLogger("bukz.catalog")
+
     graphql_url = settings.get_graphql_url()
     headers = settings.get_shopify_headers()
 
     results: list[dict] = []
     cursor = None
+    page = 0
+    max_retries = 3
 
     while True:
         after_clause = f', after: "{cursor}"' if cursor else ""
@@ -1677,44 +1682,75 @@ def get_all_products_catalog() -> list[dict]:
         """ % after_clause
 
         _throttler.wait_if_needed()
-        try:
-            resp = requests.post(
-                graphql_url,
-                json={"query": query},
-                headers=headers,
-                timeout=30,
-            )
-            _throttler.update_from_response(resp)
 
-            if resp.status_code == 429:
-                time.sleep(_throttler.handle_429(resp))
-                continue
+        retries = 0
+        success = False
+        while retries < max_retries:
+            try:
+                resp = requests.post(
+                    graphql_url,
+                    json={"query": query},
+                    headers=headers,
+                    timeout=60,
+                )
+                _throttler.update_from_response(resp)
 
-            if resp.status_code != 200:
+                if resp.status_code == 429:
+                    wait = _throttler.handle_429(resp)
+                    logger.info(f"[catalog] Rate limited, waiting {wait}s")
+                    time.sleep(wait)
+                    retries += 1
+                    continue
+
+                if resp.status_code != 200:
+                    logger.warning(f"[catalog] HTTP {resp.status_code} on page {page}")
+                    retries += 1
+                    time.sleep(2)
+                    continue
+
+                data = resp.json()
+                if "errors" in data:
+                    logger.warning(f"[catalog] GraphQL errors on page {page}: {data['errors']}")
+                    retries += 1
+                    time.sleep(2)
+                    continue
+
+                success = True
                 break
+            except Exception as e:
+                logger.warning(f"[catalog] Exception on page {page}: {e}")
+                retries += 1
+                time.sleep(2)
 
-            products_data = resp.json().get("data", {}).get("products", {})
-
-            for edge in products_data.get("edges", []):
-                node = edge.get("node", {})
-                vendor = (node.get("vendor") or "").strip()
-                title = (node.get("title") or "").strip()
-
-                for v_edge in node.get("variants", {}).get("edges", []):
-                    v_node = v_edge.get("node", {})
-                    sku = (v_node.get("sku") or "").strip()
-                    if sku:
-                        results.append({
-                            "sku": sku,
-                            "vendor": vendor,
-                            "title": title,
-                        })
-
-            page_info = products_data.get("pageInfo", {})
-            if not page_info.get("hasNextPage"):
-                break
-            cursor = page_info.get("endCursor")
-        except Exception:
+        if not success:
+            logger.error(f"[catalog] Failed page {page} after {max_retries} retries, stopping. Got {len(results)} SKUs so far.")
             break
 
+        products_data = data.get("data", {}).get("products", {})
+
+        for edge in products_data.get("edges", []):
+            node = edge.get("node", {})
+            vendor = (node.get("vendor") or "").strip()
+            title = (node.get("title") or "").strip()
+
+            for v_edge in node.get("variants", {}).get("edges", []):
+                v_node = v_edge.get("node", {})
+                sku = (v_node.get("sku") or "").strip()
+                if sku:
+                    results.append({
+                        "sku": sku,
+                        "vendor": vendor,
+                        "title": title,
+                    })
+
+        page += 1
+        if page % 50 == 0:
+            logger.info(f"[catalog] Page {page}, {len(results)} SKUs so far")
+
+        page_info = products_data.get("pageInfo", {})
+        if not page_info.get("hasNextPage"):
+            break
+        cursor = page_info.get("endCursor")
+
+    logger.info(f"[catalog] Done. {page} pages, {len(results)} total SKUs")
     return results
