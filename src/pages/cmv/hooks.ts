@@ -227,9 +227,10 @@ export function useCmvProcessor() {
 
       // 4. Lookup de discount codes via Shopify (por número de pedido)
       const allProducts = [...result.products, ...result.unknownVendorProducts];
-      const uniqueOrders = [...new Set(
-        allProducts.map((p) => p.numeroPedido).filter((n) => n.startsWith("#"))
-      )];
+      const allPedidos = allProducts.map((p) => p.numeroPedido).filter(Boolean);
+      const uniqueOrders = [...new Set(allPedidos.filter((n) => n.startsWith("#")))];
+      console.log("[CMV] Pedidos encontrados:", allPedidos.length, "total,", uniqueOrders.length, "únicos con #");
+      console.log("[CMV] Muestra de pedidos:", uniqueOrders.slice(0, 10));
       const discountMap = await lookupDiscountCodes(uniqueOrders);
       console.log("[CMV] Discount lookup returned:", discountMap.size, "orders with codes");
 
