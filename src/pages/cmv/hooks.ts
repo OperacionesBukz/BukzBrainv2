@@ -242,7 +242,9 @@ export function useCmvProcessor() {
       console.log("[CMV] Pedidos encontrados:", allPedidos.length, "total,", uniqueOrders.length, "únicos con #");
       console.log("[CMV] Muestra de pedidos:", uniqueOrders.slice(0, 10));
       const discountMap = await lookupDiscountCodes(uniqueOrders);
-      console.log("[CMV] Discount lookup returned:", discountMap.size, "orders with codes");
+      const withCodes = [...discountMap.entries()].filter(([, v]) => v !== "");
+      console.log("[CMV] Discount lookup returned:", discountMap.size, "orders total,", withCodes.length, "with discount codes");
+      console.log("[CMV] Has #186905?", discountMap.has("#186905"), "value:", discountMap.get("#186905"));
 
       // Asignar discount code de Shopify a cada producto
       const applyDiscounts = (products: typeof allProducts) =>
