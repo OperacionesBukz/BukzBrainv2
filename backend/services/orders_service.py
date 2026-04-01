@@ -152,7 +152,7 @@ def get_orders_details(order_names: list[str]) -> dict[str, list[dict]]:
 
 
 def _build_discount_query(order_names: list[str]) -> str:
-    """Construye query GraphQL para buscar discount codes por nombre de orden."""
+    """Construye query GraphQL para buscar discount applications por nombre de orden."""
     name_filter = " OR ".join(f"name:{_sanitize_graphql_value(n)}" for n in order_names)
     return """
     {
@@ -160,7 +160,16 @@ def _build_discount_query(order_names: list[str]) -> str:
         edges {
           node {
             name
-            discountCodes
+            discountApplications(first: 10) {
+              edges {
+                node {
+                  ... on DiscountCodeApplication { title: code }
+                  ... on AutomaticDiscountApplication { title }
+                  ... on ScriptDiscountApplication { title }
+                  ... on ManualDiscountApplication { title }
+                }
+              }
+            }
           }
         }
       }
@@ -192,11 +201,15 @@ def _fetch_discount_batch(session: requests.Session, order_names: list[str]) -> 
             for edge in edges:
                 node = edge["node"]
                 name = node.get("name", "")
-                # discountCodes puede venir como string con corchetes: "['CODE1', 'CODE2']"
-                raw = str(node.get("discountCodes", "") or "").strip()
-                codes = raw.strip("[]").replace("'", "").replace('"', '').strip()
+                # Extraer titles de todas las discount applications
+                apps = node.get("discountApplications", {}).get("edges", [])
+                titles = []
+                for app in apps:
+                    title = app.get("node", {}).get("title", "").strip()
+                    if title:
+                        titles.append(title)
                 if name:
-                    results[name] = codes
+                    results[name] = ", ".join(titles)
         else:
             print(f"[DISCOUNTS] HTTP error: {response.status_code} - {response.text[:200]}", flush=True)
     except Exception as e:
