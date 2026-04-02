@@ -31,7 +31,7 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
       />
       <SummaryCard
         icon={Percent}
-        label="% Costo / Ventas"
+        label="% Costo"
         value={`${totals.costoPctVentas.toFixed(1)}%`}
         color="text-blue-600 dark:text-blue-400"
         bg="bg-blue-50 dark:bg-blue-950/40"
@@ -47,7 +47,7 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
           />
           <SummaryCard
             icon={Percent}
-            label="Margen Promedio"
+            label="% Margen"
             value={`${totals.margenPromedio.toFixed(1)}%`}
             color="text-amber-600 dark:text-amber-400"
             bg="bg-amber-50 dark:bg-amber-950/40"

@@ -1,7 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import UploadStep from "./cmv/components/UploadStep";
 import ProcessingStep from "./cmv/components/ProcessingStep";
 import { ResultsStep } from "./cmv/components/ResultsStep";
@@ -45,7 +46,7 @@ const CMV = () => {
   } = useCmvProcessor();
 
   const { vendors, loading: vendorsLoading } = useVendors();
-  const { history, loading: historyLoading, saveToHistory } = useCmvHistory();
+  const { history, loading: historyLoading, saveToHistory, deleteFromHistory } = useCmvHistory();
 
   const handleExport = (month: number, year: number) => {
     exportCmvToExcel(state.products, month, year);
@@ -155,6 +156,7 @@ const CMV = () => {
                       <TableHead className="text-right">Total Costo</TableHead>
                       <TableHead className="text-right">Margen</TableHead>
                       <TableHead>Procesado por</TableHead>
+                      <TableHead className="w-[50px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -177,6 +179,20 @@ const CMV = () => {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {record.processedBy}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              if (window.confirm(`¿Eliminar CMV de ${MONTH_NAMES[record.month - 1]} ${record.year}?`)) {
+                                deleteFromHistory(record.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

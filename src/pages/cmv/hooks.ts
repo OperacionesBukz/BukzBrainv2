@@ -3,6 +3,8 @@ import {
   collection,
   onSnapshot,
   addDoc,
+  deleteDoc,
+  doc,
   query,
   orderBy,
   where,
@@ -183,7 +185,12 @@ export function useCmvHistory() {
     toast.success(`CMV de ${month}/${year} guardado en historial`);
   };
 
-  return { history, loading, saveToHistory };
+  const deleteFromHistory = async (id: string) => {
+    await deleteDoc(doc(db, "cmv_history", id));
+    toast.success("Registro eliminado del historial");
+  };
+
+  return { history, loading, saveToHistory, deleteFromHistory };
 }
 
 // --- Hook: Procesador CMV (estado del wizard) ---
