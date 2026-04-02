@@ -273,6 +273,24 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
   }));
   ws["!cols"] = colWidths;
 
+  // Calcular totales para resumen
+  const totalVentas = products.reduce((sum, p) => sum + p.valorTotal, 0);
+  const totalCosto = products.reduce((sum, p) => sum + p.costoTotal, 0);
+  const pctCosto = totalVentas > 0 ? Math.round((totalCosto / totalVentas) * 1000) / 10 : 0;
+  const pctMargen = totalVentas > 0 ? Math.round(((totalVentas - totalCosto) / totalVentas) * 1000) / 10 : 0;
+  const totalProductos = products.length;
+
+  // Agregar tabla resumen debajo de los datos (2 filas de separación)
+  const summaryStartRow = data.length + 3; // +1 header + data.length rows + 2 empty
+  utils.sheet_add_aoa(ws, [
+    ["Indicador", "Valor"],
+    ["Total Productos", totalProductos],
+    ["Total Ventas", totalVentas],
+    ["Total Costo", totalCosto],
+    ["% Costo / Ventas", `${pctCosto}%`],
+    ["% Margen", `${pctMargen}%`],
+  ], { origin: `A${summaryStartRow}` });
+
   const wb = utils.book_new();
   utils.book_append_sheet(wb, ws, "CMV");
 
