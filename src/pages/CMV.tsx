@@ -1,8 +1,19 @@
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import UploadStep from "./cmv/components/UploadStep";
 import ProcessingStep from "./cmv/components/ProcessingStep";
 import { ResultsStep } from "./cmv/components/ResultsStep";
@@ -31,6 +42,7 @@ function formatCurrency(value: number): string {
 }
 
 const CMV = () => {
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const {
     state,
     setSalesFile,
@@ -47,6 +59,7 @@ const CMV = () => {
 
   const { vendors, loading: vendorsLoading } = useVendors();
   const { history, loading: historyLoading, saveToHistory, deleteFromHistory } = useCmvHistory();
+  const deleteRecord = deleteId ? history.find((r) => r.id === deleteId) : null;
 
   const handleExport = (month: number, year: number) => {
     exportCmvToExcel(state.products, month, year);
@@ -185,11 +198,7 @@ const CMV = () => {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                              if (window.confirm(`¿Eliminar CMV de ${MONTH_NAMES[record.month - 1]} ${record.year}?`)) {
-                                deleteFromHistory(record.id);
-                              }
-                            }}
+                            onClick={() => setDeleteId(record.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -203,6 +212,35 @@ const CMV = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar registro</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar el CMV de{" "}
+              <strong>
+                {deleteRecord ? `${MONTH_NAMES[deleteRecord.month - 1]} ${deleteRecord.year}` : ""}
+              </strong>
+              ? Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteId) {
+                  deleteFromHistory(deleteId);
+                  setDeleteId(null);
+                }
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
