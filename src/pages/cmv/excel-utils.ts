@@ -257,11 +257,12 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     "Valor Total": p.valorTotal,
     "Pedido": p.pedido,
     "No. Pedido": p.numeroPedido,
-    "Descuento": p.discountCode || "",
+    "Descuento": p.descuento,
+    "Código Descuento": p.discountCode || "",
     "Vendor": p.vendor,
-    "Margen": "",
-    "Costo Unitario": "",
-    "Costo Total": "",
+    "Margen": p.margen || "",
+    "Costo Unitario": p.costo || "",
+    "Costo Total": p.costoTotal || "",
   }));
 
   const ws = utils.json_to_sheet(data);
