@@ -345,25 +345,32 @@ export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
         return 0;
       };
 
-      const margenRaw = findNum("Margen");
-      const margen = margenRaw > 1 ? margenRaw / 100 : margenRaw;
+      const margen = findNum("Margen");
 
       const descuentoRaw = findStr("Descuento", "Tipo Descuento").toUpperCase();
       const descuento: DiscountType =
         descuentoRaw === "BUKZ" ? "BUKZ" :
-        descuentoRaw === "PROVEEDOR" ? "PROVEEDOR" : "VACIO";
+        descuentoRaw === "PROVEEDOR" ? "PROVEEDOR" :
+        descuentoRaw === "COMFAMA" ? "COMFAMA" : "VACIO";
 
       const cantidad = findNum("Cantidad");
       const valorUnitario = findNum("Valor Unitario", "Valor Unit.");
       const valorTotal = findNum("Valor Total", "Total");
 
-      // Calcular costo según tipo de descuento:
-      // BUKZ: el descuento lo dio Bukz → costo sobre precio original (valorUnitario)
-      // PROVEEDOR/VACIO: costo sobre el total real cobrado (valorTotal)
+      // Calcular costo según fórmula del CMV manual:
+      // Si margen > 1: es un multiplicador precio/costo → costo = total / margen
+      // Si margen <= 1:
+      //   BUKZ/COMFAMA: descuento lo dio Bukz → costo sobre precio original (valorUnitario)
+      //   PROVEEDOR/VACIO: costo sobre el total real cobrado (valorTotal)
       let costoTotal = 0;
       if (margen > 0) {
-        const base = descuento === "BUKZ" ? valorUnitario : valorTotal;
-        costoTotal = Math.round(base * (1 - margen));
+        if (margen > 1) {
+          costoTotal = Math.round(valorTotal / margen);
+        } else {
+          const usesUnitPrice = descuento === "BUKZ" || descuento === "COMFAMA";
+          const base = usesUnitPrice ? valorUnitario : valorTotal;
+          costoTotal = Math.round(base * (1 - margen));
+        }
       }
       const costoUnitario = cantidad > 0 ? Math.round(costoTotal / cantidad) : costoTotal;
 

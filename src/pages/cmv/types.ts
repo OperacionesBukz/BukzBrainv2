@@ -16,7 +16,7 @@ export interface CreditNote {
 
 // --- Producto procesado ---
 
-export type DiscountType = "BUKZ" | "PROVEEDOR" | "VACIO";
+export type DiscountType = "BUKZ" | "PROVEEDOR" | "COMFAMA" | "VACIO";
 
 /** Producto después de procesar las 24 columnas finales */
 export interface CmvProduct {
