@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { DollarSign, TrendingDown, Percent, Package } from "lucide-react";
+import { DollarSign, TrendingDown, Percent } from "lucide-react";
 import type { CmvTotals } from "../types";
 
 function formatCurrency(value: number): string {
@@ -30,9 +30,9 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
         bg="bg-green-50 dark:bg-green-950/40"
       />
       <SummaryCard
-        icon={Package}
-        label="Total Productos"
-        value={totals.totalProductos.toLocaleString("es-CO")}
+        icon={Percent}
+        label="% Costo / Ventas"
+        value={`${totals.costoPctVentas.toFixed(1)}%`}
         color="text-blue-600 dark:text-blue-400"
         bg="bg-blue-50 dark:bg-blue-950/40"
       />
