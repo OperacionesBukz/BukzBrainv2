@@ -90,6 +90,7 @@ const CMV = () => {
               onSalesFileSelected={setSalesFile}
               onNotesFileSelected={setNotesFile}
               onProcess={process}
+              onImportCompleted={importCompleted}
             />
           )}
 
