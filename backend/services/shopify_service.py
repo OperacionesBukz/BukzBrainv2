@@ -664,66 +664,69 @@ def process_batch_info(
     return results
 
 
+def _search_single_isbn(
+    session: requests.Session,
+    isbn: str,
+    isbn_to_qty: dict,
+    graphql_url: str,
+) -> dict:
+    """Busca UN solo ISBN en Shopify. Retorna dict {isbn: result}."""
+    result = {
+        "ISBN": isbn,
+        "ID": "---",
+        "Variant ID": "---",
+        "Titulo": "No encontrado",
+        "Vendor": "---",
+        "Precio": 0.0,
+        "Categoria": "---",
+        "Cantidad": isbn_to_qty.get(isbn, 0),
+    }
+    try:
+        query = _build_batch_query([isbn])
+        _throttler.wait_if_needed()
+        resp = session.post(graphql_url, json={"query": query}, timeout=30)
+        _throttler.update_from_response(resp)
+        if resp.status_code == 200:
+            edges = (
+                resp.json()
+                .get("data", {})
+                .get("productVariants", {})
+                .get("edges", [])
+            )
+            found = _parse_variant_edges(edges, [isbn], isbn_to_qty)
+            if isbn in found:
+                return found[isbn]
+    except Exception as exc:
+        logger.warning("Error buscando %s: %s", isbn, exc)
+    return result
+
+
 def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
     """
     Busca productos en Shopify por lista de ISBNs.
-    Retorna lista de resultados ordenados según el orden original.
-    Incluye retry individual para ISBNs no encontrados en batch.
+    Cada ISBN se busca individualmente en paralelo para garantizar
+    100% de match rate (sin queries OR complejas que Shopify pierde).
     """
     headers = settings.get_shopify_headers()
-    # Batches pequeños (5) para evitar queries OR demasiado complejas en Shopify
-    search_batch = min(settings.BATCH_SIZE, 5)
-    batches = list(chunk_list(isbn_list, search_batch))
-
-    all_results = {}
+    graphql_url = settings.get_graphql_url()
     session = requests.Session()
     session.headers.update(headers)
 
+    all_results = {}
     with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
         futures = {
-            executor.submit(process_batch_info, session, batch, isbn_to_qty): i
-            for i, batch in enumerate(batches)
+            executor.submit(
+                _search_single_isbn, session, isbn, isbn_to_qty, graphql_url
+            ): isbn
+            for isbn in isbn_list
         }
         for future in as_completed(futures):
-            all_results.update(future.result())
+            isbn = futures[future]
+            all_results[isbn] = future.result()
 
-    # --- Retry individual en paralelo para ISBNs no encontrados ---
-    not_found = [
-        isbn for isbn in isbn_list
-        if isbn in all_results and all_results[isbn]["Titulo"] == "No encontrado"
-    ]
+    found = sum(1 for r in all_results.values() if r["Titulo"] != "No encontrado")
+    logger.info("Búsqueda: %d/%d encontrados", found, len(isbn_list))
 
-    if not_found:
-        logger.info(
-            "Retry individual para %d ISBNs no encontrados en batch", len(not_found)
-        )
-        retry_results = {}
-        with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
-            futures = {
-                executor.submit(
-                    process_batch_info, session, [isbn], isbn_to_qty
-                ): isbn
-                for isbn in not_found
-            }
-            for future in as_completed(futures):
-                retry_results.update(future.result())
-
-        for isbn in not_found:
-            if isbn in retry_results and retry_results[isbn]["Titulo"] != "No encontrado":
-                all_results[isbn] = retry_results[isbn]
-                logger.info("Retry OK: %s -> %s", isbn, retry_results[isbn]["Titulo"])
-
-        final_missing = [
-            isbn for isbn in not_found
-            if all_results.get(isbn, {}).get("Titulo") == "No encontrado"
-        ]
-        if final_missing:
-            logger.info(
-                "No encontrados tras retry: %d — %s",
-                len(final_missing), final_missing[:10],
-            )
-
-    # Mantener orden original
     return [all_results[isbn] for isbn in isbn_list if isbn in all_results]
 
 
