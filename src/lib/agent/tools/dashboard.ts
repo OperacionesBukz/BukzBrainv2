@@ -4,6 +4,7 @@ import {
   getDocs,
   query,
   where,
+  limit as firestoreLimit,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { ToolDefinition } from "../types";
@@ -178,27 +179,30 @@ export const dashboardTools: ToolDefinition[] = [
       try {
         const term = (params.searchTerm as string).toLowerCase();
 
+        // Use limited queries instead of downloading entire collections
         const [personalSnap, opsSnap, celesaSnap, bookstoreSnap] = await Promise.all([
-          getDocs(query(collection(db, "user_tasks"), where("userId", "==", userId))),
-          getDocs(collection(db, "tasks")),
-          getDocs(collection(db, "celesa_orders")),
-          getDocs(collection(db, "bookstore_requests")),
+          getDocs(query(collection(db, "user_tasks"), where("userId", "==", userId), firestoreLimit(100))),
+          getDocs(query(collection(db, "tasks"), firestoreLimit(100))),
+          getDocs(query(collection(db, "celesa_orders"), firestoreLimit(200))),
+          getDocs(query(collection(db, "bookstore_requests"), firestoreLimit(100))),
         ]);
 
         const matchStr = (val: unknown) => typeof val === "string" && val.toLowerCase().includes(term);
 
         const personalTasks = personalSnap.docs
           .filter((d) => matchStr(d.data().title) || matchStr(d.data().notes))
+          .slice(0, 10)
           .map((d) => ({ id: d.id, type: "tarea_personal", title: d.data().title, status: d.data().status }));
 
         const opsTasks = opsSnap.docs
           .filter((d) => matchStr(d.data().title) || matchStr(d.data().notes))
+          .slice(0, 10)
           .map((d) => ({ id: d.id, type: "tarea_operaciones", title: d.data().title, department: d.data().department }));
 
         const celesaOrders = celesaSnap.docs
           .filter((d) => matchStr(d.data().cliente) || matchStr(d.data().producto) || matchStr(d.data().numeroPedido))
           .slice(0, 10)
-          .map((d) => ({ id: d.id, type: "pedido_celesa", numeroPedido: d.data().numeroPedido, cliente: d.data().cliente, producto: d.data().producto, estado: d.data().estado }));
+          .map((d) => ({ id: d.id, type: "pedido_celesa", numeroPedido: d.data().numeroPedido, cliente: d.data().cliente, estado: d.data().estado }));
 
         const bookstoreReqs = bookstoreSnap.docs
           .filter((d) => {
@@ -210,7 +214,7 @@ export const dashboardTools: ToolDefinition[] = [
           .map((d) => ({ id: d.id, type: "solicitud_libreria", branch: d.data().branch, status: d.data().status }));
 
         const results = [...personalTasks, ...opsTasks, ...celesaOrders, ...bookstoreReqs];
-        return { success: true, data: { searchTerm: term, results, totalFound: results.length } };
+        return { success: true, data: { searchTerm: term, results: results.slice(0, 30), totalFound: results.length } };
       } catch (error) {
         return { success: false, error: (error as Error).message };
       }

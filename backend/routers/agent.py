@@ -3,6 +3,7 @@ Proxy endpoint for LLM providers.
 Keys stay server-side, frontend sends messages and gets responses.
 """
 import os
+import json
 import asyncio
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -22,6 +23,10 @@ CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions"
 TIMEOUT = 90.0
 MAX_RETRIES = 3
 RETRY_DELAYS = [1, 3, 8]  # seconds between retries
+
+# LLM generation settings
+MAX_TOKENS = 2048
+TEMPERATURE = 0.3  # Low for reliable tool calling
 
 
 class ChatRequest(BaseModel):
@@ -51,58 +56,29 @@ async def health():
 @router.post("/chat")
 async def chat(req: ChatRequest):
     """
-    Tries Gemini first, falls back to Groq.
-    Both providers have retry logic for transient errors.
+    Tries Gemini first, falls back to Groq, OpenRouter, Cerebras.
+    All providers have retry logic for transient errors.
     """
     errors: list[str] = []
 
-    # Try Gemini
-    if GEMINI_API_KEY:
-        try:
-            result = await _call_with_retry(_call_gemini, req.messages, req.tools, "Gemini")
-            return {"provider": "gemini", **result}
-        except Exception as e:
-            errors.append(f"Gemini: {e}")
-            print(f"[agent] Gemini failed after retries: {e}")
-    else:
-        errors.append("Gemini: API key no configurada")
-        print("[agent] Gemini: API key no configurada")
+    providers = [
+        ("gemini", GEMINI_API_KEY, _call_gemini),
+        ("groq", GROQ_API_KEY, lambda m, t: _call_openai_compatible(GROQ_URL, GROQ_API_KEY, "llama-3.3-70b-versatile", m, t)),
+        ("openrouter", OPENROUTER_API_KEY, lambda m, t: _call_openai_compatible(OPENROUTER_URL, OPENROUTER_API_KEY, "meta-llama/llama-3.3-70b-instruct", m, t)),
+        ("cerebras", CEREBRAS_API_KEY, lambda m, t: _call_openai_compatible(CEREBRAS_URL, CEREBRAS_API_KEY, "llama-3.3-70b", m, t)),
+    ]
 
-    # Fallback to Groq
-    if GROQ_API_KEY:
+    for name, api_key, call_fn in providers:
+        if not api_key:
+            errors.append(f"{name}: API key no configurada")
+            print(f"[agent] {name}: API key no configurada")
+            continue
         try:
-            result = await _call_with_retry(_call_groq, req.messages, req.tools, "Groq")
-            return {"provider": "groq", **result}
+            result = await _call_with_retry(call_fn, req.messages, req.tools, name)
+            return {"provider": name, **result}
         except Exception as e:
-            errors.append(f"Groq: {e}")
-            print(f"[agent] Groq failed after retries: {e}")
-    else:
-        errors.append("Groq: API key no configurada")
-        print("[agent] Groq: API key no configurada")
-
-    # Fallback to OpenRouter
-    if OPENROUTER_API_KEY:
-        try:
-            result = await _call_with_retry(_call_openrouter, req.messages, req.tools, "OpenRouter")
-            return {"provider": "openrouter", **result}
-        except Exception as e:
-            errors.append(f"OpenRouter: {e}")
-            print(f"[agent] OpenRouter failed after retries: {e}")
-    else:
-        errors.append("OpenRouter: API key no configurada")
-        print("[agent] OpenRouter: API key no configurada")
-
-    # Fallback to Cerebras
-    if CEREBRAS_API_KEY:
-        try:
-            result = await _call_with_retry(_call_cerebras, req.messages, req.tools, "Cerebras")
-            return {"provider": "cerebras", **result}
-        except Exception as e:
-            errors.append(f"Cerebras: {e}")
-            print(f"[agent] Cerebras failed after retries: {e}")
-    else:
-        errors.append("Cerebras: API key no configurada")
-        print("[agent] Cerebras: API key no configurada")
+            errors.append(f"{name}: {e}")
+            print(f"[agent] {name} failed after retries: {e}")
 
     detail = " | ".join(errors)
     print(f"[agent] Todos los modelos fallaron: {detail}")
@@ -125,11 +101,7 @@ async def _call_with_retry(fn, messages, tools, provider_name: str):
             err_str = str(e)
 
             # Check if it's a retryable HTTP error
-            is_retryable = False
-            for code in (429, 500, 502, 503, 529):
-                if str(code) in err_str:
-                    is_retryable = True
-                    break
+            is_retryable = any(str(code) in err_str for code in (429, 500, 502, 503, 529))
 
             # Also retry on timeouts and connection errors
             if "timeout" in err_str.lower() or "connect" in err_str.lower():
@@ -155,7 +127,13 @@ async def _call_gemini(messages: list[dict], tools: list[dict]) -> dict:
         role = "model" if m["role"] == "assistant" else "user"
         contents.append({"role": role, "parts": [{"text": m["content"]}]})
 
-    body: dict = {"contents": contents}
+    body: dict = {
+        "contents": contents,
+        "generationConfig": {
+            "maxOutputTokens": MAX_TOKENS,
+            "temperature": TEMPERATURE,
+        },
+    }
 
     if system_msg:
         body["systemInstruction"] = {"parts": [{"text": system_msg["content"]}]}
@@ -190,25 +168,29 @@ async def _call_gemini(messages: list[dict], tools: list[dict]) -> dict:
     return {"message": message, "toolCalls": tool_calls}
 
 
-async def _call_groq(messages: list[dict], tools: list[dict]) -> dict:
+async def _call_openai_compatible(
+    url: str, api_key: str, model: str,
+    messages: list[dict], tools: list[dict]
+) -> dict:
+    """Unified handler for OpenAI-compatible APIs (Groq, OpenRouter, Cerebras)."""
     body: dict = {
-        "model": "llama-3.3-70b-versatile",
+        "model": model,
         "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
+        "max_tokens": MAX_TOKENS,
+        "temperature": TEMPERATURE,
     }
 
     if tools:
-        body["tools"] = [
-            {"type": "function", "function": t} for t in tools
-        ]
+        body["tools"] = [{"type": "function", "function": t} for t in tools]
         body["tool_choice"] = "auto"
 
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         resp = await client.post(
-            GROQ_URL,
+            url,
             json=body,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Authorization": f"Bearer {api_key}",
             },
         )
 
@@ -220,85 +202,6 @@ async def _call_groq(messages: list[dict], tools: list[dict]) -> dict:
 
     tool_calls = []
     for tc in choice.get("tool_calls", []):
-        import json
-        tool_calls.append({
-            "name": tc["function"]["name"],
-            "params": json.loads(tc["function"]["arguments"]),
-        })
-
-    return {"message": choice.get("content", "") or "", "toolCalls": tool_calls}
-
-
-async def _call_openrouter(messages: list[dict], tools: list[dict]) -> dict:
-    body: dict = {
-        "model": "meta-llama/llama-3.3-70b-instruct",
-        "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
-    }
-
-    if tools:
-        body["tools"] = [
-            {"type": "function", "function": t} for t in tools
-        ]
-        body["tool_choice"] = "auto"
-
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        resp = await client.post(
-            OPENROUTER_URL,
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            },
-        )
-
-    if resp.status_code != 200:
-        raise Exception(f"HTTP {resp.status_code}: {resp.text[:300]}")
-
-    data = resp.json()
-    choice = data.get("choices", [{}])[0].get("message", {})
-
-    tool_calls = []
-    for tc in choice.get("tool_calls", []):
-        import json
-        tool_calls.append({
-            "name": tc["function"]["name"],
-            "params": json.loads(tc["function"]["arguments"]),
-        })
-
-    return {"message": choice.get("content", "") or "", "toolCalls": tool_calls}
-
-
-async def _call_cerebras(messages: list[dict], tools: list[dict]) -> dict:
-    body: dict = {
-        "model": "llama-3.3-70b",
-        "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
-    }
-
-    if tools:
-        body["tools"] = [
-            {"type": "function", "function": t} for t in tools
-        ]
-        body["tool_choice"] = "auto"
-
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        resp = await client.post(
-            CEREBRAS_URL,
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {CEREBRAS_API_KEY}",
-            },
-        )
-
-    if resp.status_code != 200:
-        raise Exception(f"HTTP {resp.status_code}: {resp.text[:300]}")
-
-    data = resp.json()
-    choice = data.get("choices", [{}])[0].get("message", {})
-
-    tool_calls = []
-    for tc in choice.get("tool_calls", []):
-        import json
         tool_calls.append({
             "name": tc["function"]["name"],
             "params": json.loads(tc["function"]["arguments"]),

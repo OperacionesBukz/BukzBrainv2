@@ -10,6 +10,7 @@ import {
   doc,
   serverTimestamp,
   arrayUnion,
+  limit as firestoreLimit,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { ToolDefinition } from "../types";
@@ -300,11 +301,14 @@ export const taskTools: ToolDefinition[] = [
         }
 
         const q = constraints.length > 0
-          ? query(collection(db, "tasks"), ...constraints)
-          : query(collection(db, "tasks"));
+          ? query(collection(db, "tasks"), ...constraints, firestoreLimit(50))
+          : query(collection(db, "tasks"), firestoreLimit(50));
 
         const snapshot = await getDocs(q);
-        const tasks = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const tasks = snapshot.docs.map((d) => {
+          const data = d.data();
+          return { id: d.id, title: data.title, department: data.department, status: data.status };
+        });
         return { success: true, data: { tasks, count: tasks.length } };
       } catch (error) {
         return {

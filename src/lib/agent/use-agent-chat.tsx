@@ -14,7 +14,12 @@ import { RateLimiter } from "./rate-limiter";
 import type { AgentMessage, AgentConversation, ToolCallResult } from "./types";
 
 const rateLimiter = new RateLimiter(20, 60_000);
-const MAX_CONTEXT_MESSAGES = 30;
+const MAX_CONTEXT_TOKENS = 8000; // ~8K tokens of history max
+
+/** Rough token estimate: ~4 chars per token for mixed content */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
 
 interface AgentChatState {
   messages: AgentMessage[];
@@ -154,21 +159,37 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       { role: "system", content: systemPrompt },
     ];
 
-    // Add recent messages as context
-    const recentMessages = messages.slice(-MAX_CONTEXT_MESSAGES);
+    // Add recent messages as context (limited by token estimate, not count)
+    let contextTokens = 0;
+    const recentMessages = [...messages].reverse();
+    const contextMsgs: { role: string; content: string }[] = [];
     for (const msg of recentMessages) {
-      llmMessages.push({ role: msg.role, content: msg.content });
+      const tokens = estimateTokens(msg.content);
+      if (contextTokens + tokens > MAX_CONTEXT_TOKENS) break;
+      contextTokens += tokens;
+      contextMsgs.unshift({ role: msg.role, content: msg.content });
     }
+    llmMessages.push(...contextMsgs);
     llmMessages.push({ role: "user", content });
 
     try {
       // Tool execution loop (max 5 iterations to prevent infinite loops)
       let iteration = 0;
-      let response = await sendToLLM(llmMessages, tools);
+      let response = await sendToLLM(llmMessages, tools, controller.signal);
+      const callHistory: string[] = []; // Loop detection
 
       while (response.toolCalls.length > 0 && iteration < 5) {
         if (controller.signal.aborted) break;
         iteration++;
+
+        // Loop detection: break if same tool+params called twice consecutively
+        const callSig = response.toolCalls.map((tc) => `${tc.name}:${JSON.stringify(tc.params)}`).join("|");
+        if (callHistory.length > 0 && callHistory[callHistory.length - 1] === callSig) {
+          console.warn("[agent] Loop detected, breaking tool loop");
+          break;
+        }
+        callHistory.push(callSig);
+
         const results: ToolCallResult[] = [];
 
         for (const tc of response.toolCalls) {
@@ -181,17 +202,21 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           results.push({ ...tc, result });
         }
 
-        // Send tool results back to LLM
+        // Send tool results back to LLM (compact JSON, truncated)
         llmMessages.push({
           role: "assistant",
           content: response.message || `Ejecutando: ${response.toolCalls.map((t) => t.name).join(", ")}`,
         });
+        const compactResults = results.map((r) => {
+          const resultStr = JSON.stringify(r.result);
+          return { tool: r.name, result: resultStr.length > 3000 ? resultStr.slice(0, 3000) + "...(truncado)" : resultStr };
+        });
         llmMessages.push({
           role: "user",
-          content: `Resultados de herramientas:\n${JSON.stringify(results.map((r) => ({ tool: r.name, result: r.result })), null, 2)}`,
+          content: `Resultados:\n${JSON.stringify(compactResults)}`,
         });
 
-        response = await sendToLLM(llmMessages, tools);
+        response = await sendToLLM(llmMessages, tools, controller.signal);
 
         // Save final response with tool call info
         if (response.toolCalls.length === 0) {

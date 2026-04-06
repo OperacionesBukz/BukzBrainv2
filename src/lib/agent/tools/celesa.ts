@@ -1,8 +1,10 @@
 import {
   collection,
   getDocs,
+  getCountFromServer,
   query,
   where,
+  limit as firestoreLimit,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { ToolDefinition } from "../types";
@@ -41,7 +43,9 @@ export const celesaTools: ToolDefinition[] = [
         if (params.estado) {
           constraints.push(where("estado", "==", params.estado));
         }
-        const q = constraints.length > 0 ? query(ref, ...constraints) : query(ref);
+        const q = constraints.length > 0
+          ? query(ref, ...constraints, firestoreLimit(limit))
+          : query(ref, firestoreLimit(limit));
         const snapshot = await getDocs(q);
         const limit = params.limit ? Number(params.limit) : 20;
         const orders = snapshot.docs
@@ -74,15 +78,22 @@ export const celesaTools: ToolDefinition[] = [
     execute: async () => {
       try {
         const ref = collection(db, "celesa_orders");
-        const snapshot = await getDocs(ref);
-        const byStatus: Record<string, number> = {};
-        snapshot.docs.forEach((d) => {
-          const estado = (d.data().estado as string) ?? "desconocido";
-          byStatus[estado] = (byStatus[estado] ?? 0) + 1;
+        // Use count queries instead of downloading all documents
+        const estados = ["En curso", "Entregado", "Agotado", "Atrasado", "Pendiente"];
+        const countPromises = estados.map(async (estado) => {
+          const q = query(ref, where("estado", "==", estado));
+          const snap = await getCountFromServer(q);
+          return [estado, snap.data().count] as const;
         });
+        const totalSnap = await getCountFromServer(query(ref));
+        const counts = await Promise.all(countPromises);
+        const byStatus: Record<string, number> = {};
+        for (const [estado, count] of counts) {
+          if (count > 0) byStatus[estado] = count;
+        }
         return {
           success: true,
-          data: { total: snapshot.size, byStatus },
+          data: { total: totalSnap.data().count, byStatus },
         };
       } catch (error) {
         return { success: false, error: (error as Error).message };

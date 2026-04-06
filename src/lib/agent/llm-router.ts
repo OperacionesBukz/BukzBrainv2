@@ -8,7 +8,8 @@ const RETRY_DELAYS = [2000, 5000, 10000]; // ms
 
 export async function sendToLLM(
   messages: { role: string; content: string }[],
-  tools: ToolDefinition[]
+  tools: ToolDefinition[],
+  signal?: AbortSignal
 ): Promise<ProviderResponse & { provider: string }> {
   const toolDefs = tools.map((t) => ({
     name: t.name,
@@ -32,6 +33,7 @@ export async function sendToLLM(
         method: "POST",
         headers,
         body: JSON.stringify({ messages, tools: toolDefs }),
+        signal,
       });
 
       if (!res.ok) {
