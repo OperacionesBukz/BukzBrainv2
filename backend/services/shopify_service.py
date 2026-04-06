@@ -687,7 +687,7 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
         for future in as_completed(futures):
             all_results.update(future.result())
 
-    # --- Retry individual para ISBNs no encontrados en batch ---
+    # --- Retry individual en paralelo para ISBNs no encontrados ---
     not_found = [
         isbn for isbn in isbn_list
         if isbn in all_results and all_results[isbn]["Titulo"] == "No encontrado"
@@ -697,26 +697,21 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
         logger.info(
             "Retry individual para %d ISBNs no encontrados en batch", len(not_found)
         )
-        graphql_url = settings.get_graphql_url()
+        retry_results = {}
+        with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+            futures = {
+                executor.submit(
+                    process_batch_info, session, [isbn], isbn_to_qty
+                ): isbn
+                for isbn in not_found
+            }
+            for future in as_completed(futures):
+                retry_results.update(future.result())
+
         for isbn in not_found:
-            try:
-                query = _build_batch_query([isbn])
-                _throttler.wait_if_needed()
-                resp = session.post(graphql_url, json={"query": query}, timeout=30)
-                _throttler.update_from_response(resp)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    edges = (
-                        data.get("data", {})
-                        .get("productVariants", {})
-                        .get("edges", [])
-                    )
-                    found = _parse_variant_edges(edges, [isbn], isbn_to_qty)
-                    if isbn in found:
-                        all_results[isbn] = found[isbn]
-                        logger.info("Retry OK: %s -> %s", isbn, found[isbn]["Titulo"])
-            except Exception as exc:
-                logger.warning("Retry falló para %s: %s", isbn, exc)
+            if isbn in retry_results and retry_results[isbn]["Titulo"] != "No encontrado":
+                all_results[isbn] = retry_results[isbn]
+                logger.info("Retry OK: %s -> %s", isbn, retry_results[isbn]["Titulo"])
 
         final_missing = [
             isbn for isbn in not_found
@@ -724,7 +719,7 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
         ]
         if final_missing:
             logger.info(
-                "Aún no encontrados tras retry: %d — %s",
+                "No encontrados tras retry: %d — %s",
                 len(final_missing), final_missing[:10],
             )
 
