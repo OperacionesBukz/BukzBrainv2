@@ -5,10 +5,9 @@ Endpoints:
   GET  /api/celesa/status   -> Estado y diferencias encontradas
   POST /api/celesa/apply    -> Aplica cambios a Shopify
 
-Usa Bulk Operations para consultar ~90k SKUs de inventario eficientemente.
+Usa queries GraphQL paginadas para consultar inventario de vendor 'Bukz España'.
 """
 
-import json
 import os
 import threading
 import time
@@ -42,6 +41,7 @@ _job: dict = {
     "location_gid": None,
     "started_at": None,
     "summary": None,
+    "shopify_progress": None,
     # Apply state
     "applying": False,
     "apply_phase": None,
@@ -131,32 +131,29 @@ def _fetch_azeta_stock() -> dict[str, int]:
     return stock
 
 
-# -- Shopify Bulk Operation --------------------------------------------------
+# -- Shopify Paginated Inventory Query ---------------------------------------
 
-def _start_inventory_bulk() -> str:
-    """Lanza bulk operation para inventario completo con locations y vendors."""
-    mutation = """
-    mutation {
-      bulkOperationRunQuery(
-        query: \"\"\"
-        {
-          inventoryItems {
-            edges {
-              node {
-                id
-                sku
-                variant {
-                  product {
-                    title
-                    vendor
-                  }
-                }
-                inventoryLevels {
-                  edges {
-                    node {
-                      location {
-                        name
-                      }
+def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
+    """
+    Fetch inventory for vendor 'Bukz España' at specific location
+    using paginated GraphQL queries.
+    Returns [{"sku", "title", "vendor", "available", "inventory_item_id"}, ...]
+    """
+    query = """
+    query ($cursor: String, $locationId: ID!, $vendorQuery: String!) {
+      products(first: 250, query: $vendorQuery, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        edges {
+          node {
+            title
+            vendor
+            variants(first: 100) {
+              edges {
+                node {
+                  sku
+                  inventoryItem {
+                    id
+                    inventoryLevel(locationId: $locationId) {
                       quantities(names: ["available"]) {
                         name
                         quantity
@@ -168,176 +165,74 @@ def _start_inventory_bulk() -> str:
             }
           }
         }
-        \"\"\"
-      ) {
-        bulkOperation { id status }
-        userErrors { field message }
       }
     }
     """
-    data = _gql(mutation, timeout=30)
-    result = data.get("bulkOperationRunQuery", {})
-    errors = result.get("userErrors", [])
-    if errors:
-        raise RuntimeError(f"Bulk operation user errors: {errors}")
 
-    op_id = result.get("bulkOperation", {}).get("id")
-    if not op_id:
-        raise RuntimeError("Bulk operation no retornó ID")
-    print(f"[CELESA] Bulk op started: {op_id}", flush=True)
-    return op_id
-
-
-def _poll_bulk(op_id: str, max_wait: int = 900) -> str:
-    """Espera a que la bulk operation termine y retorna la URL de descarga."""
-    query_by_id = '{ node(id: "%s") { ... on BulkOperation { id status errorCode objectCount url } } }' % op_id
-    query_current = "{ currentBulkOperation { id status errorCode objectCount url } }"
-
-    start = time.time()
-    use_node_query = True
-
-    while time.time() - start < max_wait:
-        try:
-            if use_node_query:
-                try:
-                    data = _gql(query_by_id)
-                    op = data.get("node")
-                except Exception:
-                    use_node_query = False
-                    data = _gql(query_current)
-                    op = data.get("currentBulkOperation")
-            else:
-                data = _gql(query_current)
-                op = data.get("currentBulkOperation")
-
-            if not op:
-                time.sleep(3)
-                continue
-
-            status = op.get("status")
-            count = op.get("objectCount", 0)
-            print(f"[CELESA] Bulk: {status} ({count} objects)", flush=True)
-
-            if status == "COMPLETED":
-                url = op.get("url")
-                if not url:
-                    raise RuntimeError("Bulk operation completada sin URL de descarga")
-                return url
-            elif status in ("FAILED", "CANCELED"):
-                raise RuntimeError(f"Bulk operation {status}: {op.get('errorCode')}")
-
-        except RuntimeError:
-            raise
-        except Exception:
-            pass
-
-        time.sleep(5)
-
-    raise RuntimeError(f"Bulk operation timeout ({max_wait}s)")
-
-
-def _process_inventory_jsonl(url: str, location_gid: str) -> list[dict]:
-    """
-    Descarga JSONL de bulk operation y extrae inventario filtrado por:
-    - Location: Dropshipping [España]
-    - Vendor: Bukz España
-    Retorna [{"sku", "title", "vendor", "available", "inventory_item_id"}, ...]
-    """
-    resp = http_requests.get(url, timeout=300, stream=True)
-
-    # JSONL flat: InventoryItem rows, then child InventoryLevel rows con __parentId
-    items: dict[str, dict] = {}  # inventory_item_gid -> {sku, title, vendor, inventory_item_id}
     results: list[dict] = []
+    cursor = None
+    page = 0
 
-    # Diagnostic counters
-    total_lines = 0
-    inventory_item_rows = 0
-    inventory_level_rows = 0
-    vendor_matches = 0
-    location_matches = 0
-    vendors_seen: dict[str, int] = {}
-    locations_seen: dict[str, int] = {}
-    sample_items: list[dict] = []
+    while True:
+        with _job_lock:
+            if not _job["running"]:
+                raise RuntimeError("Cancelado por el usuario")
 
-    for line in resp.iter_lines():
-        if not line:
-            continue
-        try:
-            obj = json.loads(line.decode("utf-8"))
-        except json.JSONDecodeError:
-            continue
+        page += 1
+        variables: dict = {
+            "locationId": location_gid,
+            "vendorQuery": f"vendor:'{VENDOR_FILTER}'",
+        }
+        if cursor:
+            variables["cursor"] = cursor
 
-        total_lines += 1
-        obj_id = obj.get("id", "")
-        parent_id = obj.get("__parentId", "")
+        data = _gql(query, variables, timeout=30)
+        products = data["products"]
 
-        # InventoryItem row
-        if "gid://shopify/InventoryItem/" in obj_id and "InventoryLevel" not in obj_id:
-            inventory_item_rows += 1
-            variant = obj.get("variant") or {}
-            product = variant.get("product") or {}
+        for product_edge in products["edges"]:
+            product = product_edge["node"]
+            title = (product.get("title") or "").strip()
             vendor = (product.get("vendor") or "").strip()
-            sku = (obj.get("sku") or "").strip()
 
-            # Track all vendors for diagnostic
-            vendors_seen[vendor or "(empty)"] = vendors_seen.get(vendor or "(empty)", 0) + 1
+            for variant_edge in (product.get("variants") or {}).get("edges", []):
+                variant = variant_edge["node"]
+                sku = (variant.get("sku") or "").strip()
+                if not sku:
+                    continue
 
-            # Save first 3 raw items for diagnostic
-            if len(sample_items) < 3:
-                sample_items.append({"id": obj_id, "sku": sku, "vendor": vendor, "raw_keys": list(obj.keys())})
+                inv_item = variant.get("inventoryItem") or {}
+                inv_item_id = inv_item.get("id")
+                if not inv_item_id:
+                    continue
 
-            if sku and vendor == VENDOR_FILTER:
-                vendor_matches += 1
-                items[obj_id] = {
+                inv_level = inv_item.get("inventoryLevel")
+                available = 0
+                if inv_level:
+                    for q in inv_level.get("quantities", []):
+                        if q.get("name") == "available":
+                            available = int(q.get("quantity") or 0)
+                            break
+
+                results.append({
                     "sku": sku,
-                    "title": (product.get("title") or "").strip(),
+                    "title": title,
                     "vendor": vendor,
-                    "inventory_item_id": obj_id,
-                }
+                    "available": available,
+                    "inventory_item_id": inv_item_id,
+                })
 
-        # InventoryLevel row (child of InventoryItem)
-        elif "gid://shopify/InventoryLevel/" in obj_id:
-            inventory_level_rows += 1
-            loc_name = (obj.get("location", {}).get("name") or "").strip()
+        _set_job(
+            phase="shopify",
+            shopify_progress={"page": page, "products_fetched": len(results)},
+        )
+        print(f"[CELESA] Shopify página {page}: {len(results)} variantes acumuladas", flush=True)
 
-            # Track all locations for diagnostic
-            locations_seen[loc_name or "(empty)"] = locations_seen.get(loc_name or "(empty)", 0) + 1
+        page_info = products["pageInfo"]
+        if not page_info["hasNextPage"]:
+            break
+        cursor = page_info["endCursor"]
 
-            if loc_name != DROPSHIPPING_LOCATION_NAME:
-                continue
-            location_matches += 1
-
-            if parent_id not in items:
-                continue
-
-            available = 0
-            for q in obj.get("quantities", []):
-                if q.get("name") == "available":
-                    available = int(q.get("quantity") or 0)
-                    break
-
-            item = items[parent_id]
-            results.append({
-                "sku": item["sku"],
-                "title": item["title"],
-                "vendor": item["vendor"],
-                "available": available,
-                "inventory_item_id": item["inventory_item_id"],
-            })
-
-    # Log diagnostics
-    print(f"[CELESA] === JSONL DIAGNOSTIC ===", flush=True)
-    print(f"[CELESA] Total lines: {total_lines}", flush=True)
-    print(f"[CELESA] InventoryItem rows: {inventory_item_rows}", flush=True)
-    print(f"[CELESA] InventoryLevel rows: {inventory_level_rows}", flush=True)
-    print(f"[CELESA] Vendor '{VENDOR_FILTER}' matches: {vendor_matches}", flush=True)
-    print(f"[CELESA] Location '{DROPSHIPPING_LOCATION_NAME}' matches: {location_matches}", flush=True)
-    print(f"[CELESA] Final results: {len(results)}", flush=True)
-    print(f"[CELESA] Top vendors: {dict(sorted(vendors_seen.items(), key=lambda x: -x[1])[:10])}", flush=True)
-    print(f"[CELESA] All locations: {locations_seen}", flush=True)
-    print(f"[CELESA] Sample items: {sample_items}", flush=True)
-    print(f"[CELESA] === END DIAGNOSTIC ===", flush=True)
-
+    print(f"[CELESA] Shopify total: {len(results)} variantes en {page} páginas", flush=True)
     return results
 
 
@@ -381,30 +276,28 @@ def _compare(
 
 def _run_comparison():
     try:
-        _set_job(phase="location")
+        _set_job(phase="location", started_at=time.time())
         location_gid = _get_dropshipping_location()
         _set_job(location_gid=location_gid)
 
         _set_job(phase="azeta")
         azeta_stock = _fetch_azeta_stock()
 
-        _set_job(phase="shopify_bulk")
-        op_id = _start_inventory_bulk()
+        _set_job(phase="shopify", shopify_progress={"page": 0, "products_fetched": 0})
+        shopify_items = _fetch_shopify_inventory(location_gid)
 
-        _set_job(phase="shopify_polling")
-        jsonl_url = _poll_bulk(op_id)
-
-        _set_job(phase="processing")
-        shopify_items = _process_inventory_jsonl(jsonl_url, location_gid)
-
-        _set_job(phase="comparing")
+        _set_job(phase="comparing", shopify_progress=None)
         diffs = _compare(shopify_items, azeta_stock)
         diffs.sort(key=lambda d: abs(d["diff"]), reverse=True)
 
+        with _job_lock:
+            started_at = _job.get("started_at") or time.time()
+        elapsed = time.time() - started_at
         summary = {
             "total_azeta_skus": len(azeta_stock),
             "total_shopify_items": len(shopify_items),
             "differences_found": len(diffs),
+            "elapsed_seconds": round(elapsed, 1),
         }
 
         _set_job(
@@ -412,9 +305,10 @@ def _run_comparison():
             phase=None,
             differences=diffs,
             summary=summary,
+            shopify_progress=None,
         )
     except Exception as e:
-        _set_job(running=False, phase=None, error=str(e))
+        _set_job(running=False, phase=None, error=str(e), shopify_progress=None)
 
 
 # -- Background worker: aplicar cambios ------------------------------------
@@ -515,6 +409,7 @@ def start_comparison():
             "differences": None,
             "location_gid": None,
             "summary": None,
+            "shopify_progress": None,
             "applying": False,
             "apply_phase": None,
             "apply_error": None,
@@ -534,6 +429,8 @@ def get_status():
             "error": _job["error"],
             "summary": _job["summary"],
             "differences": _job["differences"],
+            "shopify_progress": _job.get("shopify_progress"),
+            "started_at": _job.get("started_at"),
             "applying": _job["applying"],
             "apply_phase": _job["apply_phase"],
             "apply_error": _job["apply_error"],

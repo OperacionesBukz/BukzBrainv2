@@ -18,12 +18,18 @@ export interface CelesaSummary {
   total_azeta_skus: number;
   total_shopify_items: number;
   differences_found: number;
+  elapsed_seconds?: number;
 }
 
 export interface ApplyResult {
   applied: number;
   total: number;
   errors: string[];
+}
+
+export interface ShopifyProgress {
+  page: number;
+  products_fetched: number;
 }
 
 export interface CelesaStatus {
@@ -36,6 +42,8 @@ export interface CelesaStatus {
   apply_phase: string | null;
   apply_error: string | null;
   apply_result: ApplyResult | null;
+  shopify_progress: ShopifyProgress | null;
+  started_at: number | null;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {

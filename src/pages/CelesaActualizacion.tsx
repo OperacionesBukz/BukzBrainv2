@@ -40,19 +40,15 @@ const PHASE_LABELS: Record<string, string> = {
   starting: "Iniciando...",
   location: "Buscando location Dropshipping España...",
   azeta: "Descargando stock de Azeta...",
-  shopify_bulk: "Lanzando consulta masiva a Shopify...",
-  shopify_polling: "Esperando respuesta de Shopify (~90k SKUs)...",
-  processing: "Procesando inventario...",
+  shopify: "Consultando inventario en Shopify...",
   comparing: "Comparando diferencias...",
 };
 
 const PHASE_PROGRESS: Record<string, number> = {
   starting: 5,
   location: 10,
-  azeta: 20,
-  shopify_bulk: 30,
-  shopify_polling: 55,
-  processing: 80,
+  azeta: 25,
+  shopify: 30,
   comparing: 95,
 };
 
@@ -75,17 +71,40 @@ function getDiffBadge(diff: number) {
   );
 }
 
+function getProgressPercent(status: CelesaStatus): number {
+  if (!status.phase) return 0;
+  if (status.phase === "shopify" && status.shopify_progress) {
+    const pages = status.shopify_progress.page;
+    const estimated = Math.min(pages / 360, 1);
+    return Math.round(30 + estimated * 60);
+  }
+  return PHASE_PROGRESS[status.phase] ?? 0;
+}
+
+function formatElapsed(startedAt: number): string {
+  const elapsed = Math.floor(Date.now() / 1000 - startedAt);
+  if (elapsed < 60) return `${elapsed}s`;
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+  return `${min}m ${sec}s`;
+}
+
 export default function CelesaActualizacion() {
   const [status, setStatus] = useState<CelesaStatus | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollInFlight = useRef(false);
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
+    }
+    if (safetyTimerRef.current) {
+      clearTimeout(safetyTimerRef.current);
+      safetyTimerRef.current = null;
     }
   }, []);
 
@@ -129,6 +148,10 @@ export default function CelesaActualizacion() {
       stopPolling();
       pollRef.current = setInterval(pollStatus, 3000);
       setTimeout(pollStatus, 800);
+      safetyTimerRef.current = setTimeout(() => {
+        stopPolling();
+        toast.error("La operación tardó demasiado. Verifica el backend.");
+      }, 900_000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al iniciar");
     } finally {
@@ -160,6 +183,10 @@ export default function CelesaActualizacion() {
       stopPolling();
       pollRef.current = setInterval(pollStatus, 3000);
       setTimeout(pollStatus, 800);
+      safetyTimerRef.current = setTimeout(() => {
+        stopPolling();
+        toast.error("La aplicación tardó demasiado. Verifica el backend.");
+      }, 300_000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al aplicar");
     }
@@ -270,10 +297,19 @@ export default function CelesaActualizacion() {
           {isRunning && status?.phase && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{PHASE_LABELS[status.phase] ?? status.phase}</span>
-                <span className="font-mono text-xs">{PHASE_PROGRESS[status.phase] ?? 0}%</span>
+                <span className="text-muted-foreground">
+                  {status.phase === "shopify" && status.shopify_progress
+                    ? `Consultando Shopify — Página ${status.shopify_progress.page}, ${formatNumber(status.shopify_progress.products_fetched)} variantes...`
+                    : (PHASE_LABELS[status.phase] ?? status.phase)}
+                </span>
+                <span className="font-mono text-xs">{getProgressPercent(status)}%</span>
               </div>
-              <Progress value={PHASE_PROGRESS[status.phase] ?? 0} />
+              <Progress value={getProgressPercent(status)} />
+              {status.started_at && (
+                <p className="text-xs text-muted-foreground text-right">
+                  Tiempo: {formatElapsed(status.started_at)}
+                </p>
+              )}
             </div>
           )}
 
