@@ -199,23 +199,23 @@ def _generate_matrixify_excel(differences: list[dict]) -> bytes:
     """Generate a Matrixify-compatible Excel file from differences.
 
     Uses UPDATE + Variant ID for fast direct lookup (no full index needed).
+    Omits Variant SKU to avoid triggering slow SKU-based indexing.
     """
     wb = Workbook()
     ws = wb.active
     ws.title = "Products"
 
-    # Headers — Variant ID lets Matrixify identify products directly
+    # Headers — only Variant ID for direct lookup, no SKU (avoids indexing)
     ws.append([
         "Command",
         "Variant ID",
-        "Variant SKU",
         f"Inventory Available: {DROPSHIPPING_LOCATION_NAME}",
     ])
 
     # Data rows — UPDATE only modifies existing, never creates new
     for d in differences:
         variant_id = d.get("variant_id", "")
-        ws.append(["UPDATE", variant_id, d["sku"], d["azeta_qty"]])
+        ws.append(["UPDATE", variant_id, d["azeta_qty"]])
 
     # Save to bytes
     buf = io.BytesIO()
