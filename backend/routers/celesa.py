@@ -1,15 +1,19 @@
 """
 Router: Actualización de Inventario Celesa (Dropshipping España)
 Endpoints:
-  POST /api/celesa/upload  -> Sube CSV de Shopify, descarga Azeta, cruza diferencias
-  GET  /api/celesa/status   -> Estado y diferencias encontradas
-  POST /api/celesa/apply    -> Aplica cambios a Shopify
-  POST /api/celesa/cancel   -> Cancela job en curso
+  POST /api/celesa/upload            -> Sube CSV de Shopify, descarga Azeta, cruza diferencias
+  GET  /api/celesa/status            -> Estado y diferencias encontradas
+  POST /api/celesa/matrixify         -> Genera Excel y lo sube a Matrixify para importar
+  GET  /api/celesa/matrixify-download -> Descarga el Excel Matrixify sin subirlo
+  POST /api/celesa/cancel            -> Cancela job en curso
 
 Recibe un CSV exportado desde Shopify Products y lo cruza con stock de Azeta.
 """
 
+import base64
+import hashlib
 import io
+import json
 import os
 import threading
 import time
@@ -17,6 +21,8 @@ import time
 import pandas as pd
 import requests as http_requests
 from fastapi import APIRouter, File, UploadFile
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 
 from config import settings
 from services.shopify_service import _throttler
@@ -33,6 +39,10 @@ AZETA_URL = os.getenv(
 DROPSHIPPING_LOCATION_NAME = "Dropshipping [España]"
 VENDOR_FILTER = "Bukz España"
 
+# Matrixify MCP
+MATRIXIFY_MCP_URL = "https://mcp.matrixify.app/mcp"
+MATRIXIFY_MCP_TOKEN = os.getenv("MATRIXIFY_MCP_TOKEN", "")
+
 # -- Estado global del job --------------------------------------------------
 
 _job_lock = threading.Lock()
@@ -44,11 +54,12 @@ _job: dict = {
     "location_gid": None,
     "started_at": None,
     "summary": None,
-    # Apply state
+    # Matrixify import state
     "applying": False,
     "apply_phase": None,
     "apply_error": None,
     "apply_result": None,
+    "matrixify_job_id": None,
 }
 
 
@@ -133,28 +144,192 @@ def _fetch_azeta_stock() -> dict[str, int]:
     return stock
 
 
-# -- Inventory Item ID lookup ------------------------------------------------
+# -- Matrixify MCP helpers ---------------------------------------------------
 
-def _get_inventory_item_ids(variant_ids: list[str]) -> dict[str, str]:
-    """Given variant IDs, return {variant_id: inventory_item_gid}."""
-    result = {}
-    # Process in batches of 50 using aliases
-    for i in range(0, len(variant_ids), 50):
-        batch = variant_ids[i:i + 50]
-        # Build aliased query
-        parts = []
-        for j, vid in enumerate(batch):
-            gid = vid if vid.startswith("gid://") else f"gid://shopify/ProductVariant/{vid}"
-            parts.append(
-                f'v{j}: node(id: "{gid}") {{ ... on ProductVariant {{ id inventoryItem {{ id }} }} }}'
-            )
-        query = "{ " + " ".join(parts) + " }"
-        data = _gql(query, timeout=30)
-        for j, vid in enumerate(batch):
-            node = data.get(f"v{j}")
-            if node and node.get("inventoryItem"):
-                result[vid] = node["inventoryItem"]["id"]
+def _matrixify_rpc(method: str, params: dict | None = None) -> dict:
+    """Call a Matrixify MCP tool via JSON-RPC."""
+    if not MATRIXIFY_MCP_TOKEN:
+        raise RuntimeError("MATRIXIFY_MCP_TOKEN no configurado en el servidor")
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": method, "arguments": params or {}},
+    }
+    resp = http_requests.post(
+        MATRIXIFY_MCP_URL,
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {MATRIXIFY_MCP_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        timeout=60,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+    if "error" in body:
+        raise RuntimeError(f"Matrixify MCP error: {body['error']}")
+    # MCP tools/call returns result.content as a list of content blocks
+    result = body.get("result", {})
+    content_blocks = result.get("content", [])
+    # Extract text from the first text block and parse as JSON if possible
+    for block in content_blocks:
+        if block.get("type") == "text":
+            text = block["text"]
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                return {"text": text}
     return result
+
+
+def _generate_matrixify_excel(differences: list[dict]) -> bytes:
+    """Generate a Matrixify-compatible Excel file from differences."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Products"
+
+    # Headers
+    ws.append(["Command", "Variant SKU", f"Inventory Available: {DROPSHIPPING_LOCATION_NAME}"])
+
+    # Data rows
+    for d in differences:
+        ws.append(["MERGE", d["sku"], d["azeta_qty"]])
+
+    # Save to bytes
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _run_matrixify_import():
+    """Background worker: generate Excel, upload to Matrixify, start import."""
+    try:
+        with _job_lock:
+            diffs = _job.get("differences") or []
+
+        if not diffs:
+            _set_job(applying=False, apply_error="No hay diferencias para importar")
+            return
+
+        # Step 1: Generate Excel
+        _set_job(apply_phase="Generando Excel Matrixify...")
+        excel_bytes = _generate_matrixify_excel(diffs)
+        print(f"[CELESA] Matrixify Excel: {len(excel_bytes)} bytes, {len(diffs)} rows", flush=True)
+
+        # Step 2: Get upload URL
+        _set_job(apply_phase="Obteniendo URL de subida...")
+        checksum = base64.b64encode(hashlib.md5(excel_bytes).digest()).decode()
+        upload_info = _matrixify_rpc("matrixify_import_get_upload_url", {
+            "filename": f"celesa_stock_{time.strftime('%Y%m%d_%H%M%S')}.xlsx",
+            "byte_size": len(excel_bytes),
+            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "checksum": checksum,
+        })
+
+        upload_url = upload_info.get("upload_url")
+        upload_headers = upload_info.get("upload_headers", {})
+        create_url = upload_info.get("create_from_upload_url")
+
+        if not upload_url or not create_url:
+            raise RuntimeError(f"Matrixify no retornó URLs de subida: {upload_info}")
+
+        # Step 3: PUT file to S3
+        _set_job(apply_phase="Subiendo archivo a Matrixify...")
+        put_resp = http_requests.put(
+            upload_url,
+            data=excel_bytes,
+            headers=upload_headers,
+            timeout=120,
+        )
+        put_resp.raise_for_status()
+        print("[CELESA] File uploaded to Matrixify S3", flush=True)
+
+        # Step 4: POST to create import job
+        _set_job(apply_phase="Creando job de importación...")
+        create_resp = http_requests.post(create_url, timeout=60)
+        create_resp.raise_for_status()
+        create_data = create_resp.json()
+        job_id = create_data.get("job_id") or create_data.get("id")
+        if not job_id:
+            # Try extracting from nested structure
+            if isinstance(create_data, dict):
+                for v in create_data.values():
+                    if isinstance(v, dict) and v.get("job_id"):
+                        job_id = v["job_id"]
+                        break
+            if not job_id:
+                raise RuntimeError(f"No se pudo obtener job_id de Matrixify: {create_data}")
+
+        print(f"[CELESA] Matrixify import job created: {job_id}", flush=True)
+        _set_job(matrixify_job_id=job_id)
+
+        # Step 5: Poll until estimation complete ("Ready to Import")
+        _set_job(apply_phase="Estimando cambios...")
+        max_wait = 120  # 2 min max for estimation
+        start = time.time()
+        while time.time() - start < max_wait:
+            job_info = _matrixify_rpc("matrixify_job_get", {"job_id": job_id})
+            state = job_info.get("state", "")
+            print(f"[CELESA] Matrixify job {job_id} state: {state}", flush=True)
+            if state == "Ready to Import":
+                break
+            if state in ("Failed", "Cancelled"):
+                raise RuntimeError(f"Matrixify job falló: {state} - {job_info}")
+            time.sleep(3)
+        else:
+            raise RuntimeError("Timeout esperando estimación de Matrixify")
+
+        # Step 6: Start the import
+        _set_job(apply_phase="Importando a Shopify vía Matrixify...")
+        _matrixify_rpc("matrixify_import_start", {"job_id": job_id})
+
+        # Step 7: Poll until finished
+        max_wait = 600  # 10 min max for import
+        start = time.time()
+        while time.time() - start < max_wait:
+            job_info = _matrixify_rpc("matrixify_job_get", {"job_id": job_id})
+            state = job_info.get("state", "")
+            progress = job_info.get("progress", {})
+            pct = progress.get("percentage", 0) if isinstance(progress, dict) else 0
+            _set_job(apply_phase=f"Matrixify importando... {pct}%")
+            print(f"[CELESA] Matrixify job {job_id}: {state} ({pct}%)", flush=True)
+
+            if state in ("Finished", "Finished / Limited"):
+                # Extract results
+                details = job_info.get("details", [])
+                total_ok = 0
+                total_fail = 0
+                for sheet in (details if isinstance(details, list) else []):
+                    total_ok += sheet.get("ok", 0) or sheet.get("new", 0) or 0
+                    total_fail += sheet.get("failed", 0) or 0
+
+                result = {
+                    "applied": total_ok if total_ok else len(diffs),
+                    "total": len(diffs),
+                    "errors": [f"Matrixify: {total_fail} filas fallidas"] if total_fail else [],
+                    "matrixify_job_id": job_id,
+                    "matrixify_state": state,
+                }
+                _set_job(
+                    applying=False,
+                    apply_phase=None,
+                    apply_result=result,
+                    apply_error=None if not total_fail else f"{total_fail} errores en Matrixify",
+                )
+                print(f"[CELESA] Matrixify import done: {total_ok} ok, {total_fail} failed", flush=True)
+                return
+
+            if state in ("Failed", "Cancelled"):
+                raise RuntimeError(f"Matrixify import falló: {state}")
+
+            time.sleep(5)
+
+        raise RuntimeError("Timeout esperando import de Matrixify (10 min)")
+
+    except Exception as e:
+        _set_job(applying=False, apply_phase=None, apply_error=str(e))
+        print(f"[CELESA] Matrixify import error: {e}", flush=True)
 
 
 # -- Background worker: CSV comparison --------------------------------------
@@ -277,107 +452,6 @@ def _run_csv_comparison(csv_content: bytes):
         _set_job(running=False, phase=None, error=str(e))
 
 
-# -- Background worker: aplicar cambios ------------------------------------
-
-def _run_apply():
-    try:
-        with _job_lock:
-            diffs = _job.get("differences") or []
-            location_gid = _job.get("location_gid")
-
-        if not diffs or not location_gid:
-            _set_job(applying=False, apply_error="No hay diferencias para aplicar")
-            return
-
-        # Look up inventory_item_ids from variant_ids if needed
-        needs_lookup = [d for d in diffs if not d.get("inventory_item_id") and d.get("variant_id")]
-        if needs_lookup:
-            _set_job(apply_phase="Obteniendo IDs de inventario...")
-            variant_ids = [d["variant_id"] for d in needs_lookup]
-            id_map = _get_inventory_item_ids(variant_ids)
-            for d in needs_lookup:
-                d["inventory_item_id"] = id_map.get(d["variant_id"], "")
-            # Remove items without inventory_item_id
-            diffs = [d for d in diffs if d.get("inventory_item_id")]
-            if not diffs:
-                _set_job(
-                    applying=False,
-                    apply_error="No se encontraron IDs de inventario para los productos",
-                )
-                return
-
-        total = len(diffs)
-        applied = 0
-        errors = []
-
-        mutation = """
-        mutation inventorySetQuantities($input: InventorySetQuantitiesInput!) {
-          inventorySetQuantities(input: $input) {
-            inventoryAdjustmentGroup {
-              createdAt
-              reason
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-        """
-
-        batch_size = 100
-        for i in range(0, total, batch_size):
-            batch = diffs[i : i + batch_size]
-            _set_job(apply_phase=f"Actualizando {min(i + batch_size, total)}/{total}...")
-
-            quantities_input = []
-            for d in batch:
-                quantities_input.append({
-                    "inventoryItemId": d["inventory_item_id"],
-                    "locationId": location_gid,
-                    "quantity": d["azeta_qty"],
-                })
-
-            variables = {
-                "input": {
-                    "name": "available",
-                    "reason": "correction",
-                    "ignoreCompareQuantity": True,
-                    "quantities": quantities_input,
-                }
-            }
-
-            try:
-                data = _gql(mutation, variables, timeout=60)
-                result_data = data.get("inventorySetQuantities", {})
-                user_errors = result_data.get("userErrors", [])
-                has_adjustment = result_data.get("inventoryAdjustmentGroup") is not None
-
-                if user_errors:
-                    for ue in user_errors:
-                        errors.append(f"{ue.get('field')}: {ue.get('message')}")
-                    if has_adjustment:
-                        applied += len(batch) - len(user_errors)
-                else:
-                    applied += len(batch)
-            except Exception as e:
-                errors.append(f"Batch {i // batch_size + 1}: {e}")
-
-        result = {
-            "applied": max(applied, 0),
-            "total": total,
-            "errors": errors,
-        }
-        _set_job(
-            applying=False,
-            apply_phase=None,
-            apply_result=result,
-            apply_error=None if not errors else f"{len(errors)} errores",
-        )
-    except Exception as e:
-        _set_job(applying=False, apply_phase=None, apply_error=str(e))
-
-
 # -- Endpoints ---------------------------------------------------------------
 
 @router.post("/upload")
@@ -421,6 +495,7 @@ def get_status():
             "apply_phase": _job["apply_phase"],
             "apply_error": _job["apply_error"],
             "apply_result": _job["apply_result"],
+            "matrixify_job_id": _job.get("matrixify_job_id"),
         }
 
 
@@ -437,21 +512,40 @@ def cancel_job():
     return {"success": True, "message": "Cancelado"}
 
 
-@router.post("/apply")
-def apply_changes():
+@router.post("/matrixify")
+def import_via_matrixify():
+    """Genera Excel Matrixify y lo sube para importar stock a Shopify."""
     with _job_lock:
         if _job["running"]:
             return {"success": False, "message": "Comparación aún en curso"}
         if _job["applying"]:
-            return {"success": False, "message": "Ya se están aplicando cambios"}
+            return {"success": False, "message": "Ya se está importando"}
         if not _job.get("differences"):
-            return {"success": False, "message": "No hay diferencias para aplicar"}
+            return {"success": False, "message": "No hay diferencias para importar"}
         _job.update({
             "applying": True,
-            "apply_phase": "Iniciando...",
+            "apply_phase": "Iniciando importación Matrixify...",
             "apply_error": None,
             "apply_result": None,
+            "matrixify_job_id": None,
         })
 
-    threading.Thread(target=_run_apply, daemon=True).start()
-    return {"success": True, "message": "Aplicando cambios a Shopify"}
+    threading.Thread(target=_run_matrixify_import, daemon=True).start()
+    return {"success": True, "message": "Importando vía Matrixify..."}
+
+
+@router.get("/matrixify-download")
+def download_matrixify_excel():
+    """Descarga el Excel Matrixify sin subirlo (para importación manual)."""
+    with _job_lock:
+        diffs = _job.get("differences")
+    if not diffs:
+        return {"success": False, "message": "No hay diferencias para exportar"}
+
+    excel_bytes = _generate_matrixify_excel(diffs)
+    filename = f"celesa_matrixify_{time.strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        io.BytesIO(excel_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

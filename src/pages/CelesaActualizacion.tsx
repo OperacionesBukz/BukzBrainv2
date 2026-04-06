@@ -31,7 +31,8 @@ import {
   uploadCelesaCsv,
   getCelesaStatus,
   cancelCelesaJob,
-  applyCelesaChanges,
+  importViaMatrixify,
+  getMatrixifyDownloadUrl,
   type CelesaStatus,
   type CelesaDifference,
 } from "./celesa/api";
@@ -94,9 +95,9 @@ export default function CelesaActualizacion() {
         }
         if (s.apply_result) {
           if (s.apply_result.errors.length === 0) {
-            toast.success(`${s.apply_result.applied} productos actualizados en Shopify`);
+            toast.success(`${s.apply_result.applied} productos importados vía Matrixify`);
           } else {
-            toast.warning(`${s.apply_result.applied} aplicados, ${s.apply_result.errors.length} errores`);
+            toast.warning(`${s.apply_result.applied} importados, ${s.apply_result.errors.length} errores`);
           }
         }
       }
@@ -170,20 +171,24 @@ export default function CelesaActualizacion() {
     }
   }, [stopPolling]);
 
-  const handleApply = useCallback(async () => {
+  const handleMatrixifyImport = useCallback(async () => {
     setConfirmOpen(false);
     try {
-      const res = await applyCelesaChanges();
+      const res = await importViaMatrixify();
       if (!res.success) {
         toast.error(res.message);
         return;
       }
-      toast.info("Aplicando cambios a Shopify...");
+      toast.info("Importando vía Matrixify...");
       startPolling();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al aplicar");
+      toast.error(err instanceof Error ? err.message : "Error al importar vía Matrixify");
     }
   }, [startPolling]);
+
+  const handleDownloadMatrixifyExcel = useCallback(() => {
+    window.open(getMatrixifyDownloadUrl(), "_blank");
+  }, []);
 
   const handleDownloadCsv = useCallback(() => {
     if (!status?.differences) return;
@@ -286,11 +291,15 @@ export default function CelesaActualizacion() {
                   ) : (
                     <Upload className="mr-2 h-4 w-4" />
                   )}
-                  {isApplying ? "Aplicando..." : `Aplicar ${differences.length} Cambios`}
+                  {isApplying ? "Importando..." : `Importar ${differences.length} vía Matrixify`}
+                </Button>
+                <Button variant="outline" onClick={handleDownloadMatrixifyExcel} disabled={isBusy}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Excel Matrixify
                 </Button>
                 <Button variant="outline" onClick={handleDownloadCsv} disabled={isBusy}>
                   <Download className="mr-2 h-4 w-4" />
-                  Descargar CSV
+                  CSV
                 </Button>
               </>
             )}
@@ -344,7 +353,7 @@ export default function CelesaActualizacion() {
               <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
               <div>
                 <p className="font-medium">
-                  {applyResult.applied} de {applyResult.total} productos actualizados en Shopify
+                  {applyResult.applied} de {applyResult.total} productos importados vía Matrixify
                 </p>
                 {applyResult.errors.length > 0 && (
                   <div className="mt-2 space-y-1">
@@ -496,16 +505,16 @@ export default function CelesaActualizacion() {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar actualización</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar importación Matrixify</AlertDialogTitle>
             <AlertDialogDescription>
-              Se actualizará el inventario de <strong>{differences?.length ?? 0} productos</strong> en
-              la location "Dropshipping [España]" de Shopify. Esta acción modifica directamente el stock.
+              Se importarán <strong>{differences?.length ?? 0} cambios de inventario</strong> a
+              la location "Dropshipping [España]" vía Matrixify. Matrixify actualizará el stock en Shopify.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleApply}>
-              Aplicar Cambios
+            <AlertDialogAction onClick={handleMatrixifyImport}>
+              Importar vía Matrixify
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

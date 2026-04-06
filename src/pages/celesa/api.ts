@@ -39,6 +39,7 @@ export interface CelesaStatus {
   apply_error: string | null;
   apply_result: ApplyResult | null;
   started_at: number | null;
+  matrixify_job_id: number | null;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -72,8 +73,12 @@ export async function cancelCelesaJob(): Promise<{ success: boolean; message: st
   );
 }
 
-export async function applyCelesaChanges(): Promise<{ success: boolean; message: string }> {
+export async function importViaMatrixify(): Promise<{ success: boolean; message: string }> {
   return handleResponse(
-    await resilientFetch(`${API_BASE}/api/celesa/apply`, { method: "POST" })
+    await resilientFetch(`${API_BASE}/api/celesa/matrixify`, { method: "POST" })
   );
+}
+
+export function getMatrixifyDownloadUrl(): string {
+  return `${API_BASE}/api/celesa/matrixify-download`;
 }
