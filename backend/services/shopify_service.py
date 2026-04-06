@@ -582,6 +582,36 @@ def _extract_categoria(metafields_edges: list) -> str:
     return "---"
 
 
+def _parse_variant_edges(edges: list, isbn_batch: list[str], isbn_to_qty: dict) -> dict:
+    """Extrae resultados de los edges de productVariants."""
+    results = {}
+    for edge in edges:
+        node = edge["node"]
+        sku = str(node.get("sku", "")).strip()
+        barcode = str(node.get("barcode", "")).strip()
+
+        matched_isbn = _match_isbn(sku, barcode, isbn_batch)
+
+        if matched_isbn and matched_isbn not in results:
+            product_gid = node["product"].get("id", "")
+            product_id = product_gid.split("/")[-1] if product_gid else "---"
+            variant_gid = node.get("id", "")
+            variant_id = variant_gid.split("/")[-1] if variant_gid else "---"
+            metafields = node["product"].get("metafields", {}).get("edges", [])
+
+            results[matched_isbn] = {
+                "ISBN": matched_isbn,
+                "ID": product_id,
+                "Variant ID": variant_id,
+                "Titulo": node["product"]["title"],
+                "Vendor": node["product"].get("vendor") or "---",
+                "Precio": float(node.get("price", 0)),
+                "Categoria": _extract_categoria(metafields),
+                "Cantidad": isbn_to_qty.get(matched_isbn, 0),
+            }
+    return results
+
+
 def process_batch_info(
     session: requests.Session,
     isbn_batch: list[str],
@@ -604,33 +634,18 @@ def process_batch_info(
                 .get("productVariants", {})
                 .get("edges", [])
             )
+            results = _parse_variant_edges(edges, isbn_batch, isbn_to_qty)
 
-            for edge in edges:
-                node = edge["node"]
-                sku = str(node.get("sku", "")).strip()
-                barcode = str(node.get("barcode", "")).strip()
+    except Exception as exc:
+        logger.warning("Error en batch de %d ISBNs: %s", len(isbn_batch), exc)
 
-                matched_isbn = _match_isbn(sku, barcode, isbn_batch)
-
-                if matched_isbn and matched_isbn not in results:
-                    product_gid = node["product"].get("id", "")
-                    product_id = product_gid.split("/")[-1] if product_gid else "---"
-                    variant_gid = node.get("id", "")
-                    variant_id = variant_gid.split("/")[-1] if variant_gid else "---"
-                    metafields = node["product"].get("metafields", {}).get("edges", [])
-
-                    results[matched_isbn] = {
-                        "ISBN": matched_isbn,
-                        "ID": product_id,
-                        "Variant ID": variant_id,
-                        "Titulo": node["product"]["title"],
-                        "Vendor": node["product"].get("vendor") or "---",
-                        "Precio": float(node.get("price", 0)),
-                        "Categoria": _extract_categoria(metafields),
-                        "Cantidad": isbn_to_qty.get(matched_isbn, 0),
-                    }
-    except Exception:
-        pass
+    found = len(results)
+    total = len(isbn_batch)
+    if found < total:
+        logger.info(
+            "Batch: %d/%d encontrados — faltan %d",
+            found, total, total - found,
+        )
 
     # Marcar no encontrados
     for isbn in isbn_batch:
@@ -653,9 +668,11 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
     """
     Busca productos en Shopify por lista de ISBNs.
     Retorna lista de resultados ordenados según el orden original.
+    Incluye retry individual para ISBNs no encontrados en batch.
     """
     headers = settings.get_shopify_headers()
-    search_batch = min(settings.BATCH_SIZE, 25)
+    # Batches pequeños (5) para evitar queries OR demasiado complejas en Shopify
+    search_batch = min(settings.BATCH_SIZE, 5)
     batches = list(chunk_list(isbn_list, search_batch))
 
     all_results = {}
@@ -669,6 +686,47 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
         }
         for future in as_completed(futures):
             all_results.update(future.result())
+
+    # --- Retry individual para ISBNs no encontrados en batch ---
+    not_found = [
+        isbn for isbn in isbn_list
+        if isbn in all_results and all_results[isbn]["Titulo"] == "No encontrado"
+    ]
+
+    if not_found:
+        logger.info(
+            "Retry individual para %d ISBNs no encontrados en batch", len(not_found)
+        )
+        graphql_url = settings.get_graphql_url()
+        for isbn in not_found:
+            try:
+                query = _build_batch_query([isbn])
+                _throttler.wait_if_needed()
+                resp = session.post(graphql_url, json={"query": query}, timeout=30)
+                _throttler.update_from_response(resp)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    edges = (
+                        data.get("data", {})
+                        .get("productVariants", {})
+                        .get("edges", [])
+                    )
+                    found = _parse_variant_edges(edges, [isbn], isbn_to_qty)
+                    if isbn in found:
+                        all_results[isbn] = found[isbn]
+                        logger.info("Retry OK: %s -> %s", isbn, found[isbn]["Titulo"])
+            except Exception as exc:
+                logger.warning("Retry falló para %s: %s", isbn, exc)
+
+        final_missing = [
+            isbn for isbn in not_found
+            if all_results.get(isbn, {}).get("Titulo") == "No encontrado"
+        ]
+        if final_missing:
+            logger.info(
+                "Aún no encontrados tras retry: %d — %s",
+                len(final_missing), final_missing[:10],
+            )
 
     # Mantener orden original
     return [all_results[isbn] for isbn in isbn_list if isbn in all_results]
