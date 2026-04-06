@@ -87,14 +87,27 @@ export default function CortesVentasTab() {
           <div className="grid gap-5 md:grid-cols-2">
             <FileUploadField
               label="Archivo de Proveedores"
-              description="Columnas requeridas: Proveedores, Correo"
+              description={
+                <span>
+                  Columnas requeridas:{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Proveedores</code>{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Correo</code>
+                </span>
+              }
               fileName={provFile?.name ?? null}
               onFileSelected={setProvFile}
               onClear={() => setProvFile(null)}
             />
             <FileUploadField
               label="Archivo de Ventas Mensuales"
-              description="Columnas: product_title, variant_sku, product_vendor, pos_location_name, net_quantity"
+              description={
+                <span>
+                  Columnas requeridas:{" "}
+                  {["product_title", "variant_sku", "product_vendor", "pos_location_name", "net_quantity"].map((col) => (
+                    <code key={col} className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] mr-1">{col}</code>
+                  ))}
+                </span>
+              }
               fileName={ventasFile?.name ?? null}
               onFileSelected={setVentasFile}
               onClear={() => setVentasFile(null)}

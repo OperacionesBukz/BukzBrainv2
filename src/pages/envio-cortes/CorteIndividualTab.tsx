@@ -80,7 +80,14 @@ export default function CorteIndividualTab() {
         <div className="space-y-5">
           <FileUploadField
             label="Archivo de Ventas"
-            description="Excel con los datos de ventas del proveedor"
+            description={
+              <span>
+                Columnas requeridas:{" "}
+                {["product_title", "variant_sku", "product_vendor", "pos_location_name", "net_quantity"].map((col) => (
+                  <code key={col} className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] mr-1">{col}</code>
+                ))}
+              </span>
+            }
             fileName={ventasFile?.name ?? null}
             onFileSelected={setVentasFile}
             onClear={() => setVentasFile(null)}

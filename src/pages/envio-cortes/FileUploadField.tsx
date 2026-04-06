@@ -1,10 +1,10 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { Upload, FileSpreadsheet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface FileUploadFieldProps {
   label: string;
-  description?: string;
+  description?: ReactNode;
   fileName: string | null;
   onFileSelected: (file: File) => void;
   onClear: () => void;

@@ -79,14 +79,26 @@ export default function CortesNoVentasTab() {
           <div className="grid gap-5 md:grid-cols-2">
             <FileUploadField
               label="Archivo de Proveedores"
-              description="Columnas requeridas: Proveedores, Correo"
+              description={
+                <span>
+                  Columnas requeridas:{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Proveedores</code>{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Correo</code>
+                </span>
+              }
               fileName={provFile?.name ?? null}
               onFileSelected={setProvFile}
               onClear={() => setProvFile(null)}
             />
             <FileUploadField
               label="Estado de Envío (proveedores con ventas)"
-              description="Archivo generado en el tab de Cortes Ventas (estado_envio.xlsx del ZIP)"
+              description={
+                <span>
+                  Columna requerida:{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Proveedor</code>
+                  <span className="ml-1">(estado_envio.xlsx del ZIP de Cortes Ventas)</span>
+                </span>
+              }
               fileName={estadoFile?.name ?? null}
               onFileSelected={setEstadoFile}
               onClear={() => setEstadoFile(null)}
