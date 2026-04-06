@@ -665,13 +665,13 @@ def process_batch_info(
 
 
 def _search_single_isbn(
-    session: requests.Session,
+    headers: dict,
     isbn: str,
     isbn_to_qty: dict,
     graphql_url: str,
 ) -> dict:
-    """Busca UN solo ISBN en Shopify. Retorna dict {isbn: result}."""
-    result = {
+    """Busca UN solo ISBN en Shopify con su propia conexión (thread-safe)."""
+    not_found = {
         "ISBN": isbn,
         "ID": "---",
         "Variant ID": "---",
@@ -684,7 +684,9 @@ def _search_single_isbn(
     try:
         query = _build_batch_query([isbn])
         _throttler.wait_if_needed()
-        resp = session.post(graphql_url, json={"query": query}, timeout=30)
+        resp = requests.post(
+            graphql_url, json={"query": query}, headers=headers, timeout=30
+        )
         _throttler.update_from_response(resp)
         if resp.status_code == 200:
             edges = (
@@ -696,27 +698,27 @@ def _search_single_isbn(
             found = _parse_variant_edges(edges, [isbn], isbn_to_qty)
             if isbn in found:
                 return found[isbn]
+        else:
+            logger.warning("ISBN %s — HTTP %s: %s", isbn, resp.status_code, resp.text[:200])
     except Exception as exc:
         logger.warning("Error buscando %s: %s", isbn, exc)
-    return result
+    return not_found
 
 
 def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
     """
     Busca productos en Shopify por lista de ISBNs.
-    Cada ISBN se busca individualmente en paralelo para garantizar
-    100% de match rate (sin queries OR complejas que Shopify pierde).
+    Cada ISBN se busca individualmente en paralelo (thread-safe,
+    sin requests.Session compartida) para garantizar 100% match rate.
     """
     headers = settings.get_shopify_headers()
     graphql_url = settings.get_graphql_url()
-    session = requests.Session()
-    session.headers.update(headers)
 
     all_results = {}
     with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
         futures = {
             executor.submit(
-                _search_single_isbn, session, isbn, isbn_to_qty, graphql_url
+                _search_single_isbn, headers, isbn, isbn_to_qty, graphql_url
             ): isbn
             for isbn in isbn_list
         }
