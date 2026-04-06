@@ -793,3 +793,91 @@ async def inline_update_products(body: InlineUpdateRequest):
         "failed": failed,
         "results": results,
     }
+
+
+# ---------------------------------------------------------------------------
+# DIAGNOSTICO: Sales Channels (endpoint temporal - eliminar despues de debug)
+# ---------------------------------------------------------------------------
+
+@router.get("/debug/sales-channels")
+async def debug_sales_channels():
+    """Diagnostico: crea producto de prueba, publica en Sales Channels, verifica y elimina."""
+    import time
+    import requests as req
+
+    from config import settings as cfg
+
+    graphql_url = cfg.get_graphql_url()
+    session = req.Session()
+    session.headers.update(cfg.get_shopify_headers())
+
+    steps = []
+
+    # Paso 1: Obtener publications
+    resp = session.post(graphql_url, json={"query": "{ publications(first: 20) { nodes { id name } } }"}, timeout=15)
+    pub_data = resp.json()
+    nodes = pub_data.get("data", {}).get("publications", {}).get("nodes", [])
+    publication_ids = [n["id"] for n in nodes]
+    steps.append({
+        "step": "1_get_publications",
+        "http_status": resp.status_code,
+        "channels": [{"id": n["id"], "name": n["name"]} for n in nodes],
+        "errors": pub_data.get("errors"),
+    })
+
+    if not publication_ids:
+        steps.append({"step": "ABORT", "reason": "No se encontraron Sales Channels"})
+        return {"steps": steps}
+
+    # Paso 2: Crear producto de prueba
+    create_mut = """mutation productCreate($product: ProductCreateInput!) {
+      productCreate(product: $product) {
+        product { id title variants(first: 1) { nodes { id } } }
+        userErrors { field message }
+      }
+    }"""
+    create_resp = session.post(graphql_url, json={
+        "query": create_mut,
+        "variables": {"product": {"title": "PRUEBA SALES CHANNELS - ELIMINAR", "vendor": "TEST", "productType": "Libro", "status": "ACTIVE"}}
+    }, timeout=30)
+    create_data = create_resp.json()
+    result = create_data.get("data", {}).get("productCreate", {})
+    product_id = result.get("product", {}).get("id", "")
+    steps.append({"step": "2_create_product", "http_status": create_resp.status_code, "product_id": product_id, "userErrors": result.get("userErrors", [])})
+
+    if not product_id:
+        return {"steps": steps}
+
+    # Paso 3: Verificar ANTES de publicar
+    time.sleep(0.5)
+    verify_q = """query ($id: ID!) { product(id: $id) { status resourcePublicationsV2(first: 20) { nodes { publication { id name } isPublished } } } }"""
+    vb = session.post(graphql_url, json={"query": verify_q, "variables": {"id": product_id}}, timeout=15).json()
+    pubs_before = vb.get("data", {}).get("product", {}).get("resourcePublicationsV2", {}).get("nodes", [])
+    steps.append({"step": "3_before_publish", "publications": [{"name": p["publication"]["name"], "isPublished": p["isPublished"]} for p in pubs_before]})
+
+    # Paso 4: Publicar
+    pub_mut = """mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+      publishablePublish(id: $id, input: $input) {
+        publishable { availablePublicationsCount { count } }
+        userErrors { field message }
+      }
+    }"""
+    pub_input = [{"publicationId": pid} for pid in publication_ids]
+    pub_resp = session.post(graphql_url, json={"query": pub_mut, "variables": {"id": product_id, "input": pub_input}}, timeout=15)
+    pub_data2 = pub_resp.json()
+    pub_result = pub_data2.get("data", {}).get("publishablePublish", {})
+    steps.append({"step": "4_publish", "http_status": pub_resp.status_code, "response": pub_result, "raw_errors": pub_data2.get("errors")})
+
+    # Paso 5: Verificar DESPUES de publicar
+    time.sleep(1)
+    va = session.post(graphql_url, json={"query": verify_q, "variables": {"id": product_id}}, timeout=15).json()
+    pubs_after = va.get("data", {}).get("product", {}).get("resourcePublicationsV2", {}).get("nodes", [])
+    steps.append({"step": "5_after_publish", "publications": [{"name": p["publication"]["name"], "isPublished": p["isPublished"]} for p in pubs_after]})
+
+    # Paso 6: Eliminar producto de prueba
+    del_mut = """mutation productDelete($input: ProductDeleteInput!) { productDelete(input: $input) { deletedProductId userErrors { field message } } }"""
+    del_resp = session.post(graphql_url, json={"query": del_mut, "variables": {"input": {"id": product_id}}}, timeout=15)
+    del_data = del_resp.json()
+    steps.append({"step": "6_delete_product", "http_status": del_resp.status_code, "userErrors": del_data.get("data", {}).get("productDelete", {}).get("userErrors", [])})
+
+    return {"steps": steps}

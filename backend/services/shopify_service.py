@@ -3,6 +3,7 @@ Servicio de Shopify — lógica de negocio extraída de IngresoMercancia.py
 Sin dependencias de Streamlit. Puro Python + requests.
 """
 import json
+import logging
 import re
 import time
 import requests
@@ -12,6 +13,8 @@ from datetime import datetime, timedelta
 import threading
 
 from config import settings
+
+logger = logging.getLogger("bukz.shopify")
 
 
 def _sanitize_graphql_value(value: str) -> str:
@@ -1081,51 +1084,86 @@ _publication_ids_cache: list[str] = []
 _publication_ids_lock = threading.Lock()
 
 
-def _get_publication_ids(session: requests.Session) -> list[str]:
+def _get_publication_ids(session: requests.Session, force_refresh: bool = False) -> list[str]:
     """Obtiene los IDs de todas las publicaciones (Sales Channels) de la tienda. Cachea el resultado."""
     with _publication_ids_lock:
-        if _publication_ids_cache:
-            return _publication_ids_cache
+        if _publication_ids_cache and not force_refresh:
+            return list(_publication_ids_cache)
 
     graphql_url = settings.get_graphql_url()
     try:
+        _throttler.wait_if_needed()
         response = session.post(
             graphql_url,
             json={"query": _PUBLICATIONS_QUERY},
             timeout=15,
         )
+        _throttler.update_from_response(response)
         if response.status_code == 200:
             data = response.json()
             nodes = data.get("data", {}).get("publications", {}).get("nodes", [])
             ids = [n["id"] for n in nodes if n.get("id")]
+            logger.info(f"[publish] Obtenidos {len(ids)} Sales Channels: {[n.get('name') for n in nodes]}")
             with _publication_ids_lock:
                 _publication_ids_cache.clear()
                 _publication_ids_cache.extend(ids)
             return ids
-    except Exception:
-        pass
+        else:
+            logger.warning(f"[publish] Error HTTP {response.status_code} al obtener publications")
+    except Exception as e:
+        logger.warning(f"[publish] Excepción al obtener publications: {e}")
     return []
 
 
-def _publish_product(session: requests.Session, product_id: str, publication_ids: list[str]) -> None:
-    """Publica un producto en todos los Sales Channels disponibles."""
+def _publish_product(session: requests.Session, product_id: str, publication_ids: list[str]) -> bool:
+    """Publica un producto en todos los Sales Channels disponibles. Retorna True si tuvo éxito."""
     if not publication_ids:
-        return
+        logger.warning(f"[publish] No hay publication_ids para {product_id}")
+        return False
     graphql_url = settings.get_graphql_url()
     pub_input = [{"publicationId": pid} for pid in publication_ids]
-    try:
-        _throttler.wait_if_needed()
-        resp = session.post(
-            graphql_url,
-            json={
-                "query": _PUBLISHABLE_PUBLISH_MUTATION,
-                "variables": {"id": product_id, "input": pub_input},
-            },
-            timeout=15,
-        )
-        _throttler.update_from_response(resp)
-    except Exception:
-        pass  # No fallar la creación si la publicación falla
+
+    for attempt in range(2):
+        try:
+            _throttler.wait_if_needed()
+            resp = session.post(
+                graphql_url,
+                json={
+                    "query": _PUBLISHABLE_PUBLISH_MUTATION,
+                    "variables": {"id": product_id, "input": pub_input},
+                },
+                timeout=15,
+            )
+            _throttler.update_from_response(resp)
+
+            if resp.status_code != 200:
+                logger.warning(f"[publish] HTTP {resp.status_code} al publicar {product_id} (intento {attempt + 1})")
+                if attempt == 0:
+                    time.sleep(1)
+                    continue
+                return False
+
+            data = resp.json()
+            user_errors = data.get("data", {}).get("publishablePublish", {}).get("userErrors", [])
+            if user_errors:
+                error_msg = "; ".join(e.get("message", "") for e in user_errors)
+                logger.warning(f"[publish] userErrors al publicar {product_id}: {error_msg}")
+                if attempt == 0:
+                    time.sleep(1)
+                    continue
+                return False
+
+            count = data.get("data", {}).get("publishablePublish", {}).get("publishable", {}).get("availablePublicationsCount", {}).get("count", 0)
+            logger.info(f"[publish] Producto {product_id} publicado en {count} canales")
+            return True
+
+        except Exception as e:
+            logger.warning(f"[publish] Excepción al publicar {product_id} (intento {attempt + 1}): {e}")
+            if attempt == 0:
+                time.sleep(1)
+                continue
+            return False
+    return False
 
 _MIN_IMAGE_SIZE = 1024  # 1 KB — placeholder images are typically < 100 bytes
 
@@ -1333,15 +1371,21 @@ def _create_single_product(session: requests.Session, row: dict) -> dict:
                 break
 
         # Paso 3: Publicar en todos los Sales Channels
+        time.sleep(0.5)  # Dar tiempo a Shopify para procesar el producto
         publication_ids = _get_publication_ids(session)
-        if publication_ids:
-            _publish_product(session, product_id, publication_ids)
+        if not publication_ids:
+            # Reintentar limpiando caché
+            publication_ids = _get_publication_ids(session, force_refresh=True)
+        published = _publish_product(session, product_id, publication_ids) if publication_ids else False
+        if not published:
+            logger.warning(f"[publish] No se pudo publicar {sku} ({product_id}) en Sales Channels")
 
         return {
             "sku": sku,
             "title": title,
             "success": True,
             "shopify_id": product_id,
+            "published": published,
         }
 
     except Exception as e:
