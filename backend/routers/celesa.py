@@ -198,24 +198,24 @@ def _matrixify_rpc(method: str, params: dict | None = None) -> dict:
 def _generate_matrixify_excel(differences: list[dict]) -> bytes:
     """Generate a Matrixify-compatible Excel file from differences.
 
-    Uses UPDATE + Variant ID for fast direct lookup (no full index needed).
-    Omits Variant SKU to avoid triggering slow SKU-based indexing.
+    Uses ID (Product ID) + UPDATE + Variant SKU — same format as manual uploads.
+    ID enables direct lookup without indexing the full catalog.
     """
     wb = Workbook()
     ws = wb.active
     ws.title = "Products"
 
-    # Headers — only Variant ID for direct lookup, no SKU (avoids indexing)
+    # Headers — matches manual upload format: ID for direct lookup
     ws.append([
+        "ID",
         "Command",
-        "Variant ID",
+        "Variant SKU",
         f"Inventory Available: {DROPSHIPPING_LOCATION_NAME}",
     ])
 
-    # Data rows — UPDATE only modifies existing, never creates new
+    # Data rows
     for d in differences:
-        variant_id = d.get("variant_id", "")
-        ws.append(["UPDATE", variant_id, d["azeta_qty"]])
+        ws.append([d.get("product_id", ""), "UPDATE", d["sku"], d["azeta_qty"]])
 
     # Save to bytes
     buf = io.BytesIO()
@@ -446,6 +446,8 @@ def _run_csv_comparison(csv_content: bytes):
             variant_id = str(row.get("Variant ID", "")).replace(".0", "")
             title = str(row.get("Title", row.get("Variant SKU", "")))
 
+            product_id = str(row.get("ID", "")).replace(".0", "")
+
             differences.append({
                 "sku": sku,
                 "title": title,
@@ -453,8 +455,9 @@ def _run_csv_comparison(csv_content: bytes):
                 "shopify_qty": shopify_qty,
                 "azeta_qty": azeta_qty,
                 "diff": azeta_qty - shopify_qty,
-                "inventory_item_id": "",  # Will be resolved during apply
+                "inventory_item_id": "",
                 "variant_id": variant_id,
+                "product_id": product_id,
             })
 
         differences.sort(key=lambda d: abs(d["diff"]), reverse=True)
