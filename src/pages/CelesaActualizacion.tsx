@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,7 @@ function getDiffBadge(diff: number) {
 export default function CelesaActualizacion() {
   const [status, setStatus] = useState<CelesaStatus | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollInFlight = useRef(false);
@@ -111,12 +113,11 @@ export default function CelesaActualizacion() {
     setTimeout(pollStatus, 500);
   }, [pollStatus, stopPolling]);
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset input so same file can be re-uploaded
-    e.target.value = "";
-
+  const processFile = useCallback(async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Solo se aceptan archivos CSV");
+      return;
+    }
     setIsUploading(true);
     try {
       const res = await uploadCelesaCsv(file);
@@ -132,6 +133,30 @@ export default function CelesaActualizacion() {
       setIsUploading(false);
     }
   }, [startPolling]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    processFile(file);
+  }, [processFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
 
   const handleCancel = useCallback(async () => {
     try {
@@ -270,6 +295,14 @@ export default function CelesaActualizacion() {
               </>
             )}
           </div>
+
+          {/* Uploading spinner (before polling starts) */}
+          {isUploading && !isRunning && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Subiendo archivo...</span>
+            </div>
+          )}
 
           {/* Progress bar */}
           {isRunning && status?.phase && (
@@ -418,15 +451,43 @@ export default function CelesaActualizacion() {
         </Card>
       )}
 
-      {/* Initial empty state */}
+      {/* Drop zone / Initial empty state */}
       {!differences && !isRunning && !status?.error && (
-        <Card>
+        <Card
+          className={cn(
+            "cursor-pointer border-2 border-dashed transition-colors",
+            isDragging
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25 hover:border-primary/50"
+          )}
+          onClick={() => !isBusy && !isUploading && fileInputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <CardContent className="py-12 text-center">
-            <FileUp className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="font-medium text-lg mb-1">Sin datos</h3>
-            <p className="text-sm text-muted-foreground">
-              Sube el CSV exportado de Shopify para cruzar con el stock de Azeta.
-            </p>
+            {isUploading ? (
+              <>
+                <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin mb-4" />
+                <h3 className="font-medium text-lg mb-1">Subiendo archivo...</h3>
+                <p className="text-sm text-muted-foreground">
+                  Procesando CSV y descargando stock de Azeta
+                </p>
+              </>
+            ) : (
+              <>
+                <FileUp className={cn(
+                  "h-12 w-12 mx-auto mb-4 transition-colors",
+                  isDragging ? "text-primary" : "text-muted-foreground/40"
+                )} />
+                <h3 className="font-medium text-lg mb-1">
+                  {isDragging ? "Suelta el archivo aquí" : "Arrastra tu CSV de Shopify aquí"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  o haz clic para seleccionar archivo
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
