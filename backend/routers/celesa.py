@@ -141,13 +141,13 @@ def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
     """
     query = """
     query ($cursor: String, $locationId: ID!, $vendorQuery: String!) {
-      products(first: 250, query: $vendorQuery, after: $cursor) {
+      products(first: 50, query: $vendorQuery, after: $cursor) {
         pageInfo { hasNextPage endCursor }
         edges {
           node {
             title
             vendor
-            variants(first: 100) {
+            variants(first: 10) {
               edges {
                 node {
                   sku
@@ -186,7 +186,7 @@ def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
         if cursor:
             variables["cursor"] = cursor
 
-        data = _gql(query, variables, timeout=30)
+        data = _gql(query, variables, timeout=30, _retries=5)
         products = data["products"]
 
         for product_edge in products["edges"]:
@@ -231,6 +231,9 @@ def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
         if not page_info["hasNextPage"]:
             break
         cursor = page_info["endCursor"]
+
+        # Pausa entre páginas para no agotar el rate limit bucket
+        time.sleep(0.5)
 
     print(f"[CELESA] Shopify total: {len(results)} variantes en {page} páginas", flush=True)
     return results

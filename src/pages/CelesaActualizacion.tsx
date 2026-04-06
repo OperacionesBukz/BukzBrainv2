@@ -75,7 +75,7 @@ function getProgressPercent(status: CelesaStatus): number {
   if (!status.phase) return 0;
   if (status.phase === "shopify" && status.shopify_progress) {
     const pages = status.shopify_progress.page;
-    const estimated = Math.min(pages / 360, 1);
+    const estimated = Math.min(pages / 1800, 1);
     return Math.round(30 + estimated * 60);
   }
   return PHASE_PROGRESS[status.phase] ?? 0;
