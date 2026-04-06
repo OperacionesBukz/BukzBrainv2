@@ -1,19 +1,22 @@
 """
 Router: Actualización de Inventario Celesa (Dropshipping España)
 Endpoints:
-  POST /api/celesa/start    -> Inicia comparación Azeta vs Shopify (background)
+  POST /api/celesa/upload  -> Sube CSV de Shopify, descarga Azeta, cruza diferencias
   GET  /api/celesa/status   -> Estado y diferencias encontradas
   POST /api/celesa/apply    -> Aplica cambios a Shopify
+  POST /api/celesa/cancel   -> Cancela job en curso
 
-Usa queries GraphQL paginadas para consultar inventario de vendor 'Bukz España'.
+Recibe un CSV exportado desde Shopify Products y lo cruza con stock de Azeta.
 """
 
+import io
 import os
 import threading
 import time
-import requests as http_requests
 
-from fastapi import APIRouter
+import pandas as pd
+import requests as http_requests
+from fastapi import APIRouter, File, UploadFile
 
 from config import settings
 from services.shopify_service import _throttler
@@ -41,7 +44,6 @@ _job: dict = {
     "location_gid": None,
     "started_at": None,
     "summary": None,
-    "shopify_progress": None,
     # Apply state
     "applying": False,
     "apply_phase": None,
@@ -131,187 +133,148 @@ def _fetch_azeta_stock() -> dict[str, int]:
     return stock
 
 
-# -- Shopify Paginated Inventory Query ---------------------------------------
+# -- Inventory Item ID lookup ------------------------------------------------
 
-def _fetch_shopify_inventory(location_gid: str) -> list[dict]:
-    """
-    Fetch inventory for vendor 'Bukz España' at specific location
-    using paginated GraphQL queries.
-    Returns [{"sku", "title", "vendor", "available", "inventory_item_id"}, ...]
-    """
-    query = """
-    query ($cursor: String, $locationId: ID!, $vendorQuery: String!) {
-      products(first: 50, query: $vendorQuery, after: $cursor) {
-        pageInfo { hasNextPage endCursor }
-        edges {
-          node {
-            title
-            vendor
-            variants(first: 10) {
-              edges {
-                node {
-                  sku
-                  inventoryItem {
-                    id
-                    inventoryLevel(locationId: $locationId) {
-                      quantities(names: ["available"]) {
-                        name
-                        quantity
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    """
-
-    results: list[dict] = []
-    cursor = None
-    page = 0
-
-    while True:
-        with _job_lock:
-            if not _job["running"]:
-                raise RuntimeError("Cancelado por el usuario")
-
-        page += 1
-        variables: dict = {
-            "locationId": location_gid,
-            "vendorQuery": f"vendor:'{VENDOR_FILTER}'",
-        }
-        if cursor:
-            variables["cursor"] = cursor
-
-        data = _gql(query, variables, timeout=30, _retries=5)
-        products = data["products"]
-
-        for product_edge in products["edges"]:
-            product = product_edge["node"]
-            title = (product.get("title") or "").strip()
-            vendor = (product.get("vendor") or "").strip()
-
-            for variant_edge in (product.get("variants") or {}).get("edges", []):
-                variant = variant_edge["node"]
-                sku = (variant.get("sku") or "").strip()
-                if not sku:
-                    continue
-
-                inv_item = variant.get("inventoryItem") or {}
-                inv_item_id = inv_item.get("id")
-                if not inv_item_id:
-                    continue
-
-                inv_level = inv_item.get("inventoryLevel")
-                available = 0
-                if inv_level:
-                    for q in inv_level.get("quantities", []):
-                        if q.get("name") == "available":
-                            available = int(q.get("quantity") or 0)
-                            break
-
-                results.append({
-                    "sku": sku,
-                    "title": title,
-                    "vendor": vendor,
-                    "available": available,
-                    "inventory_item_id": inv_item_id,
-                })
-
-        _set_job(
-            phase="shopify",
-            shopify_progress={"page": page, "products_fetched": len(results)},
-        )
-        print(f"[CELESA] Shopify página {page}: {len(results)} variantes acumuladas", flush=True)
-
-        page_info = products["pageInfo"]
-        if not page_info["hasNextPage"]:
-            break
-        cursor = page_info["endCursor"]
-
-        # Pausa entre páginas para no agotar el rate limit bucket
-        time.sleep(0.5)
-
-    print(f"[CELESA] Shopify total: {len(results)} variantes en {page} páginas", flush=True)
-    return results
+def _get_inventory_item_ids(variant_ids: list[str]) -> dict[str, str]:
+    """Given variant IDs, return {variant_id: inventory_item_gid}."""
+    result = {}
+    # Process in batches of 50 using aliases
+    for i in range(0, len(variant_ids), 50):
+        batch = variant_ids[i:i + 50]
+        # Build aliased query
+        parts = []
+        for j, vid in enumerate(batch):
+            gid = vid if vid.startswith("gid://") else f"gid://shopify/ProductVariant/{vid}"
+            parts.append(
+                f'v{j}: node(id: "{gid}") {{ ... on ProductVariant {{ id inventoryItem {{ id }} }} }}'
+            )
+        query = "{ " + " ".join(parts) + " }"
+        data = _gql(query, timeout=30)
+        for j, vid in enumerate(batch):
+            node = data.get(f"v{j}")
+            if node and node.get("inventoryItem"):
+                result[vid] = node["inventoryItem"]["id"]
+    return result
 
 
-# -- Compare -----------------------------------------------------------------
+# -- Background worker: CSV comparison --------------------------------------
 
-def _compare(
-    shopify_items: list[dict], azeta_stock: dict[str, int]
-) -> list[dict]:
-    """
-    Cruza inventario Shopify con stock Azeta por SKU.
-    Solo retorna items con diferencias.
-    """
-    differences: list[dict] = []
-    matched_skus = 0
-    for item in shopify_items:
-        sku = item["sku"]
-        if sku not in azeta_stock:
-            continue
-        matched_skus += 1
-        azeta_qty = azeta_stock[sku]
-        shopify_qty = item["available"]
-        if shopify_qty != azeta_qty:
-            differences.append({
-                "sku": sku,
-                "title": item["title"],
-                "vendor": item["vendor"],
-                "shopify_qty": shopify_qty,
-                "azeta_qty": azeta_qty,
-                "diff": azeta_qty - shopify_qty,
-                "inventory_item_id": item["inventory_item_id"],
-            })
-    print(f"[CELESA] Compare: {len(shopify_items)} shopify items, {matched_skus} SKU matches con Azeta, {len(differences)} con diferencias", flush=True)
-    if shopify_items and not matched_skus:
-        shopify_sample = [i["sku"] for i in shopify_items[:5]]
-        azeta_sample = list(azeta_stock.keys())[:5]
-        print(f"[CELESA] SKU MISMATCH? Shopify sample: {shopify_sample}, Azeta sample: {azeta_sample}", flush=True)
-    return differences
-
-
-# -- Background worker: comparar --------------------------------------------
-
-def _run_comparison():
+def _run_csv_comparison(csv_content: bytes):
+    """Parses uploaded Shopify CSV, downloads Azeta stock, cross-references by SKU."""
     try:
-        _set_job(phase="location", started_at=time.time())
+        _set_job(phase="uploading", started_at=time.time())
+
+        # Step 1: Parse uploaded CSV
+        _set_job(phase="parsing")
+        df_products = pd.read_csv(io.BytesIO(csv_content))
+
+        # Validate required columns
+        required_cols = [
+            "Variant SKU",
+            "Variant ID",
+            "Vendor",
+            "Inventory Available: Dropshipping [España]",
+        ]
+        missing = [c for c in required_cols if c not in df_products.columns]
+        if missing:
+            raise RuntimeError(f"Columnas faltantes en CSV: {', '.join(missing)}")
+
+        # Clean SKUs (remove .0 suffix) and filter vendor
+        df_products["Variant SKU"] = (
+            df_products["Variant SKU"].astype(str).str.replace(r"\.0$", "", regex=True)
+        )
+        df_products = df_products.loc[df_products["Vendor"] == VENDOR_FILTER].copy()
+
+        if df_products.empty:
+            raise RuntimeError(
+                f"No se encontraron productos con vendor '{VENDOR_FILTER}' en el CSV"
+            )
+
+        # Step 2: Get location for apply
+        _set_job(phase="location")
         location_gid = _get_dropshipping_location()
         _set_job(location_gid=location_gid)
 
+        # Step 3: Download Azeta stock
         _set_job(phase="azeta")
         azeta_stock = _fetch_azeta_stock()
 
-        _set_job(phase="shopify", shopify_progress={"page": 0, "products_fetched": 0})
-        shopify_items = _fetch_shopify_inventory(location_gid)
+        # Step 4: Cross-reference
+        _set_job(phase="comparing")
 
-        _set_job(phase="comparing", shopify_progress=None)
-        diffs = _compare(shopify_items, azeta_stock)
-        diffs.sort(key=lambda d: abs(d["diff"]), reverse=True)
+        # Build Azeta dataframe
+        df_azeta = pd.DataFrame(
+            list(azeta_stock.items()), columns=["Variant SKU", "Stock_Azeta"]
+        )
+        df_azeta["Variant SKU"] = df_azeta["Variant SKU"].astype(str)
+
+        # Merge on SKU
+        df_merged = pd.merge(df_products, df_azeta, on="Variant SKU", how="left")
+
+        # Clean numeric columns
+        df_merged["Inventory Available: Dropshipping [España]"] = (
+            pd.to_numeric(
+                df_merged["Inventory Available: Dropshipping [España]"], errors="coerce"
+            )
+            .fillna(0)
+            .astype(int)
+        )
+        df_merged["Stock_Azeta"] = (
+            pd.to_numeric(df_merged["Stock_Azeta"], errors="coerce").fillna(0).astype(int)
+        )
+
+        # Find differences only
+        df_diff = df_merged.loc[
+            df_merged["Inventory Available: Dropshipping [España]"]
+            != df_merged["Stock_Azeta"]
+        ].copy()
+
+        # Build differences list (same format as before for frontend compatibility)
+        differences = []
+        for _, row in df_diff.iterrows():
+            sku = str(row["Variant SKU"])
+            shopify_qty = int(row["Inventory Available: Dropshipping [España]"])
+            azeta_qty = int(row["Stock_Azeta"])
+            variant_id = str(row.get("Variant ID", "")).replace(".0", "")
+            title = str(row.get("Title", row.get("Variant SKU", "")))
+
+            differences.append({
+                "sku": sku,
+                "title": title,
+                "vendor": VENDOR_FILTER,
+                "shopify_qty": shopify_qty,
+                "azeta_qty": azeta_qty,
+                "diff": azeta_qty - shopify_qty,
+                "inventory_item_id": "",  # Will be resolved during apply
+                "variant_id": variant_id,
+            })
+
+        differences.sort(key=lambda d: abs(d["diff"]), reverse=True)
 
         with _job_lock:
             started_at = _job.get("started_at") or time.time()
         elapsed = time.time() - started_at
+
         summary = {
             "total_azeta_skus": len(azeta_stock),
-            "total_shopify_items": len(shopify_items),
-            "differences_found": len(diffs),
+            "total_shopify_items": len(df_products),
+            "differences_found": len(differences),
             "elapsed_seconds": round(elapsed, 1),
         }
 
         _set_job(
             running=False,
             phase=None,
-            differences=diffs,
+            differences=differences,
             summary=summary,
-            shopify_progress=None,
+        )
+        print(
+            f"[CELESA] CSV comparison done: {len(df_products)} products, "
+            f"{len(azeta_stock)} Azeta SKUs, {len(differences)} differences",
+            flush=True,
         )
     except Exception as e:
-        _set_job(running=False, phase=None, error=str(e), shopify_progress=None)
+        _set_job(running=False, phase=None, error=str(e))
 
 
 # -- Background worker: aplicar cambios ------------------------------------
@@ -325,6 +288,23 @@ def _run_apply():
         if not diffs or not location_gid:
             _set_job(applying=False, apply_error="No hay diferencias para aplicar")
             return
+
+        # Look up inventory_item_ids from variant_ids if needed
+        needs_lookup = [d for d in diffs if not d.get("inventory_item_id") and d.get("variant_id")]
+        if needs_lookup:
+            _set_job(apply_phase="Obteniendo IDs de inventario...")
+            variant_ids = [d["variant_id"] for d in needs_lookup]
+            id_map = _get_inventory_item_ids(variant_ids)
+            for d in needs_lookup:
+                d["inventory_item_id"] = id_map.get(d["variant_id"], "")
+            # Remove items without inventory_item_id
+            diffs = [d for d in diffs if d.get("inventory_item_id")]
+            if not diffs:
+                _set_job(
+                    applying=False,
+                    apply_error="No se encontraron IDs de inventario para los productos",
+                )
+                return
 
         total = len(diffs)
         applied = 0
@@ -400,27 +380,31 @@ def _run_apply():
 
 # -- Endpoints ---------------------------------------------------------------
 
-@router.post("/start")
-def start_comparison():
+@router.post("/upload")
+async def upload_and_compare(file: UploadFile = File(...)):
+    """Recibe CSV de productos Shopify, descarga Azeta, cruza y encuentra diferencias."""
     with _job_lock:
         if _job["running"]:
             return {"success": False, "message": "Ya hay una comparación en curso"}
+        if _job["applying"]:
+            return {"success": False, "message": "Ya se están aplicando cambios"}
         _job.update({
             "running": True,
-            "phase": "starting",
+            "phase": "uploading",
             "error": None,
             "differences": None,
             "location_gid": None,
             "summary": None,
-            "shopify_progress": None,
             "applying": False,
             "apply_phase": None,
             "apply_error": None,
             "apply_result": None,
         })
 
-    threading.Thread(target=_run_comparison, daemon=True).start()
-    return {"success": True, "message": "Comparación iniciada"}
+    # Read the uploaded file content before spawning thread
+    content = await file.read()
+    threading.Thread(target=_run_csv_comparison, args=(content,), daemon=True).start()
+    return {"success": True, "message": "Procesando CSV..."}
 
 
 @router.get("/status")
@@ -432,7 +416,6 @@ def get_status():
             "error": _job["error"],
             "summary": _job["summary"],
             "differences": _job["differences"],
-            "shopify_progress": _job.get("shopify_progress"),
             "started_at": _job.get("started_at"),
             "applying": _job["applying"],
             "apply_phase": _job["apply_phase"],

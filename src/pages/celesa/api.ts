@@ -12,6 +12,7 @@ export interface CelesaDifference {
   azeta_qty: number;
   diff: number;
   inventory_item_id: string;
+  variant_id?: string;
 }
 
 export interface CelesaSummary {
@@ -27,11 +28,6 @@ export interface ApplyResult {
   errors: string[];
 }
 
-export interface ShopifyProgress {
-  page: number;
-  products_fetched: number;
-}
-
 export interface CelesaStatus {
   running: boolean;
   phase: string | null;
@@ -42,7 +38,6 @@ export interface CelesaStatus {
   apply_phase: string | null;
   apply_error: string | null;
   apply_result: ApplyResult | null;
-  shopify_progress: ShopifyProgress | null;
   started_at: number | null;
 }
 
@@ -55,10 +50,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-export async function startCelesaComparison(): Promise<{ success: boolean; message: string }> {
-  return handleResponse(
-    await resilientFetch(`${API_BASE}/api/celesa/start`, { method: "POST" })
-  );
+export async function uploadCelesaCsv(file: File): Promise<{ success: boolean; message: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const resp = await fetch(`${API_BASE}/api/celesa/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  return handleResponse(resp);
 }
 
 export async function getCelesaStatus(): Promise<CelesaStatus> {

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  RefreshCw,
   Ship,
-  ArrowDownUp,
+  FileUp,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -28,7 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  startCelesaComparison,
+  uploadCelesaCsv,
   getCelesaStatus,
   cancelCelesaJob,
   applyCelesaChanges,
@@ -37,19 +36,11 @@ import {
 } from "./celesa/api";
 
 const PHASE_LABELS: Record<string, string> = {
-  starting: "Iniciando...",
+  uploading: "Subiendo CSV...",
+  parsing: "Procesando CSV...",
   location: "Buscando location Dropshipping España...",
   azeta: "Descargando stock de Azeta...",
-  shopify: "Consultando inventario en Shopify...",
   comparing: "Comparando diferencias...",
-};
-
-const PHASE_PROGRESS: Record<string, number> = {
-  starting: 5,
-  location: 10,
-  azeta: 25,
-  shopify: 30,
-  comparing: 95,
 };
 
 function formatNumber(n: number): string {
@@ -71,40 +62,18 @@ function getDiffBadge(diff: number) {
   );
 }
 
-function getProgressPercent(status: CelesaStatus): number {
-  if (!status.phase) return 0;
-  if (status.phase === "shopify" && status.shopify_progress) {
-    const pages = status.shopify_progress.page;
-    const estimated = Math.min(pages / 1800, 1);
-    return Math.round(30 + estimated * 60);
-  }
-  return PHASE_PROGRESS[status.phase] ?? 0;
-}
-
-function formatElapsed(startedAt: number): string {
-  const elapsed = Math.floor(Date.now() / 1000 - startedAt);
-  if (elapsed < 60) return `${elapsed}s`;
-  const min = Math.floor(elapsed / 60);
-  const sec = elapsed % 60;
-  return `${min}m ${sec}s`;
-}
-
 export default function CelesaActualizacion() {
   const [status, setStatus] = useState<CelesaStatus | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollInFlight = useRef(false);
-  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
-    }
-    if (safetyTimerRef.current) {
-      clearTimeout(safetyTimerRef.current);
-      safetyTimerRef.current = null;
     }
   }, []);
 
@@ -136,28 +105,33 @@ export default function CelesaActualizacion() {
     }
   }, [stopPolling]);
 
-  const handleStart = useCallback(async () => {
-    setIsStarting(true);
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(pollStatus, 2000);
+    setTimeout(pollStatus, 500);
+  }, [pollStatus, stopPolling]);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so same file can be re-uploaded
+    e.target.value = "";
+
+    setIsUploading(true);
     try {
-      const res = await startCelesaComparison();
+      const res = await uploadCelesaCsv(file);
       if (!res.success) {
         toast.error(res.message);
         return;
       }
-      toast.info("Comparación iniciada...");
-      stopPolling();
-      pollRef.current = setInterval(pollStatus, 3000);
-      setTimeout(pollStatus, 800);
-      safetyTimerRef.current = setTimeout(() => {
-        stopPolling();
-        toast.error("La operación tardó demasiado. Verifica el backend.");
-      }, 900_000);
+      toast.info("Procesando CSV...");
+      startPolling();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al iniciar");
+      toast.error(err instanceof Error ? err.message : "Error al subir CSV");
     } finally {
-      setIsStarting(false);
+      setIsUploading(false);
     }
-  }, [pollStatus, stopPolling]);
+  }, [startPolling]);
 
   const handleCancel = useCallback(async () => {
     try {
@@ -180,17 +154,11 @@ export default function CelesaActualizacion() {
         return;
       }
       toast.info("Aplicando cambios a Shopify...");
-      stopPolling();
-      pollRef.current = setInterval(pollStatus, 3000);
-      setTimeout(pollStatus, 800);
-      safetyTimerRef.current = setTimeout(() => {
-        stopPolling();
-        toast.error("La aplicación tardó demasiado. Verifica el backend.");
-      }, 300_000);
+      startPolling();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al aplicar");
     }
-  }, [pollStatus, stopPolling]);
+  }, [startPolling]);
 
   const handleDownloadCsv = useCallback(() => {
     if (!status?.differences) return;
@@ -220,13 +188,12 @@ export default function CelesaActualizacion() {
       .then((s) => {
         setStatus(s);
         if (s.running || s.applying) {
-          pollRef.current = setInterval(pollStatus, 3000);
-          setTimeout(pollStatus, 800);
+          startPolling();
         }
       })
       .catch(() => {});
     return stopPolling;
-  }, [pollStatus, stopPolling]);
+  }, [startPolling, stopPolling]);
 
   const differences = status?.differences;
   const summary = status?.summary;
@@ -254,13 +221,24 @@ export default function CelesaActualizacion() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button onClick={handleStart} disabled={isBusy || isStarting}>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isBusy || isUploading}
+            >
               {isRunning ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <ArrowDownUp className="mr-2 h-4 w-4" />
+                <FileUp className="mr-2 h-4 w-4" />
               )}
-              {isRunning ? "Comparando..." : "Comparar Inventario"}
+              {isRunning ? "Procesando..." : "Subir CSV de Shopify"}
             </Button>
 
             {isBusy && (
@@ -296,23 +274,15 @@ export default function CelesaActualizacion() {
           {/* Progress bar */}
           {isRunning && status?.phase && (
             <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {status.phase === "shopify" && status.shopify_progress
-                    ? `Consultando Shopify — Página ${status.shopify_progress.page}, ${formatNumber(status.shopify_progress.products_fetched)} variantes...`
-                    : (PHASE_LABELS[status.phase] ?? status.phase)}
-                </span>
-                <span className="font-mono text-xs">{getProgressPercent(status)}%</span>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{PHASE_LABELS[status.phase] ?? status.phase}</span>
               </div>
-              <Progress value={getProgressPercent(status)} />
-              {status.started_at && (
-                <p className="text-xs text-muted-foreground text-right">
-                  Tiempo: {formatElapsed(status.started_at)}
-                </p>
-              )}
+              <Progress value={60} className="animate-pulse" />
             </div>
           )}
 
+          {/* Apply progress */}
           {isApplying && status?.apply_phase && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -452,10 +422,10 @@ export default function CelesaActualizacion() {
       {!differences && !isRunning && !status?.error && (
         <Card>
           <CardContent className="py-12 text-center">
-            <RefreshCw className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+            <FileUp className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
             <h3 className="font-medium text-lg mb-1">Sin datos</h3>
             <p className="text-sm text-muted-foreground">
-              Presiona "Comparar Inventario" para descargar el stock de Azeta y compararlo con Shopify.
+              Sube el CSV exportado de Shopify para cruzar con el stock de Azeta.
             </p>
           </CardContent>
         </Card>
