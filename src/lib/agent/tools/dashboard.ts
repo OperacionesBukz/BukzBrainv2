@@ -2,6 +2,7 @@
 import {
   collection,
   getDocs,
+  getCountFromServer,
   query,
   where,
   limit as firestoreLimit,
@@ -20,7 +21,7 @@ export const dashboardTools: ToolDefinition[] = [
     },
     execute: async (_params, userId) => {
       try {
-        const [tasksSnap, requestsSnap, celesaSnap] = await Promise.all([
+        const [tasksSnap, requestsSnap, celesaCount] = await Promise.all([
           getDocs(query(
             collection(db, "user_tasks"),
             where("userId", "==", userId),
@@ -30,7 +31,7 @@ export const dashboardTools: ToolDefinition[] = [
             collection(db, "leave_requests"),
             where("status", "==", "pending")
           )),
-          getDocs(collection(db, "celesa_orders")),
+          getCountFromServer(query(collection(db, "celesa_orders"))),
         ]);
 
         return {
@@ -38,7 +39,7 @@ export const dashboardTools: ToolDefinition[] = [
           data: {
             pendingTasks: tasksSnap.size,
             pendingRequests: requestsSnap.size,
-            totalOrders: celesaSnap.size,
+            totalOrders: celesaCount.data().count,
           },
         };
       } catch (error) {

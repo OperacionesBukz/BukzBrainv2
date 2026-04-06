@@ -43,11 +43,11 @@ export const celesaTools: ToolDefinition[] = [
         if (params.estado) {
           constraints.push(where("estado", "==", params.estado));
         }
+        const maxResults = params.limit ? Number(params.limit) : 20;
         const q = constraints.length > 0
-          ? query(ref, ...constraints, firestoreLimit(limit))
-          : query(ref, firestoreLimit(limit));
+          ? query(ref, ...constraints, firestoreLimit(maxResults))
+          : query(ref, firestoreLimit(maxResults));
         const snapshot = await getDocs(q);
-        const limit = params.limit ? Number(params.limit) : 20;
         const orders = snapshot.docs
           .map((d) => {
             const data = d.data();
@@ -61,7 +61,7 @@ export const celesaTools: ToolDefinition[] = [
               estado: data.estado,
             };
           })
-          .slice(0, limit);
+          .slice(0, maxResults);
         return { success: true, data: { count: orders.length, orders } };
       } catch (error) {
         return { success: false, error: (error as Error).message };
