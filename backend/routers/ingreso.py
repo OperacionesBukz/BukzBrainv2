@@ -816,9 +816,11 @@ async def debug_sales_channels():
         # Paso 1: Obtener publications
         resp = session.post(graphql_url, json={"query": "{ publications(first: 20) { nodes { id name } } }"}, timeout=15)
         pub_data = resp.json()
-        nodes = pub_data.get("data", {}).get("publications", {}).get("nodes", [])
+        steps.append({"step": "1_raw_response", "http_status": resp.status_code, "body": pub_data})
+        pubs_obj = pub_data.get("data") or {}
+        nodes = pubs_obj.get("publications", {}).get("nodes", []) if pubs_obj else []
         publication_ids = [n["id"] for n in nodes]
-        steps.append({"step": "1_get_publications", "http_status": resp.status_code, "channels": [{"id": n["id"], "name": n["name"]} for n in nodes], "errors": pub_data.get("errors")})
+        steps.append({"step": "1_get_publications", "channels": [{"id": n["id"], "name": n["name"]} for n in nodes]})
 
         if not publication_ids:
             steps.append({"step": "ABORT", "reason": "No se encontraron Sales Channels"})
