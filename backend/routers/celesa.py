@@ -146,10 +146,21 @@ def _fetch_azeta_stock() -> dict[str, int]:
 
 # -- Matrixify MCP helpers ---------------------------------------------------
 
+_matrixify_last_call = 0.0
+MATRIXIFY_RATE_LIMIT_SECONDS = 5.5  # Matrixify enforces 5s between MCP calls
+
+
 def _matrixify_rpc(method: str, params: dict | None = None) -> dict:
-    """Call a Matrixify MCP tool via JSON-RPC."""
+    """Call a Matrixify MCP tool via JSON-RPC, respecting rate limits."""
+    global _matrixify_last_call
     if not MATRIXIFY_MCP_TOKEN:
         raise RuntimeError("MATRIXIFY_MCP_TOKEN no configurado en el servidor")
+
+    # Respect rate limit
+    elapsed = time.time() - _matrixify_last_call
+    if elapsed < MATRIXIFY_RATE_LIMIT_SECONDS:
+        time.sleep(MATRIXIFY_RATE_LIMIT_SECONDS - elapsed)
+
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -165,6 +176,7 @@ def _matrixify_rpc(method: str, params: dict | None = None) -> dict:
         },
         timeout=60,
     )
+    _matrixify_last_call = time.time()
     resp.raise_for_status()
     body = resp.json()
     if "error" in body:
@@ -245,21 +257,33 @@ def _run_matrixify_import():
         put_resp.raise_for_status()
         print("[CELESA] File uploaded to Matrixify S3", flush=True)
 
-        # Step 4: POST to create import job
+        # Step 4: POST callback to finalize upload (no auth needed — URL is pre-signed)
+        # Matrixify enforces rate limit on all endpoints
         _set_job(apply_phase="Creando job de importación...")
+        time.sleep(MATRIXIFY_RATE_LIMIT_SECONDS)
         create_resp = http_requests.post(create_url, timeout=60)
+        print(
+            f"[CELESA] create_from_upload: {create_resp.status_code} "
+            f"{create_resp.text[:500]}",
+            flush=True,
+        )
         create_resp.raise_for_status()
-        create_data = create_resp.json()
-        job_id = create_data.get("job_id") or create_data.get("id")
+
+        # Extract job_id from response or URL params
+        job_id = None
+        try:
+            create_data = create_resp.json()
+            job_id = create_data.get("job_id") or create_data.get("id")
+        except Exception:
+            pass
         if not job_id:
-            # Try extracting from nested structure
-            if isinstance(create_data, dict):
-                for v in create_data.values():
-                    if isinstance(v, dict) and v.get("job_id"):
-                        job_id = v["job_id"]
-                        break
-            if not job_id:
-                raise RuntimeError(f"No se pudo obtener job_id de Matrixify: {create_data}")
+            from urllib.parse import urlparse, parse_qs
+            parsed = parse_qs(urlparse(create_url).query)
+            job_id_str = parsed.get("job_id", [None])[0]
+            if job_id_str:
+                job_id = int(job_id_str)
+        if not job_id:
+            raise RuntimeError("No se pudo obtener job_id de Matrixify")
 
         print(f"[CELESA] Matrixify import job created: {job_id}", flush=True)
         _set_job(matrixify_job_id=job_id)
