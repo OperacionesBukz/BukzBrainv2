@@ -1,38 +1,9 @@
 import { resilientFetch } from "@/lib/resilient-fetch";
+import type { TurnoverStatus, InventoryPreview } from "./types";
 
 const API_BASE =
   import.meta.env.VITE_API_URL ??
   "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
-
-export interface SedeRotacion {
-  sede: string;
-  inventario_unidades: number;
-  inventario_skus: number;
-  vendidas_unidades: number;
-  vendidas_skus: number;
-  rotacion: number | null;
-  dias_inventario: number | null;
-}
-
-export interface TurnoverResult {
-  periodo_meses: number;
-  fecha_calculo: string;
-  sedes: SedeRotacion[];
-  totales: {
-    inventario_unidades: number;
-    vendidas_unidades: number;
-    rotacion: number | null;
-    dias_inventario: number | null;
-  };
-}
-
-export interface TurnoverStatus {
-  running: boolean;
-  phase: string | null;
-  error: string | null;
-  started_at: string | null;
-  result: TurnoverResult | null;
-}
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -43,16 +14,30 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-export async function startTurnover(months: number = 12): Promise<{ success: boolean; message: string }> {
+export interface StartWithExcelResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  inventory_preview?: InventoryPreview[];
+}
+
+export async function startTurnoverWithExcel(
+  file: File,
+  months: number,
+): Promise<StartWithExcelResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("months", String(months));
   return handleResponse(
-    await resilientFetch(`${API_BASE}/api/turnover/start?months=${months}`, {
+    await resilientFetch(`${API_BASE}/api/turnover/start-with-excel`, {
       method: "POST",
-    })
+      body: formData,
+    }),
   );
 }
 
 export async function getTurnoverStatus(): Promise<TurnoverStatus> {
   return handleResponse(
-    await resilientFetch(`${API_BASE}/api/turnover/status`, { timeout: 10_000 })
+    await resilientFetch(`${API_BASE}/api/turnover/status`, { timeout: 10_000 }),
   );
 }

@@ -1,11 +1,9 @@
 """
 Router: Rotacion de Inventario por Sede
 Endpoints:
-  POST /api/turnover/start   -> Inicia calculo (background)
-  GET  /api/turnover/status  -> Estado y resultados
-
-Optimizado: usa 2 Bulk Operations en paralelo (inventario + ventas).
-Requiere API version 2026-01+ para bulk ops concurrentes.
+  POST /api/turnover/start            -> Inicia calculo (background, inv desde Shopify)
+  POST /api/turnover/start-with-excel -> Inicia calculo (inv desde Excel subido)
+  GET  /api/turnover/status           -> Estado y resultados
 """
 
 import json
@@ -13,8 +11,10 @@ import threading
 import time
 import requests
 from datetime import datetime, timedelta
+from io import BytesIO
 
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile, File, Form
+import openpyxl
 
 from config import settings
 
@@ -37,6 +37,76 @@ TARGET_LOCATIONS = [
     "Bukz Viva Envigado",
     "Bukz Museo de Antioquia",
 ]
+
+
+# -- Excel parser --------------------------------------------------------
+
+def _parse_inventory_excel(file_bytes: bytes) -> dict[str, dict]:
+    """Parsea Excel con columnas Sede e Inventario. Retorna {sede: {total_units, product_count}}."""
+    wb = openpyxl.load_workbook(BytesIO(file_bytes), read_only=True, data_only=True)
+    ws = wb.active
+
+    rows = list(ws.iter_rows(min_row=1, values_only=True))
+    wb.close()
+    if len(rows) < 2:
+        raise ValueError("El archivo debe tener al menos una fila de encabezado y una de datos")
+
+    header = [str(c).strip().lower() if c else "" for c in rows[0]]
+    sede_col = None
+    inv_col = None
+    for i, h in enumerate(header):
+        if "sede" in h or "tienda" in h or "location" in h or "sucursal" in h:
+            sede_col = i
+        if "inventario" in h or "unidades" in h or "stock" in h or "units" in h:
+            inv_col = i
+
+    if sede_col is None or inv_col is None:
+        raise ValueError(
+            "No se encontraron columnas 'Sede' e 'Inventario/Unidades/Stock'. "
+            "Asegurate de tener encabezados con esos nombres."
+        )
+
+    result: dict[str, dict] = {}
+    for row in rows[1:]:
+        if not row[sede_col]:
+            continue
+        sede_raw = str(row[sede_col]).strip()
+        try:
+            units = int(float(row[inv_col])) if row[inv_col] else 0
+        except (ValueError, TypeError):
+            continue
+
+        matched = _match_sede_name(sede_raw)
+        if matched:
+            if matched in result:
+                result[matched]["total_units"] += units
+            else:
+                result[matched] = {"total_units": units, "product_count": 0}
+
+    return result
+
+
+def _match_sede_name(raw: str) -> str | None:
+    """Fuzzy match de nombre de sede contra TARGET_LOCATIONS."""
+    raw_lower = raw.lower()
+    for target in TARGET_LOCATIONS:
+        if target.lower() == raw_lower:
+            return target
+    for target in TARGET_LOCATIONS:
+        if target.lower() in raw_lower or raw_lower in target.lower():
+            return target
+    key_words = {
+        "lomas": "Bukz Las Lomas",
+        "109": "Bukz Bogota 109",
+        "bogota": "Bukz Bogota 109",
+        "envigado": "Bukz Viva Envigado",
+        "viva": "Bukz Viva Envigado",
+        "museo": "Bukz Museo de Antioquia",
+    }
+    for kw, target in key_words.items():
+        if kw in raw_lower:
+            return target
+    return None
 
 
 # -- Helpers -------------------------------------------------------------
@@ -279,7 +349,7 @@ def _poll_bulk_by_id(op_id: str, label: str, max_wait: int = 600) -> str | None:
                 data = _gql(query_current)
                 op = data.get("currentBulkOperation")
 
-            if not op:
+            if not op or (not use_node_query and op.get("id") != op_id):
                 time.sleep(3)
                 continue
 
@@ -368,12 +438,23 @@ def _process_sales_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]
 
 # -- Result builder ------------------------------------------------------
 
+def _get_semaforo(rotacion: float | None) -> str:
+    if rotacion is None:
+        return "rojo"
+    if rotacion >= 3.0:
+        return "verde"
+    if rotacion >= 2.0:
+        return "amarillo"
+    return "rojo"
+
+
 def _build_result(
     locations: dict[str, str],
     inventory: dict[str, dict],
     sales: dict[str, dict],
     months: int,
 ) -> dict:
+    days_in_period = months * 30
     rows = []
     for loc_name in locations:
         inv = inventory.get(loc_name, {})
@@ -384,7 +465,9 @@ def _build_result(
         sku_count = inv.get("product_count", 0)
 
         turnover = round(sold_units / inv_units, 2) if inv_units > 0 else None
-        days_of_inv = round((inv_units / sold_units) * (months * 30)) if sold_units > 0 else None
+        days_of_inv = round((inv_units / sold_units) * days_in_period) if sold_units > 0 else None
+        venta_diaria = round(sold_units / days_in_period, 2) if days_in_period > 0 else 0
+        sell_through = round((sold_units / (sold_units + inv_units)) * 100, 1) if (sold_units + inv_units) > 0 else None
 
         rows.append({
             "sede": loc_name,
@@ -394,10 +477,15 @@ def _build_result(
             "vendidas_skus": sal.get("sku_count", 0),
             "rotacion": turnover,
             "dias_inventario": days_of_inv,
+            "venta_diaria": venta_diaria,
+            "sell_through_pct": sell_through,
+            "semaforo": _get_semaforo(turnover),
         })
 
     total_inv = sum(r["inventario_unidades"] for r in rows)
     total_sold = sum(r["vendidas_unidades"] for r in rows)
+    total_turnover = round(total_sold / total_inv, 2) if total_inv > 0 else None
+    total_venta_diaria = round(total_sold / days_in_period, 2) if days_in_period > 0 else 0
 
     return {
         "periodo_meses": months,
@@ -406,8 +494,11 @@ def _build_result(
         "totales": {
             "inventario_unidades": total_inv,
             "vendidas_unidades": total_sold,
-            "rotacion": round(total_sold / total_inv, 2) if total_inv > 0 else None,
-            "dias_inventario": round((total_inv / total_sold) * (months * 30)) if total_sold > 0 else None,
+            "rotacion": total_turnover,
+            "dias_inventario": round((total_inv / total_sold) * days_in_period) if total_sold > 0 else None,
+            "venta_diaria": total_venta_diaria,
+            "sell_through_pct": round((total_sold / (total_sold + total_inv)) * 100, 1) if (total_sold + total_inv) > 0 else None,
+            "semaforo": _get_semaforo(total_turnover),
         },
     }
 
@@ -471,6 +562,35 @@ def _turnover_worker(months: int):
         _job["phase"] = None
 
 
+def _turnover_worker_excel(months: int, inventory: dict[str, dict]):
+    """Ejecuta calculo usando inventario del Excel subido + ventas de Shopify."""
+    try:
+        _job["phase"] = "locations"
+        locations = _get_target_locations()
+        if not locations:
+            raise RuntimeError("No se encontraron sedes objetivo en Shopify")
+        print(f"[TURNOVER-EXCEL] Sedes: {list(locations.keys())}", flush=True)
+
+        # Inventario ya viene del Excel — solo necesitamos ventas
+        _job["phase"] = "sales"
+        print(f"[TURNOVER-EXCEL] === FASE VENTAS ({months} meses) ===", flush=True)
+        sales = _run_sales_pipeline(months, locations)
+        total_sold = sum(v["total_units_sold"] for v in sales.values())
+        print(f"[TURNOVER-EXCEL] Ventas total: {total_sold} unidades", flush=True)
+
+        _job["phase"] = "processing"
+        _job["result"] = _build_result(locations, inventory, sales, months)
+        _job["error"] = None
+        print("[TURNOVER-EXCEL] Calculo completado", flush=True)
+
+    except Exception as e:
+        _job["error"] = str(e)
+        print(f"[TURNOVER-EXCEL] Error: {e}", flush=True)
+    finally:
+        _job["running"] = False
+        _job["phase"] = None
+
+
 # -- Endpoints -----------------------------------------------------------
 
 @router.post("/start")
@@ -493,6 +613,50 @@ def start_turnover(months: int = 12):
     thread.start()
 
     return {"success": True, "message": f"Calculo de rotacion iniciado ({months} meses)"}
+
+
+@router.post("/start-with-excel")
+async def start_turnover_with_excel(
+    file: UploadFile = File(...),
+    months: int = Form(12),
+):
+    """
+    Inicia calculo de rotacion usando inventario de Excel subido.
+    El Excel debe tener columnas: Sede (nombre) e Inventario/Unidades/Stock (numero).
+    Las ventas se obtienen de Shopify via bulk operation.
+    """
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        return {"success": False, "error": "El archivo debe ser .xlsx o .xls"}
+
+    with _job_lock:
+        if _job["running"]:
+            return {"success": False, "error": "Ya hay un calculo en progreso", "phase": _job["phase"]}
+
+    file_bytes = await file.read()
+    try:
+        parsed = _parse_inventory_excel(file_bytes)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+    if not parsed:
+        return {"success": False, "error": "No se encontraron sedes validas en el archivo"}
+
+    preview = [{"sede": k, "inventario_unidades": v["total_units"]} for k, v in parsed.items()]
+
+    with _job_lock:
+        _job["running"] = True
+        _job["error"] = None
+        _job["result"] = None
+        _job["started_at"] = datetime.now().isoformat()
+
+    thread = threading.Thread(target=_turnover_worker_excel, args=(months, parsed), daemon=True)
+    thread.start()
+
+    return {
+        "success": True,
+        "message": f"Calculo iniciado con inventario de Excel ({months} meses)",
+        "inventory_preview": preview,
+    }
 
 
 @router.get("/status")
