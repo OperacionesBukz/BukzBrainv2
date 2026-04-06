@@ -196,17 +196,26 @@ def _matrixify_rpc(method: str, params: dict | None = None) -> dict:
 
 
 def _generate_matrixify_excel(differences: list[dict]) -> bytes:
-    """Generate a Matrixify-compatible Excel file from differences."""
+    """Generate a Matrixify-compatible Excel file from differences.
+
+    Uses UPDATE + Variant ID for fast direct lookup (no full index needed).
+    """
     wb = Workbook()
     ws = wb.active
     ws.title = "Products"
 
-    # Headers
-    ws.append(["Command", "Variant SKU", f"Inventory Available: {DROPSHIPPING_LOCATION_NAME}"])
+    # Headers — Variant ID lets Matrixify identify products directly
+    ws.append([
+        "Command",
+        "Variant ID",
+        "Variant SKU",
+        f"Inventory Available: {DROPSHIPPING_LOCATION_NAME}",
+    ])
 
-    # Data rows
+    # Data rows — UPDATE only modifies existing, never creates new
     for d in differences:
-        ws.append(["MERGE", d["sku"], d["azeta_qty"]])
+        variant_id = d.get("variant_id", "")
+        ws.append(["UPDATE", variant_id, d["sku"], d["azeta_qty"]])
 
     # Save to bytes
     buf = io.BytesIO()

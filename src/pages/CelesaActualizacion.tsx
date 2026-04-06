@@ -69,6 +69,7 @@ export default function CelesaActualizacion() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [matrixifyStarting, setMatrixifyStarting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollInFlight = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +87,7 @@ export default function CelesaActualizacion() {
     try {
       const s = await getCelesaStatus();
       setStatus(s);
+      if (s.applying) setMatrixifyStarting(false);
       if (!s.running && !s.applying) {
         stopPolling();
         if (s.error) {
@@ -173,16 +175,19 @@ export default function CelesaActualizacion() {
 
   const handleMatrixifyImport = useCallback(async () => {
     setConfirmOpen(false);
+    setMatrixifyStarting(true);
     try {
       const res = await importViaMatrixify();
       if (!res.success) {
         toast.error(res.message);
+        setMatrixifyStarting(false);
         return;
       }
-      toast.info("Importando vía Matrixify...");
+      toast.info("Preparando importación Matrixify...");
       startPolling();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al importar vía Matrixify");
+      setMatrixifyStarting(false);
     }
   }, [startPolling]);
 
@@ -230,7 +235,7 @@ export default function CelesaActualizacion() {
   const isRunning = status?.running ?? false;
   const isApplying = status?.applying ?? false;
   const applyResult = status?.apply_result;
-  const isBusy = isRunning || isApplying;
+  const isBusy = isRunning || isApplying || matrixifyStarting;
 
   return (
     <div className="space-y-6">
@@ -286,12 +291,16 @@ export default function CelesaActualizacion() {
                   onClick={() => setConfirmOpen(true)}
                   disabled={isBusy}
                 >
-                  {isApplying ? (
+                  {(isApplying || matrixifyStarting) ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Upload className="mr-2 h-4 w-4" />
                   )}
-                  {isApplying ? "Importando..." : `Importar ${differences.length} vía Matrixify`}
+                  {matrixifyStarting
+                    ? "Preparando Matrixify..."
+                    : isApplying
+                      ? "Importando vía Matrixify..."
+                      : `Importar ${differences.length} vía Matrixify`}
                 </Button>
                 <Button variant="outline" onClick={handleDownloadMatrixifyExcel} disabled={isBusy}>
                   <Download className="mr-2 h-4 w-4" />
@@ -321,6 +330,17 @@ export default function CelesaActualizacion() {
                 <span>{PHASE_LABELS[status.phase] ?? status.phase}</span>
               </div>
               <Progress value={60} className="animate-pulse" />
+            </div>
+          )}
+
+          {/* Matrixify starting (before polling picks up) */}
+          {matrixifyStarting && !isApplying && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Preparando importación Matrixify (generando Excel y subiendo archivo)...</span>
+              </div>
+              <Progress value={30} className="animate-pulse" />
             </div>
           )}
 
