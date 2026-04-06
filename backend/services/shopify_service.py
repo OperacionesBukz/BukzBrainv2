@@ -167,6 +167,22 @@ def get_locations() -> dict:
     raise RuntimeError(f"No se pudieron obtener bodegas: {error_msg}")
 
 
+def _normalize_code(val: str) -> str:
+    """Normaliza ISBN/SKU/barcode para comparación: strip + sin ceros a la izquierda."""
+    return val.strip().lstrip("0") or "0"
+
+
+def _match_isbn(sku: str, barcode: str, isbn_batch: list[str]) -> str | None:
+    """Busca match de SKU/barcode contra lista de ISBNs con normalización."""
+    sku_norm = _normalize_code(sku)
+    barcode_norm = _normalize_code(barcode)
+    for isbn in isbn_batch:
+        isbn_norm = _normalize_code(isbn)
+        if sku == isbn or barcode == isbn or sku_norm == isbn_norm or barcode_norm == isbn_norm:
+            return isbn
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Consulta de productos (búsqueda individual y masiva)
 # ---------------------------------------------------------------------------
@@ -177,7 +193,7 @@ def _build_batch_query(isbn_list: list[str]) -> str:
     conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in safe])
     return """
     {
-      productVariants(first: 100, query: "%s") {
+      productVariants(first: 250, query: "%s") {
         edges {
           node {
             id
@@ -208,7 +224,7 @@ def _build_update_query(isbn_list: list[str]) -> str:
     conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in safe])
     return """
     {
-      productVariants(first: 100, query: "%s") {
+      productVariants(first: 250, query: "%s") {
         edges {
           node {
             id
@@ -281,11 +297,7 @@ def _process_batch_for_update(
                 sku = str(node.get("sku", "")).strip()
                 barcode = str(node.get("barcode", "")).strip()
 
-                matched_isbn = None
-                for isbn in isbn_batch:
-                    if sku == isbn or barcode == isbn:
-                        matched_isbn = isbn
-                        break
+                matched_isbn = _match_isbn(sku, barcode, isbn_batch)
 
                 if matched_isbn and matched_isbn not in results:
                     product = node["product"]
@@ -595,11 +607,7 @@ def process_batch_info(
                 sku = str(node.get("sku", "")).strip()
                 barcode = str(node.get("barcode", "")).strip()
 
-                matched_isbn = None
-                for isbn in isbn_batch:
-                    if sku == isbn or barcode == isbn:
-                        matched_isbn = isbn
-                        break
+                matched_isbn = _match_isbn(sku, barcode, isbn_batch)
 
                 if matched_isbn and matched_isbn not in results:
                     product_gid = node["product"].get("id", "")
@@ -644,7 +652,8 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
     Retorna lista de resultados ordenados según el orden original.
     """
     headers = settings.get_shopify_headers()
-    batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))
+    search_batch = min(settings.BATCH_SIZE, 25)
+    batches = list(chunk_list(isbn_list, search_batch))
 
     all_results = {}
     session = requests.Session()
@@ -700,11 +709,7 @@ def process_batch_inventory(
                 sku = str(node.get("sku", "")).strip()
                 barcode = str(node.get("barcode", "")).strip()
 
-                matched_isbn = None
-                for isbn in isbn_batch:
-                    if sku == isbn or barcode == isbn:
-                        matched_isbn = isbn
-                        break
+                matched_isbn = _match_isbn(sku, barcode, isbn_batch)
 
                 if matched_isbn and matched_isbn not in results:
                     inv_item_gid = node["inventoryItem"]["id"]
