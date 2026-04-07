@@ -3,7 +3,9 @@ Router de IngresoMercancia — endpoints para consulta de productos, inventario 
 """
 import json
 import os
+import threading
 import unicodedata
+import uuid
 from io import BytesIO
 
 import numpy as np
@@ -48,6 +50,9 @@ class InlineUpdateRequest(BaseModel):
 
 _sales_cache: dict = {"data": None, "loaded_at": None, "skus_count": 0}
 _sales_job: dict = {"running": False, "error": None}
+
+# Estado para jobs de búsqueda masiva
+_search_jobs: dict[str, dict] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -143,22 +148,92 @@ def search_bulk_json(request: SearchRequest):
     return {"products": results, "total": len(results)}
 
 
+def _search_excel_worker(job_id: str, isbn_list: list[str], isbn_to_qty: dict):
+    """Background worker para búsqueda masiva."""
+    job = _search_jobs[job_id]
+    try:
+        job["total"] = len(isbn_list)
+        results = shopify_service.search_products(isbn_list, isbn_to_qty)
+
+        df = pd.DataFrame(results)
+        if not df.empty:
+            cols = ["ISBN", "ID", "Variant ID", "Titulo", "Vendor", "Precio", "Categoria", "Cantidad"]
+            df = df[[c for c in cols if c in df.columns]]
+
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="Datos")
+        buffer.seek(0)
+
+        found = len(df[df["Titulo"] != "No encontrado"]) if not df.empty and "Titulo" in df.columns else 0
+        job["result"] = buffer.getvalue()
+        job["found"] = found
+        job["status"] = "done"
+    except Exception as e:
+        job["error"] = str(e)
+        job["status"] = "error"
+        print(f"[SEARCH JOB {job_id}] Error: {e}", flush=True)
+
+
 @router.post("/search/excel")
 async def search_bulk_excel(file: UploadFile = File(...)):
     """
     Sube un Excel con columna 'ISBN' (y opcionalmente 'Cantidad').
-    Retorna Excel con los resultados.
+    Inicia búsqueda en background y retorna job_id para polling.
     """
     isbn_list, isbn_to_qty = await _parse_excel_upload(file)
 
-    results = shopify_service.search_products(isbn_list, isbn_to_qty)
+    job_id = uuid.uuid4().hex[:12]
+    _search_jobs[job_id] = {
+        "status": "running",
+        "total": len(isbn_list),
+        "found": 0,
+        "result": None,
+        "error": None,
+    }
 
-    df = pd.DataFrame(results)
-    if not df.empty:
-        cols = ["ISBN", "ID", "Variant ID", "Titulo", "Vendor", "Precio", "Categoria", "Cantidad"]
-        df = df[[c for c in cols if c in df.columns]]
+    thread = threading.Thread(
+        target=_search_excel_worker,
+        args=(job_id, isbn_list, isbn_to_qty),
+        daemon=True,
+    )
+    thread.start()
 
-    return _dataframe_to_excel_response(df, "Productos_Shopify.xlsx")
+    return {"job_id": job_id, "total": len(isbn_list)}
+
+
+@router.get("/search/excel/{job_id}/status")
+def search_excel_status(job_id: str):
+    """Consulta estado de un job de búsqueda masiva."""
+    job = _search_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+    return {
+        "status": job["status"],
+        "total": job["total"],
+        "found": job["found"],
+        "error": job["error"],
+    }
+
+
+@router.get("/search/excel/{job_id}/download")
+def search_excel_download(job_id: str):
+    """Descarga el resultado Excel de un job completado."""
+    job = _search_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job no encontrado")
+    if job["status"] != "done":
+        raise HTTPException(status_code=409, detail="Job aún no completado")
+
+    result_bytes = job["result"]
+    # Limpiar job después de descargar
+    del _search_jobs[job_id]
+
+    return StreamingResponse(
+        BytesIO(result_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="Productos_Shopify.xlsx"'},
+    )
 
 
 # ---------------------------------------------------------------------------
