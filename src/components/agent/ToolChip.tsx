@@ -29,6 +29,7 @@ const toolLabels: Record<string, string> = {
   getOutOfStock: "Productos agotados",
   getOperationalSummary: "Resumen operativo",
   draftEmail: "Borrador de correo",
+  sendEmail: "Enviar correo",
   getProcessKnowledge: "Base de conocimiento",
   listKnowledgeTopics: "Temas disponibles",
 };
