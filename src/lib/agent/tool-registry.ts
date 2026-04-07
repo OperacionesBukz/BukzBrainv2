@@ -25,18 +25,25 @@ const allTools: ToolDefinition[] = [
 // Core tools always available (lightweight)
 const coreTool = dashboardTools;
 
+// Tools available in ALL module contexts (email, knowledge, inventory)
+const universalTools: ToolDefinition[] = [
+  ...emailDraftTools,
+  ...knowledgeTools,
+  ...inventoryTools,
+];
+
 // Map modules to their relevant tools to reduce token usage
 const moduleTools: Partial<Record<ModuleContext, ToolDefinition[]>> = {
-  "Dashboard": [...dashboardTools, ...taskTools.slice(0, 2), ...inventoryTools, ...knowledgeTools],
-  "Tareas Personales": taskTools,
-  "Operaciones": [...dashboardTools.slice(0, 2), ...taskTools.filter(t => t.name.includes("Operations")), ...celesaTools, ...inventoryTools],
-  "Celesa": [...celesaTools, ...inventoryTools],
-  "Solicitudes": requestTools,
-  "Solicitudes Librerias": bookstoreTools,
-  "Hub de Solicitudes": [...requestTools, ...bookstoreTools],
-  "Reposicion": [...dashboardTools.slice(0, 2), ...productTools, ...inventoryTools],
-  "Ingreso Mercancia": [...productTools, ...inventoryTools],
-  "Scrap Bukz": productTools,
+  "Dashboard": [...dashboardTools, ...taskTools.slice(0, 2), ...universalTools],
+  "Tareas Personales": [...taskTools, ...universalTools],
+  "Operaciones": [...dashboardTools.slice(0, 2), ...taskTools.filter(t => t.name.includes("Operations")), ...celesaTools, ...universalTools],
+  "Celesa": [...celesaTools, ...universalTools],
+  "Solicitudes": [...requestTools, ...universalTools],
+  "Solicitudes Librerias": [...bookstoreTools, ...universalTools],
+  "Hub de Solicitudes": [...requestTools, ...bookstoreTools, ...universalTools],
+  "Reposicion": [...dashboardTools.slice(0, 2), ...productTools, ...universalTools],
+  "Ingreso Mercancia": [...productTools, ...universalTools],
+  "Scrap Bukz": [...productTools, ...universalTools],
   "Asistente": allTools,
 };
 
