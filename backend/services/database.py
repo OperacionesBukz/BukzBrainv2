@@ -97,14 +97,19 @@ def init_database():
     Crea las tablas si no existen.
     Se llama UNA vez al iniciar la app.
     Si las tablas ya existen, no hace nada (por el IF NOT EXISTS).
+    Con 2+ workers de uvicorn, puede haber race condition — se maneja con gracia.
     """
     try:
         with get_cursor() as cur:
             cur.execute(SCHEMA_SQL)
         logger.info("PostgreSQL: tablas listas (inventory_cache, sales_cache, product_catalog)")
     except Exception as e:
-        logger.error(f"PostgreSQL: ERROR creando tablas — {e}")
-        raise
+        # Con multiples workers, otro worker puede haber creado las tablas primero
+        if "already exists" in str(e):
+            logger.info("PostgreSQL: tablas ya existian (creadas por otro worker)")
+        else:
+            logger.error(f"PostgreSQL: ERROR creando tablas — {e}")
+            raise
 
 
 # =============================================
