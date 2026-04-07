@@ -708,8 +708,7 @@ def _search_single_isbn(
 def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
     """
     Busca productos en Shopify por lista de ISBNs.
-    Usa batches de BATCH_SIZE ISBNs por query GraphQL para mayor eficiencia.
-    ISBNs no encontrados en batch se reintentan individualmente.
+    Replica la lógica de Streamlit: batches paralelos con ThreadPoolExecutor.
     """
     headers = settings.get_shopify_headers()
     batches = list(chunk_list(isbn_list, settings.BATCH_SIZE))
@@ -717,44 +716,131 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
     session = requests.Session()
     session.headers.update(headers)
 
-    # Fase 1: búsqueda por batches (rápida)
     with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
         futures = {
-            executor.submit(process_batch_info, session, batch, isbn_to_qty): i
+            executor.submit(_search_batch_direct, session, batch, isbn_to_qty): i
             for i, batch in enumerate(batches)
         }
         for future in as_completed(futures):
             all_results.update(future.result())
 
-    # Fase 2: reintentar ISBNs no encontrados uno por uno
-    missing = [isbn for isbn in isbn_list if isbn not in all_results]
-    if missing:
-        logger.info("Reintentando %d ISBNs no encontrados en batch", len(missing))
-        graphql_url = settings.get_graphql_url()
-        with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
-            futures = {
-                executor.submit(
-                    _search_single_isbn, headers, isbn, isbn_to_qty, graphql_url
-                ): isbn
-                for isbn in missing
-            }
-            for future in as_completed(futures):
-                isbn = futures[future]
-                all_results[isbn] = future.result()
-
     # Marcar no encontrados
-    not_found = {
-        "ID": "---", "Variant ID": "---", "Titulo": "No encontrado",
-        "Vendor": "---", "Precio": 0.0, "Categoria": "---",
-    }
     for isbn in isbn_list:
         if isbn not in all_results:
-            all_results[isbn] = {"ISBN": isbn, "Cantidad": isbn_to_qty.get(isbn, 0), **not_found}
+            all_results[isbn] = {
+                "ISBN": isbn,
+                "ID": "---",
+                "Variant ID": "---",
+                "Titulo": "No encontrado",
+                "Vendor": "---",
+                "Precio": 0.0,
+                "Categoria": "---",
+                "Cantidad": isbn_to_qty.get(isbn, 0),
+            }
 
     found = sum(1 for r in all_results.values() if r["Titulo"] != "No encontrado")
     logger.info("Búsqueda: %d/%d encontrados", found, len(isbn_list))
 
     return [all_results[isbn] for isbn in isbn_list]
+
+
+def _search_batch_direct(
+    session: requests.Session,
+    isbn_batch: list[str],
+    isbn_to_qty: dict,
+) -> dict:
+    """
+    Busca un batch de ISBNs — replica la lógica exacta de Streamlit.
+    Sin throttler, sin sanitize, matching directo por sku/barcode.
+    """
+    graphql_url = settings.get_graphql_url()
+    results = {}
+
+    # Construir query idéntica a Streamlit (sin _sanitize_graphql_value)
+    conditions = " OR ".join([f"sku:{isbn} OR barcode:{isbn}" for isbn in isbn_batch])
+    query = """
+    {
+      productVariants(first: 100, query: "%s") {
+        edges {
+          node {
+            id
+            sku
+            barcode
+            price
+            inventoryItem { id }
+            product {
+              id
+              title
+              vendor
+              metafields(first: 50) {
+                edges {
+                  node { namespace key value }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """ % conditions
+
+    try:
+        response = session.post(graphql_url, json={"query": query}, timeout=30)
+
+        if response.status_code == 200:
+            data = response.json()
+            edges = (
+                data.get("data", {})
+                .get("productVariants", {})
+                .get("edges", [])
+            )
+
+            for edge in edges:
+                node = edge["node"]
+                sku = str(node.get("sku", "")).strip()
+                barcode = str(node.get("barcode", "")).strip()
+
+                # Match directo como Streamlit
+                matched_isbn = None
+                for isbn in isbn_batch:
+                    if sku == isbn or barcode == isbn:
+                        matched_isbn = isbn
+                        break
+
+                if matched_isbn and matched_isbn not in results:
+                    product_gid = node["product"].get("id", "")
+                    product_id = product_gid.split("/")[-1] if product_gid else "---"
+                    variant_gid = node.get("id", "")
+                    variant_id = variant_gid.split("/")[-1] if variant_gid else "---"
+
+                    # Extraer categoría de metafields
+                    categoria = "---"
+                    metafields = node["product"].get("metafields", {}).get("edges", [])
+                    for meta_edge in metafields:
+                        meta = meta_edge.get("node", {})
+                        key = meta.get("key", "").lower()
+                        if key == "categoria" or key == "category" or "categoria" in key:
+                            valor = meta.get("value", "")
+                            categoria = valor.replace('["', '').replace('"]', '').replace('[', '').replace(']', '').replace('"', '').strip()
+                            break
+
+                    results[matched_isbn] = {
+                        "ISBN": matched_isbn,
+                        "ID": product_id,
+                        "Variant ID": variant_id,
+                        "Titulo": node["product"]["title"],
+                        "Vendor": node["product"].get("vendor") or "---",
+                        "Precio": float(node.get("price", 0)),
+                        "Categoria": categoria,
+                        "Cantidad": isbn_to_qty.get(matched_isbn, 0),
+                    }
+        else:
+            logger.warning("Batch query HTTP %s: %s", response.status_code, response.text[:200])
+
+    except Exception as exc:
+        logger.warning("Error en batch de %d ISBNs: %s", len(isbn_batch), exc)
+
+    return results
 
 
 # ---------------------------------------------------------------------------
