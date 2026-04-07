@@ -29,6 +29,7 @@ interface AgentChatState {
   error: string | null;
   rateLimited: boolean;
   sendMessage: (content: string) => Promise<void>;
+  addLocalMessage: (role: "user" | "assistant", content: string, existingConvId?: string) => Promise<string | undefined>;
   startNewConversation: () => Promise<string | undefined>;
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => Promise<void>;
@@ -107,6 +108,36 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       setMessages([]);
     }
   }, [conversationId]);
+
+  const addLocalMessage = useCallback(async (role: "user" | "assistant", content: string, existingConvId?: string): Promise<string | undefined> => {
+    if (!user || !content.trim()) return undefined;
+
+    let activeConvId = existingConvId ?? conversationId;
+    if (!activeConvId) {
+      activeConvId = (await startNewConversation()) ?? null;
+      if (!activeConvId) return undefined;
+    }
+
+    await addDoc(collection(db, "agent_conversations", activeConvId, "messages"), {
+      role,
+      content,
+      timestamp: serverTimestamp(),
+    });
+
+    // Update conversation title if first message and it's a user message
+    if (role === "user" && messages.length === 0) {
+      await updateDoc(doc(db, "agent_conversations", activeConvId), {
+        title: content.slice(0, 50),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await updateDoc(doc(db, "agent_conversations", activeConvId), {
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    return activeConvId;
+  }, [user, conversationId, messages.length, startNewConversation]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!user || !content.trim()) return;
@@ -260,7 +291,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   return (
     <AgentChatCtx.Provider value={{
       messages, conversations, conversationId, loading, error, rateLimited,
-      sendMessage, startNewConversation, selectConversation, deleteConversation, cancelRequest,
+      sendMessage, addLocalMessage, startNewConversation, selectConversation, deleteConversation, cancelRequest,
     }}>
       {children}
     </AgentChatCtx.Provider>

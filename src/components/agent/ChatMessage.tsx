@@ -11,6 +11,8 @@ function renderMarkdown(text: string): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let listItems: React.ReactNode[] = [];
   let listKey = 0;
+  let tableRows: string[][] = [];
+  let tableKey = 0;
 
   const flushList = () => {
     if (listItems.length > 0) {
@@ -21,6 +23,44 @@ function renderMarkdown(text: string): React.ReactNode[] {
       );
       listItems = [];
     }
+  };
+
+  const flushTable = () => {
+    if (tableRows.length < 2) {
+      tableRows = [];
+      return;
+    }
+    const headers = tableRows[0];
+    // Skip separator row (index 1)
+    const dataRows = tableRows.slice(2);
+
+    result.push(
+      <div key={`table-${tableKey++}`} className="my-2 overflow-x-auto rounded-md border border-border">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-muted/50">
+              {headers.map((h, i) => (
+                <th key={i} className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap">
+                  {formatInline(h.trim())}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dataRows.map((row, ri) => (
+              <tr key={ri} className={ri % 2 === 0 ? "" : "bg-muted/20"}>
+                {row.map((cell, ci) => (
+                  <td key={ci} className="px-2 py-1 whitespace-nowrap">
+                    {formatInline(cell.trim())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    tableRows = [];
   };
 
   const formatInline = (line: string): React.ReactNode[] => {
@@ -57,6 +97,19 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const line = lines[i];
     const trimmed = line.trim();
 
+    // Table row detection (starts and ends with |, or separator like |---|)
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      flushList();
+      const cells = trimmed.slice(1, -1).split("|");
+      tableRows.push(cells);
+      continue;
+    }
+
+    // If we were building a table and this line is not a table row, flush it
+    if (tableRows.length > 0) {
+      flushTable();
+    }
+
     // List items (- or * at start)
     const listMatch = trimmed.match(/^[-*]\s+(.+)/);
     if (listMatch) {
@@ -78,12 +131,16 @@ function renderMarkdown(text: string): React.ReactNode[] {
     }
   }
 
+  // Flush any remaining
+  if (tableRows.length > 0) flushTable();
   flushList();
+
   return result;
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const isCommand = isUser && message.content.startsWith("/");
 
   return (
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
@@ -91,7 +148,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
         className={cn(
           "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
           isUser
-            ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
+            ? isCommand
+              ? "bg-primary/80 text-primary-foreground rounded-br-sm font-mono text-xs"
+              : "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
             : "bg-muted text-foreground rounded-bl-sm"
         )}
       >
