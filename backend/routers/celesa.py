@@ -24,8 +24,7 @@ from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 
-from config import settings
-from services.shopify_service import _throttler
+from services.celesa_common import gql, get_dropshipping_location, DROPSHIPPING_LOCATION_NAME, VENDOR_FILTER
 
 router = APIRouter(prefix="/api/celesa", tags=["Celesa Inventory"])
 
@@ -36,8 +35,6 @@ AZETA_URL = os.getenv(
     "http://www.azetadistribuciones.es/servicios_web/stock.php"
     "?fr_usuario=861549&fr_clave=Bukz549",
 )
-DROPSHIPPING_LOCATION_NAME = "Dropshipping [España]"
-VENDOR_FILTER = "Bukz España"
 
 # Matrixify MCP
 MATRIXIFY_MCP_URL = "https://mcp.matrixify.app/mcp"
@@ -68,53 +65,10 @@ def _set_job(**kwargs):
         _job.update(kwargs)
 
 
-# -- GraphQL helper ----------------------------------------------------------
+# -- GraphQL & Location (delegated to celesa_common) ------------------------
 
-def _gql(query: str, variables: dict | None = None, timeout: int = 30, _retries: int = 3) -> dict:
-    _throttler.wait_if_needed()
-    payload: dict = {"query": query}
-    if variables:
-        payload["variables"] = variables
-    resp = http_requests.post(
-        settings.get_graphql_url(),
-        json=payload,
-        headers=settings.get_shopify_headers(),
-        timeout=timeout,
-    )
-    _throttler.update_from_response(resp)
-    if resp.status_code == 429:
-        if _retries <= 0:
-            resp.raise_for_status()
-        retry_after = float(resp.headers.get("Retry-After", "2"))
-        time.sleep(retry_after)
-        return _gql(query, variables, timeout, _retries - 1)
-    resp.raise_for_status()
-    body = resp.json()
-    if "errors" in body:
-        is_throttled = any(
-            e.get("extensions", {}).get("code") == "THROTTLED"
-            for e in body["errors"]
-        )
-        if is_throttled:
-            if _retries <= 0:
-                raise RuntimeError("Shopify API throttled tras múltiples reintentos")
-            time.sleep(2.0)
-            return _gql(query, variables, timeout, _retries - 1)
-        raise RuntimeError(f"GraphQL errors: {body['errors']}")
-    return body["data"]
-
-
-# -- Location ----------------------------------------------------------------
-
-def _get_dropshipping_location() -> str:
-    """Retorna el GID de la location 'Dropshipping [España]'."""
-    data = _gql('{ locations(first: 250) { edges { node { id name } } } }')
-    for edge in data["locations"]["edges"]:
-        if edge["node"]["name"] == DROPSHIPPING_LOCATION_NAME:
-            return edge["node"]["id"]
-    raise RuntimeError(
-        f"Location '{DROPSHIPPING_LOCATION_NAME}' no encontrada en Shopify"
-    )
+_gql = gql
+_get_dropshipping_location = get_dropshipping_location
 
 
 # -- Azeta -------------------------------------------------------------------

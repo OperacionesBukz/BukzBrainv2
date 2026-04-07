@@ -1,4 +1,4 @@
-import { Search, Download, Filter, Upload } from "lucide-react";
+import { Search, Download, Filter, Upload, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ interface CelesaToolbarProps {
   count: number;
   onExport: () => void;
   onImport: () => void;
+  onSync: () => void;
 }
 
 export default function CelesaToolbar({
@@ -38,6 +39,7 @@ export default function CelesaToolbar({
   count,
   onExport,
   onImport,
+  onSync,
 }: CelesaToolbarProps) {
   const hasActiveFilters =
     filterStatus !== "Todos" || sortBy !== "fecha-desc";
@@ -123,6 +125,11 @@ export default function CelesaToolbar({
       </span>
 
       <div className="ml-auto flex gap-2">
+        <Button variant="outline" size="sm" onClick={onSync} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          <span className="hidden sm:inline">Sincronizar Shopify</span>
+          <span className="sm:hidden">Sync</span>
+        </Button>
         <Button variant="outline" size="sm" onClick={onImport} className="gap-2">
           <Upload className="h-4 w-4" />
           Importar

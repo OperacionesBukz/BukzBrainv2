@@ -9,6 +9,7 @@ import CelesaAlertBar from "./CelesaAlertBar";
 import CelesaToolbar from "./CelesaToolbar";
 import CelesaTable from "./CelesaTable";
 import CelesaImportDialog from "./CelesaImportDialog";
+import CelesaSyncDialog from "./CelesaSyncDialog";
 import type { ParsedCelesaRow } from "./excel-import";
 import type { CelesaOrder, CelesaStatus } from "./types";
 import type { SortOption } from "./CelesaToolbar";
@@ -22,6 +23,7 @@ export default function CelesaTab() {
   );
   const [sortBy, setSortBy] = useState<SortOption>("fecha-desc");
   const [importOpen, setImportOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
 
   const handleBulkImport = async (rows: ParsedCelesaRow[]) => {
     let count = 0;
@@ -84,6 +86,7 @@ export default function CelesaTab() {
         count={filtered.length}
         onExport={() => exportCelesaCSV(filtered)}
         onImport={() => setImportOpen(true)}
+        onSync={() => setSyncOpen(true)}
       />
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -111,6 +114,10 @@ export default function CelesaTab() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onImport={handleBulkImport}
+      />
+      <CelesaSyncDialog
+        open={syncOpen}
+        onOpenChange={setSyncOpen}
       />
     </div>
   );

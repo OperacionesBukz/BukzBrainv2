@@ -82,3 +82,55 @@ export async function importViaMatrixify(): Promise<{ success: boolean; message:
 export function getMatrixifyDownloadUrl(): string {
   return `${API_BASE}/api/celesa/matrixify-download`;
 }
+
+// -- Celesa Sync (Shopify → Seguimiento) ------------------------------------
+
+export interface SyncOrder {
+  numeroPedido: string;
+  cliente: string;
+  producto: string;
+  isbn: string;
+  fechaPedido: string;
+}
+
+export interface SyncSummary {
+  found: number;
+  existing_in_firestore: number;
+}
+
+export interface CelesaSyncStatus {
+  running: boolean;
+  phase: string | null;
+  error: string | null;
+  orders: SyncOrder[] | null;
+  summary: SyncSummary | null;
+}
+
+export async function fetchCelesaSyncOrders(): Promise<{ success: boolean; message: string }> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/celesa-sync/fetch`, {
+      method: "POST",
+      timeout: 30_000,
+    })
+  );
+}
+
+export async function getCelesaSyncStatus(): Promise<CelesaSyncStatus> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/celesa-sync/status`, { timeout: 10_000 })
+  );
+}
+
+export async function importCelesaSyncOrders(
+  orders: SyncOrder[],
+  createdBy: string
+): Promise<{ success: boolean; message: string; imported: number }> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/celesa-sync/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orders, createdBy }),
+      timeout: 30_000,
+    })
+  );
+}

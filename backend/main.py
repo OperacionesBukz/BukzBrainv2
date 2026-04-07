@@ -25,6 +25,7 @@ from routers import email
 from routers import pedidos
 from routers import inventory_turnover
 from routers import celesa
+from routers import celesa_sync
 from routers import agent_commands
 
 @asynccontextmanager
@@ -73,6 +74,7 @@ app.include_router(email.router, dependencies=_auth)
 app.include_router(pedidos.router, dependencies=_auth)
 app.include_router(inventory_turnover.router, dependencies=_auth)
 app.include_router(celesa.router, dependencies=_auth)
+app.include_router(celesa_sync.router, dependencies=_auth)
 app.include_router(agent_commands.router, dependencies=_auth)
 
 # Webhooks — SIN auth (Shopify envia su propia verificacion HMAC)
