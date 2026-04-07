@@ -367,62 +367,20 @@ async def enviar_corte_individual(
     anio: str = Form(...),
     remitente: str = Form(...),
 ):
-    """Envía un corte de ventas individual a un proveedor específico."""
+    """Envía un corte de ventas individual a un proveedor específico.
 
-    # --- Leer archivo de ventas ---
-    try:
-        ventas_df = pd.read_excel(BytesIO(await ventas_file.read()))
-        ventas_df.columns = ventas_df.columns.str.strip()
-    except Exception:
-        raise HTTPException(400, detail="No se pudo leer el archivo de ventas")
+    El archivo se envía tal cual fue subido, sin validación de columnas
+    ni transformación de datos.
+    """
 
-    # --- Validar columnas ---
-    ventas_required = {
-        "product_title", "variant_sku", "product_vendor",
-        "pos_location_name", "net_quantity",
-    }
-    if not ventas_required.issubset(set(ventas_df.columns)):
-        raise HTTPException(
-            400,
-            detail=f"El archivo de ventas debe tener las columnas: {', '.join(ventas_required)}",
-        )
+    # --- Leer archivo tal cual ---
+    file_bytes = await ventas_file.read()
+    if not file_bytes:
+        raise HTTPException(400, detail="El archivo de ventas está vacío")
 
-    # --- Filtrar por proveedor (case-insensitive) ---
-    mask = (
-        ventas_df["product_vendor"].astype(str).str.lower().str.strip()
-        == proveedor.lower().strip()
-    )
-    df_filtered = ventas_df[mask]
-
-    # Si no hay coincidencias, usar todas las filas (archivo ya es específico del proveedor)
-    filter_applied = not df_filtered.empty
-    if df_filtered.empty:
-        df_filtered = ventas_df
-
-    # --- Normalizar ubicaciones ---
-    df_filtered = df_filtered.copy()
-    df_filtered["pos_location_name"] = (
-        df_filtered["pos_location_name"]
-        .fillna("")
-        .replace(LOCATION_MAP)
-    )
-    known = set(LOCATION_MAP.values())
-    df_filtered.loc[
-        ~df_filtered["pos_location_name"].isin(known), "pos_location_name"
-    ] = DEFAULT_LOCATION
-
-    # --- Agrupar ---
-    grouped = (
-        df_filtered
-        .groupby(["product_title", "product_vendor", "variant_sku", "pos_location_name"])["net_quantity"]
-        .apply(_custom_sum)
-        .reset_index()
-    )
-    grouped["variant_sku"] = grouped["variant_sku"].apply(_format_sku)
-
-    # --- Generar Excel adjunto ---
-    excel_bytes = _build_proveedor_excel(grouped)
-    attachment_name = f"Corte_Ventas_{mes}.xlsx"
+    # Usar nombre original del archivo o fallback
+    original_name = ventas_file.filename or f"Corte_Ventas_{mes}.xlsx"
+    attachment_name = original_name
 
     # --- Parsear CC ---
     cc_list = [c.strip() for c in correo_cc.split(";") if c.strip()] if correo_cc else []
@@ -438,7 +396,7 @@ async def enviar_corte_individual(
             html_body=html_body,
             sender_name=remitente,
             cc=cc_list or None,
-            attachments=[(attachment_name, excel_bytes)],
+            attachments=[(attachment_name, file_bytes)],
         )
     except Exception as e:
         raise HTTPException(502, detail=f"Error al enviar el correo: {e}")
@@ -449,6 +407,4 @@ async def enviar_corte_individual(
         "correo": correo,
         "correo_cc": cc_list,
         "asunto": subject,
-        "filas_procesadas": len(grouped),
-        "filter_applied": filter_applied,
     }
