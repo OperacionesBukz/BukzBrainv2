@@ -3,6 +3,7 @@ import { Loader2, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -159,6 +160,9 @@ export default function CelesaSyncDialog({
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Sincronizar pedidos desde Shopify</DialogTitle>
+          <DialogDescription>
+            Busca pedidos con location Dropshipping [España] e importa los nuevos al seguimiento.
+          </DialogDescription>
         </DialogHeader>
 
         {/* FETCHING */}
