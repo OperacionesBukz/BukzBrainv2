@@ -29,7 +29,9 @@ from routers import agent_commands
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: iniciar scheduler de background para pre-computo de caches
+    # Startup: inicializar PostgreSQL y scheduler
+    from services.database import init_database
+    init_database()
     from services.scheduler_service import start_scheduler
     start_scheduler()
     yield

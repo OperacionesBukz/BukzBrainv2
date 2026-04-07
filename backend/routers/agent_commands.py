@@ -27,88 +27,28 @@ def _sanitize_gid(gid: str) -> str:
 
 
 def _read_sales_cache() -> dict:
-    """Lee sales_cache/6m_global con soporte de chunks. Returns {sku: {month: qty}}."""
-    db = _get_firestore()
-    doc = db.collection("sales_cache").document("6m_global").get()
-    if not doc.exists:
-        return {}
-    meta = doc.to_dict()
-    if meta.get("status") != "ready":
-        return {}
-
-    if "data" in meta and not meta.get("chunked"):
-        return meta["data"]
-
-    if meta.get("chunked"):
-        merged = {}
-        chunks = db.collection("sales_cache").document("6m_global") \
-                   .collection("chunks").stream()
-        for chunk in chunks:
-            merged.update(chunk.to_dict().get("data", {}))
-        return merged
-
-    return {}
+    """Lee ventas de PostgreSQL. Returns {sku: {month: qty}}."""
+    from services.database import pg_read_sales
+    return pg_read_sales()
 
 
 def _read_inventory_cache(location_gid: str) -> list[dict] | None:
-    """Lee inventory_cache para una ubicacion. Returns lista de items o None."""
-    db = _get_firestore()
+    """Lee inventario de una sede desde PostgreSQL."""
+    from services.database import pg_read_inventory
     doc_id = _sanitize_gid(location_gid)
-    doc_ref = db.collection("inventory_cache").document(doc_id)
-    snap = doc_ref.get()
-    if not snap.exists:
-        return None
-    meta = snap.to_dict()
-    if meta.get("status") != "ready":
-        return None
-
-    if not meta.get("chunked", False) and "data" in meta:
-        return meta["data"]
-
-    if meta.get("chunked"):
-        items = []
-        chunks = doc_ref.collection("chunks").stream()
-        for chunk in sorted(chunks, key=lambda c: int(c.id)):
-            items.extend(chunk.to_dict().get("data", []))
-        return items
-
-    return None
+    return pg_read_inventory(doc_id)
 
 
 def _read_product_catalog() -> list[dict] | None:
-    """Lee product_catalog/global. Returns lista de {sku, vendor, title} o None."""
-    db = _get_firestore()
-    doc_ref = db.collection("product_catalog").document("global")
-    snap = doc_ref.get()
-    if not snap.exists:
-        return None
-    meta = snap.to_dict()
-
-    if not meta.get("chunked", False) and "data" in meta:
-        return meta["data"]
-
-    if meta.get("chunked"):
-        items = []
-        chunks = doc_ref.collection("chunks").stream()
-        for chunk in sorted(chunks, key=lambda c: int(c.id)):
-            items.extend(chunk.to_dict().get("data", []))
-        return items
-
-    return None
+    """Lee catalogo de productos desde PostgreSQL."""
+    from services.database import pg_read_product_catalog
+    return pg_read_product_catalog()
 
 
 def _get_all_locations() -> dict[str, str]:
-    """Returns {name: gid} de todas las ubicaciones en Firestore inventory_cache."""
-    db = _get_firestore()
-    docs = db.collection("inventory_cache").stream()
-    locations = {}
-    for d in docs:
-        data = d.to_dict()
-        name = data.get("location_name", "")
-        gid = data.get("location_gid", "")
-        if name and gid:
-            locations[name] = gid
-    return locations
+    """Lista todas las sedes desde PostgreSQL. Returns {name: gid}."""
+    from services.database import pg_read_all_locations
+    return pg_read_all_locations()
 
 
 def _normalize(text: str) -> str:
@@ -385,8 +325,6 @@ def get_agotados(
 @router.get("/resumen")
 def get_resumen():
     """Resumen operativo rapido: estado de caches, totales, alertas."""
-    db = _get_firestore()
-
     # 1. Estado de caches
     locations = _get_all_locations()
     total_stock_all = 0
@@ -412,27 +350,22 @@ def get_resumen():
             "stock_total": stock,
         })
 
-    # 2. Estado de ventas
-    sales_meta = None
-    try:
-        doc = db.collection("sales_cache").document("6m_global").get()
-        if doc.exists:
-            sales_meta = doc.to_dict()
-    except Exception:
-        pass
-
+    # 2. Estado de ventas (desde PostgreSQL)
+    from services.database import pg_read_sales_meta
     ventas_status = "sin_datos"
     ventas_skus = 0
     ventas_last_refresh = None
-    if sales_meta and sales_meta.get("status") == "ready":
+    sales_meta = pg_read_sales_meta()
+    if sales_meta:
         ventas_status = "ok"
         ventas_skus = sales_meta.get("sku_count", 0)
-        ventas_last_refresh = sales_meta.get("last_refreshed")
+        ventas_last_refresh = sales_meta.get("cached_at")
 
-    # 3. Tareas pendientes (operaciones)
+    # 3. Tareas pendientes (sigue en Firestore)
     tareas_count = 0
     try:
         from google.cloud.firestore_v1 import FieldFilter
+        db = _get_firestore()
         tasks_query = db.collection("tasks").where(filter=FieldFilter("status", "==", "todo"))
         tareas_count = len(list(tasks_query.stream()))
     except Exception:
