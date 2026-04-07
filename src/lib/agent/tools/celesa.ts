@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { ToolDefinition } from "../types";
+import { cached } from "./cache";
 
 export const celesaTools: ToolDefinition[] = [
   {
@@ -77,24 +78,23 @@ export const celesaTools: ToolDefinition[] = [
     },
     execute: async () => {
       try {
-        const ref = collection(db, "celesa_orders");
-        // Use count queries instead of downloading all documents
-        const estados = ["En curso", "Entregado", "Agotado", "Atrasado", "Pendiente"];
-        const countPromises = estados.map(async (estado) => {
-          const q = query(ref, where("estado", "==", estado));
-          const snap = await getCountFromServer(q);
-          return [estado, snap.data().count] as const;
-        });
-        const totalSnap = await getCountFromServer(query(ref));
-        const counts = await Promise.all(countPromises);
-        const byStatus: Record<string, number> = {};
-        for (const [estado, count] of counts) {
-          if (count > 0) byStatus[estado] = count;
-        }
-        return {
-          success: true,
-          data: { total: totalSnap.data().count, byStatus },
-        };
+        const data = await cached("celesa_stats", async () => {
+          const ref = collection(db, "celesa_orders");
+          const estados = ["En curso", "Entregado", "Agotado", "Atrasado", "Pendiente"];
+          const countPromises = estados.map(async (estado) => {
+            const q = query(ref, where("estado", "==", estado));
+            const snap = await getCountFromServer(q);
+            return [estado, snap.data().count] as const;
+          });
+          const totalSnap = await getCountFromServer(query(ref));
+          const counts = await Promise.all(countPromises);
+          const byStatus: Record<string, number> = {};
+          for (const [estado, count] of counts) {
+            if (count > 0) byStatus[estado] = count;
+          }
+          return { total: totalSnap.data().count, byStatus };
+        }, 5 * 60 * 1000); // 5 min TTL
+        return { success: true, data };
       } catch (error) {
         return { success: false, error: (error as Error).message };
       }

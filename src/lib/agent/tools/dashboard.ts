@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { ToolDefinition } from "../types";
+import { cached } from "./cache";
 
 export const dashboardTools: ToolDefinition[] = [
   {
@@ -21,27 +22,26 @@ export const dashboardTools: ToolDefinition[] = [
     },
     execute: async (_params, userId) => {
       try {
-        const [tasksSnap, requestsSnap, celesaCount] = await Promise.all([
-          getDocs(query(
-            collection(db, "user_tasks"),
-            where("userId", "==", userId),
-            where("status", "==", "todo")
-          )),
-          getDocs(query(
-            collection(db, "leave_requests"),
-            where("status", "==", "pending")
-          )),
-          getCountFromServer(query(collection(db, "celesa_orders"))),
-        ]);
-
-        return {
-          success: true,
-          data: {
+        const data = await cached(`dashboard_summary_${userId}`, async () => {
+          const [tasksSnap, requestsSnap, celesaCount] = await Promise.all([
+            getDocs(query(
+              collection(db, "user_tasks"),
+              where("userId", "==", userId),
+              where("status", "==", "todo")
+            )),
+            getDocs(query(
+              collection(db, "leave_requests"),
+              where("status", "==", "pending")
+            )),
+            getCountFromServer(query(collection(db, "celesa_orders"))),
+          ]);
+          return {
             pendingTasks: tasksSnap.size,
             pendingRequests: requestsSnap.size,
             totalOrders: celesaCount.data().count,
-          },
-        };
+          };
+        });
+        return { success: true, data };
       } catch (error) {
         return { success: false, error: (error as Error).message };
       }
@@ -59,64 +59,64 @@ export const dashboardTools: ToolDefinition[] = [
     },
     execute: async (_params, userId) => {
       try {
-        const [
-          personalTasksSnap,
-          opsTasksSnap,
-          leaveSnap,
-          celesaSnap,
-          bookstoreSnap,
-        ] = await Promise.all([
-          getDocs(query(
-            collection(db, "user_tasks"),
-            where("userId", "==", userId),
-            where("status", "==", "todo")
-          )),
-          getDocs(query(
-            collection(db, "tasks"),
-            where("status", "==", "todo")
-          )),
-          getDocs(query(
-            collection(db, "leave_requests"),
-            where("status", "==", "pending")
-          )),
-          getDocs(query(
-            collection(db, "celesa_orders"),
-            where("estado", "==", "Pendiente")
-          )),
-          getDocs(query(
-            collection(db, "bookstore_requests"),
-            where("status", "==", "pending")
-          )),
-        ]);
+        const data = await cached(`daily_briefing_${userId}`, async () => {
+          const [
+            personalTasksSnap,
+            opsTasksSnap,
+            leaveSnap,
+            celesaSnap,
+            bookstoreSnap,
+          ] = await Promise.all([
+            getDocs(query(
+              collection(db, "user_tasks"),
+              where("userId", "==", userId),
+              where("status", "==", "todo")
+            )),
+            getDocs(query(
+              collection(db, "tasks"),
+              where("status", "==", "todo")
+            )),
+            getDocs(query(
+              collection(db, "leave_requests"),
+              where("status", "==", "pending")
+            )),
+            getDocs(query(
+              collection(db, "celesa_orders"),
+              where("estado", "==", "Pendiente")
+            )),
+            getDocs(query(
+              collection(db, "bookstore_requests"),
+              where("status", "==", "pending")
+            )),
+          ]);
 
-        const now = new Date();
-        const personalTasks = personalTasksSnap.docs.map((d) => {
-          const data = d.data();
-          const dueDate = data.dueDate?.toDate ? data.dueDate.toDate() : data.dueDate ? new Date(data.dueDate) : null;
+          const now = new Date();
+          const personalTasks = personalTasksSnap.docs.map((d) => {
+            const dd = d.data();
+            const dueDate = dd.dueDate?.toDate ? dd.dueDate.toDate() : dd.dueDate ? new Date(dd.dueDate) : null;
+            return {
+              title: dd.title,
+              priority: dd.priority,
+              dueDate: dueDate?.toISOString().split("T")[0] ?? null,
+              overdue: dueDate ? dueDate < now : false,
+            };
+          });
+
+          const opsTasks = opsTasksSnap.docs.map((d) => {
+            const dd = d.data();
+            return { title: dd.title, department: dd.department };
+          });
+
           return {
-            title: data.title,
-            priority: data.priority,
-            dueDate: dueDate?.toISOString().split("T")[0] ?? null,
-            overdue: dueDate ? dueDate < now : false,
-          };
-        });
-
-        const opsTasks = opsTasksSnap.docs.map((d) => {
-          const data = d.data();
-          return { title: data.title, department: data.department };
-        });
-
-        return {
-          success: true,
-          data: {
             personalTasks: { items: personalTasks, count: personalTasks.length },
             operationsTasks: { count: opsTasks.length, byDepartment: opsTasks.reduce((acc: Record<string, number>, t) => { acc[t.department] = (acc[t.department] ?? 0) + 1; return acc; }, {}) },
             pendingLeaveRequests: leaveSnap.size,
             pendingCelesaOrders: celesaSnap.size,
             pendingBookstoreRequests: bookstoreSnap.size,
             overdueTasks: personalTasks.filter((t) => t.overdue).length,
-          },
-        };
+          };
+        });
+        return { success: true, data };
       } catch (error) {
         return { success: false, error: (error as Error).message };
       }
@@ -134,28 +134,31 @@ export const dashboardTools: ToolDefinition[] = [
     },
     execute: async () => {
       try {
-        const [usersSnap, tasksSnap] = await Promise.all([
-          getDocs(collection(db, "users")),
-          getDocs(query(collection(db, "user_tasks"), where("status", "==", "todo"))),
-        ]);
+        const data = await cached("team_workload", async () => {
+          const [usersSnap, tasksSnap] = await Promise.all([
+            getDocs(collection(db, "users")),
+            getDocs(query(collection(db, "user_tasks"), where("status", "==", "todo"))),
+          ]);
 
-        const userMap: Record<string, string> = {};
-        usersSnap.docs.forEach((d) => {
-          const data = d.data();
-          userMap[data.email ?? d.id] = data.displayName ?? data.name ?? data.email ?? d.id;
+          const userMap: Record<string, string> = {};
+          usersSnap.docs.forEach((d) => {
+            const dd = d.data();
+            userMap[dd.email ?? d.id] = dd.displayName ?? dd.name ?? dd.email ?? d.id;
+          });
+
+          const workload: Record<string, { name: string; pending: number }> = {};
+          tasksSnap.docs.forEach((d) => {
+            const uid = d.data().userId as string;
+            if (!workload[uid]) {
+              workload[uid] = { name: userMap[uid] ?? uid, pending: 0 };
+            }
+            workload[uid].pending++;
+          });
+
+          const sorted = Object.values(workload).sort((a, b) => b.pending - a.pending);
+          return { team: sorted, totalMembers: sorted.length };
         });
-
-        const workload: Record<string, { name: string; pending: number }> = {};
-        tasksSnap.docs.forEach((d) => {
-          const userId = d.data().userId as string;
-          if (!workload[userId]) {
-            workload[userId] = { name: userMap[userId] ?? userId, pending: 0 };
-          }
-          workload[userId].pending++;
-        });
-
-        const sorted = Object.values(workload).sort((a, b) => b.pending - a.pending);
-        return { success: true, data: { team: sorted, totalMembers: sorted.length } };
+        return { success: true, data };
       } catch (error) {
         return { success: false, error: (error as Error).message };
       }
