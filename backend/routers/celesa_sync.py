@@ -7,6 +7,7 @@ Endpoints:
 """
 
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
@@ -81,7 +82,7 @@ def _get_cutoff_date(existing_numbers: set[str]) -> str:
 
 ORDERS_QUERY = """
 {
-  orders(first: 50, query: "created_at:>=%s"%s) {
+  orders(first: 10, query: "created_at:>=%s"%s) {
     edges {
       node {
         name
@@ -89,13 +90,13 @@ ORDERS_QUERY = """
         customer {
           displayName
         }
-        fulfillmentOrders(first: 10) {
+        fulfillmentOrders(first: 5) {
           edges {
             node {
               assignedLocation {
                 name
               }
-              lineItems(first: 50) {
+              lineItems(first: 20) {
                 edges {
                   node {
                     totalQuantity
@@ -125,12 +126,16 @@ def _fetch_dropshipping_orders(cutoff_date: str, existing_numbers: set[str]) -> 
     all_orders: list[dict] = []
     cursor = None
     pages = 0
-    max_pages = 20  # Safety limit
+    max_pages = 100  # Safety limit (10 orders per page)
 
     while pages < max_pages:
         pages += 1
         after_clause = f', after: "{cursor}"' if cursor else ""
         query_str = ORDERS_QUERY % (cutoff_date, after_clause)
+
+        # Pause between pages to avoid throttling
+        if pages > 1:
+            time.sleep(1.0)
 
         _set_job(phase=f"Consultando Shopify (página {pages})...")
         data = gql(query_str, timeout=60)

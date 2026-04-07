@@ -13,7 +13,7 @@ DROPSHIPPING_LOCATION_NAME = "Dropshipping [España]"
 VENDOR_FILTER = "Bukz España"
 
 
-def gql(query: str, variables: dict | None = None, timeout: int = 30, _retries: int = 3) -> dict:
+def gql(query: str, variables: dict | None = None, timeout: int = 30, _retries: int = 5) -> dict:
     """Ejecuta una query GraphQL contra Shopify con throttling y reintentos."""
     _throttler.wait_if_needed()
     payload: dict = {"query": query}
@@ -29,7 +29,8 @@ def gql(query: str, variables: dict | None = None, timeout: int = 30, _retries: 
     if resp.status_code == 429:
         if _retries <= 0:
             resp.raise_for_status()
-        retry_after = float(resp.headers.get("Retry-After", "2"))
+        retry_after = max(float(resp.headers.get("Retry-After", "4")), 4.0)
+        print(f"[GQL] 429 rate limited, sleeping {retry_after}s (retries left: {_retries})", flush=True)
         time.sleep(retry_after)
         return gql(query, variables, timeout, _retries - 1)
     resp.raise_for_status()
@@ -42,7 +43,8 @@ def gql(query: str, variables: dict | None = None, timeout: int = 30, _retries: 
         if is_throttled:
             if _retries <= 0:
                 raise RuntimeError("Shopify API throttled tras múltiples reintentos")
-            time.sleep(2.0)
+            print(f"[GQL] GraphQL THROTTLED, sleeping 4s (retries left: {_retries})", flush=True)
+            time.sleep(4.0)
             return gql(query, variables, timeout, _retries - 1)
         raise RuntimeError(f"GraphQL errors: {body['errors']}")
     return body["data"]
