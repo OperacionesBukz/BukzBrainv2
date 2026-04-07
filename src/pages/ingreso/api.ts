@@ -56,7 +56,7 @@ export async function searchByExcel(file: File): Promise<Blob> {
     await resilientFetch(`${API_BASE}/api/ingreso/search/excel`, {
       method: "POST",
       body: form,
-      timeout: 120_000,
+      timeout: 300_000,
     }),
   );
 }
