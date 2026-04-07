@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { useSearchByIsbn, useSearchByExcel } from "./hooks";
+import { useSearchByIsbn, useStartSearchJob, useSearchJobStatus, useDownloadSearchResult } from "./hooks";
 import { downloadBlob } from "./api";
 import SearchResultsTable from "./SearchResultsTable";
 import FileUploadZone from "./FileUploadZone";
@@ -83,20 +83,45 @@ export default function ConsultaProductosTab() {
     downloadBlob(blob, "Producto_Shopify.xls");
   };
 
-  // -- bulk search --
+  // -- bulk search (async job) --
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkBlob, setBulkBlob] = useState<Blob | null>(null);
-  const bulkMutation = useSearchByExcel();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const startJob = useStartSearchJob();
+  const jobStatus = useSearchJobStatus(jobId);
+  const downloadResult = useDownloadSearchResult();
+
+  const isJobRunning = jobId !== null && jobStatus.data?.status === "running";
+  const isJobDone = jobStatus.data?.status === "done";
+  const isJobError = jobStatus.data?.status === "error";
+
+  useEffect(() => {
+    if (!isJobDone || !jobId) return;
+    downloadResult.mutateAsync(jobId).then((blob) => {
+      setBulkBlob(blob);
+      setJobId(null);
+      toast.success(`Búsqueda completada — ${jobStatus.data?.found ?? 0}/${jobStatus.data?.total ?? 0} encontrados`);
+    }).catch((err) => {
+      toast.error(err instanceof Error ? err.message : "Error al descargar resultado");
+      setJobId(null);
+    });
+  }, [isJobDone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isJobError) return;
+    toast.error(jobStatus.data?.error ?? "Error en la búsqueda");
+    setJobId(null);
+  }, [isJobError]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleBulkSearch = async () => {
     if (!bulkFile) return;
     setBulkBlob(null);
+    setJobId(null);
     try {
-      const blob = await bulkMutation.mutateAsync(bulkFile);
-      setBulkBlob(blob);
-      toast.success("Resultados listos para descargar");
+      const { job_id } = await startJob.mutateAsync(bulkFile);
+      setJobId(job_id);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al procesar");
+      toast.error(err instanceof Error ? err.message : "Error al iniciar búsqueda");
     }
   };
 
@@ -168,13 +193,22 @@ export default function ConsultaProductosTab() {
             }}
           />
 
-          {bulkMutation.isPending && <Progress className="animate-pulse" />}
+          {(startJob.isPending || isJobRunning) && (
+            <div className="space-y-2">
+              <Progress className="animate-pulse" />
+              <p className="text-sm text-muted-foreground">
+                {startJob.isPending
+                  ? "Subiendo archivo..."
+                  : `Buscando ${jobStatus.data?.total ?? 0} productos en Shopify...`}
+              </p>
+            </div>
+          )}
 
           <Button
             onClick={handleBulkSearch}
-            disabled={!bulkFile || bulkMutation.isPending}
+            disabled={!bulkFile || startJob.isPending || isJobRunning}
           >
-            {bulkMutation.isPending ? (
+            {startJob.isPending || isJobRunning ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Search className="mr-2 h-4 w-4" />
@@ -186,10 +220,10 @@ export default function ConsultaProductosTab() {
             <InventoryPreview blob={bulkBlob} onDownload={handleDownloadBulk} />
           )}
 
-          {bulkMutation.isError && (
+          {startJob.isError && (
             <p className="text-sm text-destructive">
-              {bulkMutation.error instanceof Error
-                ? bulkMutation.error.message
+              {startJob.error instanceof Error
+                ? startJob.error.message
                 : "Error al procesar el archivo"}
             </p>
           )}

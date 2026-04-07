@@ -2,7 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   healthCheck,
   searchByIsbn,
-  searchByExcel,
+  startSearchExcelJob,
+  getSearchExcelStatus,
+  downloadSearchExcelResult,
   getLocations,
   loadSales,
   getSalesStatus,
@@ -34,9 +36,28 @@ export function useSearchByIsbn(isbn: string) {
   });
 }
 
-export function useSearchByExcel() {
+export function useStartSearchJob() {
   return useMutation({
-    mutationFn: (file: File) => searchByExcel(file),
+    mutationFn: (file: File) => startSearchExcelJob(file),
+  });
+}
+
+export function useSearchJobStatus(jobId: string | null) {
+  return useQuery({
+    queryKey: ["ingreso", "search-job", jobId],
+    queryFn: () => getSearchExcelStatus(jobId!),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === "done" || status === "error") return false;
+      return 2000;
+    },
+  });
+}
+
+export function useDownloadSearchResult() {
+  return useMutation({
+    mutationFn: (jobId: string) => downloadSearchExcelResult(jobId),
   });
 }
 

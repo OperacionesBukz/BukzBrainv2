@@ -42,6 +42,7 @@ export interface ShopifyCreateResult {
   skipped?: boolean;
   error?: string;
   shopify_id?: string;
+  published?: boolean;
 }
 
 export interface ShopifyCreateResponse {
@@ -115,4 +116,20 @@ export interface UpdateApplyResponse {
 export interface InlineUpdateItem {
   sku: string;
   changes: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// Search Job (async polling)
+// ---------------------------------------------------------------------------
+
+export interface SearchJobStartResponse {
+  job_id: string;
+  total: number;
+}
+
+export interface SearchJobStatusResponse {
+  status: "running" | "done" | "error";
+  total: number;
+  found: number;
+  error: string | null;
 }

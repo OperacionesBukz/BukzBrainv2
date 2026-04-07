@@ -9,6 +9,8 @@ import {
   type UpdatePreviewResponse,
   type UpdateApplyResponse,
   type InlineUpdateItem,
+  type SearchJobStartResponse,
+  type SearchJobStatusResponse,
 } from "./types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -49,15 +51,26 @@ export async function searchByIsbn(
   );
 }
 
-export async function searchByExcel(file: File): Promise<Blob> {
+export async function startSearchExcelJob(file: File): Promise<SearchJobStartResponse> {
   const form = new FormData();
   form.append("file", file);
-  return handleBlobResponse(
+  return handleResponse(
     await resilientFetch(`${API_BASE}/api/ingreso/search/excel`, {
       method: "POST",
       body: form,
-      timeout: 300_000,
     }),
+  );
+}
+
+export async function getSearchExcelStatus(jobId: string): Promise<SearchJobStatusResponse> {
+  return handleResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/search/excel/${jobId}/status`),
+  );
+}
+
+export async function downloadSearchExcelResult(jobId: string): Promise<Blob> {
+  return handleBlobResponse(
+    await resilientFetch(`${API_BASE}/api/ingreso/search/excel/${jobId}/download`),
   );
 }
 
