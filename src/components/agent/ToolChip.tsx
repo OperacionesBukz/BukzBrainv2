@@ -23,6 +23,14 @@ const toolLabels: Record<string, string> = {
   listBookstoreRequests: "Solicitudes librerías",
   updateBookstoreRequest: "Actualizar solicitud librería",
   getDashboardSummary: "Resumen general",
+  getProductStock: "Consultar stock",
+  getProductSales: "Historial ventas",
+  getTopSellers: "Top vendidos",
+  getOutOfStock: "Productos agotados",
+  getOperationalSummary: "Resumen operativo",
+  draftEmail: "Borrador de correo",
+  getProcessKnowledge: "Base de conocimiento",
+  listKnowledgeTopics: "Temas disponibles",
 };
 
 export function ToolChip({ toolCall }: ToolChipProps) {
