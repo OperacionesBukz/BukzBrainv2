@@ -724,6 +724,22 @@ def search_products(isbn_list: list[str], isbn_to_qty: dict) -> list[dict]:
         for future in as_completed(futures):
             all_results.update(future.result())
 
+    # Fase 2: reintentar faltantes uno por uno
+    missing = [isbn for isbn in isbn_list if isbn not in all_results]
+    if missing:
+        logger.info("Reintentando %d ISBNs no encontrados en batch", len(missing))
+        graphql_url = settings.get_graphql_url()
+        with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+            futures = {
+                executor.submit(
+                    _search_single_isbn, headers, isbn, isbn_to_qty, graphql_url
+                ): isbn
+                for isbn in missing
+            }
+            for future in as_completed(futures):
+                isbn = futures[future]
+                all_results[isbn] = future.result()
+
     # Marcar no encontrados
     for isbn in isbn_list:
         if isbn not in all_results:
