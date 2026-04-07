@@ -82,7 +82,7 @@ def _get_cutoff_date(existing_numbers: set[str]) -> str:
 
 ORDERS_QUERY = """
 {
-  orders(first: 10, query: "created_at:>=%s"%s) {
+  orders(first: 25, query: "fulfillment_status:unfulfilled created_at:>=%s"%s) {
     edges {
       node {
         name
