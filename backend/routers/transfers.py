@@ -190,21 +190,22 @@ def debug_transfer(transfer_id: str):
         id
         name
         status
-        totalQuantity
-        receivedQuantity
-        lineItems(first: 5) {
+        shipments(first: 10) {
           edges {
             node {
               id
-              title
-              totalQuantity
-              shippedQuantity
-              shippableQuantity
-              processableQuantity
-              pickedForShipmentQuantity
-              inventoryItem {
-                id
-                sku
+              name
+              status
+              lineItemsCount { count }
+              lineItems(first: 250) {
+                edges {
+                  node {
+                    id
+                    totalQuantity
+                    inventoryItem { id sku }
+                  }
+                }
+                pageInfo { hasNextPage endCursor }
               }
             }
           }
