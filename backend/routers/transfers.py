@@ -177,6 +177,28 @@ def list_transfers(
     }
 
 
+@router.get("/debug/{transfer_id}")
+def debug_transfer(transfer_id: str):
+    """Debug: ejecuta query minima y devuelve respuesta cruda de Shopify."""
+    if not transfer_id.startswith("gid://"):
+        transfer_id = f"gid://shopify/InventoryTransfer/{transfer_id}"
+
+    query = """
+    query inventoryTransfer($id: ID!) {
+      inventoryTransfer(id: $id) {
+        id
+        name
+        status
+      }
+    }
+    """
+    payload = {"query": query, "variables": {"id": transfer_id}}
+    headers = settings.get_shopify_headers()
+    url = settings.get_graphql_url()
+    resp = requests.post(url, json=payload, headers=headers, timeout=30)
+    return {"status_code": resp.status_code, "body": resp.json()}
+
+
 @router.get("/{transfer_id}")
 def get_transfer(transfer_id: str):
     """Obtiene un transfer con sus line items. Acepta ID numerico o GID completo."""
