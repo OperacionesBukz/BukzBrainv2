@@ -105,7 +105,7 @@ query inventoryTransfer($id: ID!) {
       edges {
         node {
           id
-          quantity
+          totalQuantity
           inventoryItem {
             id
             sku
@@ -205,7 +205,7 @@ def debug_transfer(transfer_id: str):
           edges {
             node {
               id
-              quantity
+              totalQuantity
               inventoryItem {
                 id
                 sku
@@ -244,7 +244,7 @@ def get_transfer(transfer_id: str):
         inv_item = node.get("inventoryItem") or {}
         line_items.append({
             "id": node.get("id"),
-            "quantity": node.get("quantity"),
+            "quantity": node.get("totalQuantity"),
             "sku": inv_item.get("sku"),
         })
 
