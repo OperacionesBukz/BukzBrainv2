@@ -3,10 +3,13 @@ Router de Transfers - consulta transfers de inventario entre ubicaciones en Shop
 Usa GraphQL Admin API (inventoryTransfers query).
 Endpoints sin auth Firebase para acceso directo (lectura solamente).
 """
+import io
 import logging
 
+import openpyxl
 import requests
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from config import settings
 
@@ -218,6 +221,148 @@ def debug_transfer(transfer_id: str):
     url = settings.get_graphql_url()
     resp = requests.post(url, json=payload, headers=headers, timeout=30)
     return {"status_code": resp.status_code, "body": resp.json()}
+
+
+_SHIPMENT_LINE_ITEMS_PAGE = """
+query shipmentLineItems($id: ID!, $shipmentIdx: Int!, $first: Int!, $after: String) {
+  inventoryTransfer(id: $id) {
+    shipments(first: $shipmentIdx) {
+      edges {
+        node {
+          name
+          status
+          lineItems(first: $first, after: $after) {
+            edges {
+              node {
+                quantity
+                inventoryItem { sku }
+              }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
+@router.get("/export/{transfer_id}")
+def export_shipment_excel(
+    transfer_id: str,
+    shipment_status: str = Query("DRAFT", description="Status del shipment a exportar: DRAFT, RECEIVED, etc."),
+):
+    """Genera Excel (SKU + QUANTITY) de un shipment especifico dentro de un transfer."""
+    if not transfer_id.startswith("gid://"):
+        transfer_id = f"gid://shopify/InventoryTransfer/{transfer_id}"
+
+    # Obtener shipments con line items
+    query = """
+    query inventoryTransfer($id: ID!) {
+      inventoryTransfer(id: $id) {
+        name
+        shipments(first: 10) {
+          edges {
+            node {
+              id
+              name
+              status
+              lineItems(first: 250) {
+                edges {
+                  node {
+                    quantity
+                    inventoryItem { sku }
+                  }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    data = _graphql(query, {"id": transfer_id})
+    transfer = data.get("inventoryTransfer")
+    if not transfer:
+        raise HTTPException(status_code=404, detail="Transfer no encontrado")
+
+    # Buscar el shipment con el status solicitado
+    target_shipment = None
+    for edge in transfer.get("shipments", {}).get("edges", []):
+        node = edge["node"]
+        if node.get("status") == shipment_status.upper():
+            target_shipment = node
+            break
+
+    if not target_shipment:
+        raise HTTPException(status_code=404, detail=f"No se encontro shipment con status {shipment_status}")
+
+    # Recopilar line items de primera pagina
+    items: list[tuple[str, int]] = []
+    li_data = target_shipment.get("lineItems", {})
+    for edge in li_data.get("edges", []):
+        node = edge["node"]
+        sku = (node.get("inventoryItem") or {}).get("sku")
+        qty = node.get("quantity", 0)
+        if sku:
+            items.append((sku, qty))
+
+    # Paginar si hay mas (usando query por shipment id)
+    page_info = li_data.get("pageInfo", {})
+    shipment_gid = target_shipment.get("id")
+    while page_info.get("hasNextPage") and shipment_gid:
+        cursor = page_info.get("endCursor")
+        page_query = """
+        query shipmentPage($id: ID!, $first: Int!, $after: String) {
+          node(id: $id) {
+            ... on InventoryShipment {
+              lineItems(first: $first, after: $after) {
+                edges {
+                  node {
+                    quantity
+                    inventoryItem { sku }
+                  }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }
+        }
+        """
+        page_data = _graphql(page_query, {"id": shipment_gid, "first": 250, "after": cursor})
+        node_data = (page_data.get("node") or {}).get("lineItems", {})
+        for edge in node_data.get("edges", []):
+            node = edge["node"]
+            sku = (node.get("inventoryItem") or {}).get("sku")
+            qty = node.get("quantity", 0)
+            if sku:
+                items.append((sku, qty))
+        page_info = node_data.get("pageInfo", {})
+
+    # Generar Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Hoja1"
+    ws["A1"] = "SKU"
+    ws["B1"] = "QUANTITY"
+    for i, (sku, qty) in enumerate(items, start=2):
+        ws[f"A{i}"] = sku
+        ws[f"B{i}"] = qty
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    shipment_name = target_shipment.get("name", "shipment").replace("#", "")
+    filename = f"Transfer_{shipment_name}.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 _TRANSFER_LINE_ITEMS_PAGE = """
