@@ -27,6 +27,7 @@ from routers import inventory_turnover
 from routers import celesa
 from routers import celesa_sync
 from routers import agent_commands
+from routers import transfers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -79,6 +80,9 @@ app.include_router(agent_commands.router, dependencies=_auth)
 
 # Webhooks — SIN auth (Shopify envia su propia verificacion HMAC)
 app.include_router(webhooks.router)
+
+# Transfers — SIN auth (lectura solamente, para consulta por agente IA)
+app.include_router(transfers.router)
 
 
 @app.get("/health")
