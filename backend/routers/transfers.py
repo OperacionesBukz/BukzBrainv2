@@ -227,9 +227,33 @@ def debug_transfer(transfer_id: str):
     return {"status_code": resp.status_code, "body": resp.json()}
 
 
+_TRANSFER_LINE_ITEMS_PAGE = """
+query transferLineItems($id: ID!, $first: Int!, $after: String) {
+  inventoryTransfer(id: $id) {
+    lineItems(first: $first, after: $after) {
+      edges {
+        node {
+          id
+          totalQuantity
+          inventoryItem {
+            id
+            sku
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+"""
+
+
 @router.get("/{transfer_id}")
 def get_transfer(transfer_id: str):
-    """Obtiene un transfer con sus line items. Acepta ID numerico o GID completo."""
+    """Obtiene un transfer con TODOS sus line items (pagina internamente)."""
     if not transfer_id.startswith("gid://"):
         transfer_id = f"gid://shopify/InventoryTransfer/{transfer_id}"
 
@@ -238,15 +262,33 @@ def get_transfer(transfer_id: str):
     if not transfer:
         raise HTTPException(status_code=404, detail=f"Transfer {transfer_id} no encontrado")
 
+    # Recopilar line items de la primera pagina
     line_items = []
-    for edge in transfer.get("lineItems", {}).get("edges", []):
+    li_data = transfer.get("lineItems", {})
+    for edge in li_data.get("edges", []):
         node = edge["node"]
         inv_item = node.get("inventoryItem") or {}
         line_items.append({
-            "id": node.get("id"),
             "quantity": node.get("totalQuantity"),
             "sku": inv_item.get("sku"),
         })
+
+    # Paginar si hay mas
+    page_info = li_data.get("pageInfo", {})
+    while page_info.get("hasNextPage"):
+        cursor = page_info.get("endCursor")
+        page_data = _graphql(_TRANSFER_LINE_ITEMS_PAGE, {
+            "id": transfer_id, "first": 250, "after": cursor,
+        })
+        li_data = (page_data.get("inventoryTransfer") or {}).get("lineItems", {})
+        for edge in li_data.get("edges", []):
+            node = edge["node"]
+            inv_item = node.get("inventoryItem") or {}
+            line_items.append({
+                "quantity": node.get("totalQuantity"),
+                "sku": inv_item.get("sku"),
+            })
+        page_info = li_data.get("pageInfo", {})
 
     return {
         "id": transfer.get("id"),
@@ -261,5 +303,5 @@ def get_transfer(transfer_id: str):
         "origin": (transfer.get("origin") or {}).get("location", {}).get("name"),
         "destination": (transfer.get("destination") or {}).get("location", {}).get("name"),
         "line_items": line_items,
-        "line_items_has_next": transfer.get("lineItems", {}).get("pageInfo", {}).get("hasNextPage", False),
+        "line_items_count": len(line_items),
     }
