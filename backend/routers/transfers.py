@@ -189,6 +189,34 @@ def debug_transfer(transfer_id: str):
         id
         name
         status
+        dateCreated
+        totalQuantity
+        receivedQuantity
+        note
+        referenceName
+        tags
+        origin {
+          location { id name }
+        }
+        destination {
+          location { id name }
+        }
+        lineItems(first: 250) {
+          edges {
+            node {
+              id
+              quantity
+              inventoryItem {
+                id
+                sku
+              }
+            }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
       }
     }
     """
