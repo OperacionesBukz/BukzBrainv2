@@ -5,7 +5,7 @@ Migrado desde PythonAnywhere (app.py → /send-email).
 from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr
 
-from services.email_service import send_email
+from services.email_service import send_email, markdown_to_email_html, wrap_email_template
 
 router = APIRouter(prefix="/api/email", tags=["Email"])
 
@@ -28,12 +28,16 @@ def send_generic_email(payload: SendEmailRequest):
     destinatarios = list(dict.fromkeys(destinatarios))
 
     subject = payload.subject or "Nueva Solicitud"
-    body = payload.email_body or "Se ha recibido una nueva solicitud."
+    raw_body = payload.email_body or "Se ha recibido una nueva solicitud."
+
+    # Convertir Markdown del agente a HTML y envolver en template Bukz
+    html_content = markdown_to_email_html(raw_body)
+    html_body = wrap_email_template(html_content)
 
     send_email(
         to=destinatarios,
         subject=subject,
-        html_body=body,
+        html_body=html_body,
         sender_name="Operaciones Bukz",
     )
 
