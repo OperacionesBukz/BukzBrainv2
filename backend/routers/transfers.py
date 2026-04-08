@@ -189,13 +189,22 @@ def debug_transfer(transfer_id: str):
         id
         name
         status
-        shipments(first: 10) {
+        totalQuantity
+        receivedQuantity
+        lineItems(first: 5) {
           edges {
             node {
               id
-              name
-              status
-              lineItemsCount { count }
+              title
+              totalQuantity
+              shippedQuantity
+              shippableQuantity
+              processableQuantity
+              pickedForShipmentQuantity
+              inventoryItem {
+                id
+                sku
+              }
             }
           }
         }
