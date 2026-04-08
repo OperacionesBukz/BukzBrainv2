@@ -106,20 +106,9 @@ query inventoryTransfer($id: ID!) {
         node {
           id
           quantity
-          receivedQuantity
           inventoryItem {
             id
             sku
-            variant {
-              id
-              title
-              displayName
-              product {
-                id
-                title
-                vendor
-              }
-            }
           }
         }
       }
@@ -203,16 +192,10 @@ def get_transfer(transfer_id: str):
     for edge in transfer.get("lineItems", {}).get("edges", []):
         node = edge["node"]
         inv_item = node.get("inventoryItem") or {}
-        variant = inv_item.get("variant") or {}
-        product = variant.get("product") or {}
         line_items.append({
             "id": node.get("id"),
             "quantity": node.get("quantity"),
-            "received_quantity": node.get("receivedQuantity"),
             "sku": inv_item.get("sku"),
-            "variant_title": variant.get("displayName"),
-            "product_title": product.get("title"),
-            "vendor": product.get("vendor"),
         })
 
     return {
