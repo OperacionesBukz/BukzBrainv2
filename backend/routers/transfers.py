@@ -182,45 +182,71 @@ def list_transfers(
 
 
 @router.get("/debug/{transfer_id}")
-def debug_transfer(transfer_id: str):
-    """Debug: ejecuta query minima y devuelve respuesta cruda de Shopify."""
+def debug_transfer(transfer_id: str, sku_filter: str | None = Query(None)):
+    """Debug: consulta shipment DRAFT por GID y devuelve respuesta cruda."""
     if not transfer_id.startswith("gid://"):
         transfer_id = f"gid://shopify/InventoryTransfer/{transfer_id}"
 
-    query = """
-    query inventoryTransfer($id: ID!) {
+    # Paso 1: obtener shipment GIDs
+    q1 = """
+    query ($id: ID!) {
       inventoryTransfer(id: $id) {
-        id
-        name
-        status
         shipments(first: 10) {
-          edges {
-            node {
-              id
-              name
-              status
-              lineItemsCount { count }
-              lineItems(first: 250) {
-                edges {
-                  node {
-                    id
-                    quantity
-                    inventoryItem { id sku }
-                  }
-                }
-                pageInfo { hasNextPage endCursor }
+          edges { node { id name status lineItemsCount { count } } }
+        }
+      }
+    }
+    """
+    payload = {"query": q1, "variables": {"id": transfer_id}}
+    headers = settings.get_shopify_headers()
+    url = settings.get_graphql_url()
+    r1 = requests.post(url, json=payload, headers=headers, timeout=30).json()
+
+    shipments_info = []
+    draft_gid = None
+    for edge in (r1.get("data", {}).get("inventoryTransfer") or {}).get("shipments", {}).get("edges", []):
+        s = edge["node"]
+        shipments_info.append(s)
+        if s.get("status") == "DRAFT":
+            draft_gid = s["id"]
+
+    if not draft_gid:
+        return {"error": "No DRAFT shipment found", "shipments": shipments_info}
+
+    # Paso 2: query directo al shipment por GID
+    q2 = """
+    query ($id: ID!, $first: Int!) {
+      node(id: $id) {
+        ... on InventoryShipment {
+          id
+          name
+          status
+          lineItems(first: $first) {
+            edges {
+              node {
+                id
+                quantity
+                inventoryItem { id sku }
               }
             }
+            pageInfo { hasNextPage endCursor }
           }
         }
       }
     }
     """
-    payload = {"query": query, "variables": {"id": transfer_id}}
-    headers = settings.get_shopify_headers()
-    url = settings.get_graphql_url()
-    resp = requests.post(url, json=payload, headers=headers, timeout=30)
-    return {"status_code": resp.status_code, "body": resp.json()}
+    r2 = requests.post(url, json={"query": q2, "variables": {"id": draft_gid, "first": 250}}, headers=headers, timeout=30).json()
+
+    # Si hay filtro de SKU, buscar solo ese
+    if sku_filter:
+        matched = []
+        for edge in (r2.get("data", {}).get("node") or {}).get("lineItems", {}).get("edges", []):
+            n = edge["node"]
+            if (n.get("inventoryItem") or {}).get("sku") == sku_filter:
+                matched.append(n)
+        return {"shipments": shipments_info, "draft_gid": draft_gid, "sku_filter": sku_filter, "matches": matched}
+
+    return {"shipments": shipments_info, "draft_gid": draft_gid, "raw_response": r2}
 
 
 _SHIPMENT_LINE_ITEMS_PAGE = """
