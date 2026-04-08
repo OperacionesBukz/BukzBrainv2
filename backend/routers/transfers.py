@@ -257,63 +257,40 @@ def export_shipment_excel(
     if not transfer_id.startswith("gid://"):
         transfer_id = f"gid://shopify/InventoryTransfer/{transfer_id}"
 
-    # Obtener shipments con line items
-    query = """
+    # Paso 1: obtener solo IDs y status de shipments (SIN line items)
+    shipments_query = """
     query inventoryTransfer($id: ID!) {
       inventoryTransfer(id: $id) {
         name
         shipments(first: 10) {
           edges {
-            node {
-              id
-              name
-              status
-              lineItems(first: 250) {
-                edges {
-                  node {
-                    quantity
-                    inventoryItem { sku }
-                  }
-                }
-                pageInfo { hasNextPage endCursor }
-              }
-            }
+            node { id name status }
           }
         }
       }
     }
     """
-    data = _graphql(query, {"id": transfer_id})
+    data = _graphql(shipments_query, {"id": transfer_id})
     transfer = data.get("inventoryTransfer")
     if not transfer:
         raise HTTPException(status_code=404, detail="Transfer no encontrado")
 
-    # Buscar el shipment con el status solicitado
-    target_shipment = None
+    shipment_gid = None
+    shipment_name = "shipment"
     for edge in transfer.get("shipments", {}).get("edges", []):
-        node = edge["node"]
-        if node.get("status") == shipment_status.upper():
-            target_shipment = node
+        s = edge["node"]
+        if s.get("status") == shipment_status.upper():
+            shipment_gid = s["id"]
+            shipment_name = s.get("name", shipment_name)
             break
 
-    if not target_shipment:
+    if not shipment_gid:
         raise HTTPException(status_code=404, detail=f"No se encontro shipment con status {shipment_status}")
 
-    # Recopilar line items de primera pagina
+    # Paso 2: consultar SOLO ese shipment por su GID, paginando line items
     items: list[tuple[str, int]] = []
-    li_data = target_shipment.get("lineItems", {})
-    for edge in li_data.get("edges", []):
-        node = edge["node"]
-        sku = (node.get("inventoryItem") or {}).get("sku")
-        qty = node.get("quantity", 0)
-        if sku:
-            items.append((sku, qty))
-
-    # Paginar si hay mas (usando query por shipment id)
-    page_info = li_data.get("pageInfo", {})
-    shipment_gid = target_shipment.get("id")
-    while page_info.get("hasNextPage") and shipment_gid:
-        cursor = page_info.get("endCursor")
+    after = None
+    while True:
         page_query = """
         query shipmentPage($id: ID!, $first: Int!, $after: String) {
           node(id: $id) {
@@ -331,17 +308,25 @@ def export_shipment_excel(
           }
         }
         """
-        page_data = _graphql(page_query, {"id": shipment_gid, "first": 250, "after": cursor})
-        node_data = (page_data.get("node") or {}).get("lineItems", {})
-        for edge in node_data.get("edges", []):
-            node = edge["node"]
-            sku = (node.get("inventoryItem") or {}).get("sku")
-            qty = node.get("quantity", 0)
+        variables: dict = {"id": shipment_gid, "first": 250}
+        if after:
+            variables["after"] = after
+
+        page_data = _graphql(page_query, variables)
+        li_data = (page_data.get("node") or {}).get("lineItems", {})
+        for edge in li_data.get("edges", []):
+            n = edge["node"]
+            sku = (n.get("inventoryItem") or {}).get("sku")
+            qty = n.get("quantity", 0)
             if sku:
                 items.append((sku, qty))
-        page_info = node_data.get("pageInfo", {})
 
-    # Generar Excel
+        pi = li_data.get("pageInfo", {})
+        if not pi.get("hasNextPage"):
+            break
+        after = pi.get("endCursor")
+
+    # Paso 3: generar Excel
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Hoja1"
@@ -355,8 +340,8 @@ def export_shipment_excel(
     wb.save(buf)
     buf.seek(0)
 
-    shipment_name = target_shipment.get("name", "shipment").replace("#", "")
-    filename = f"Transfer_{shipment_name}.xlsx"
+    clean_name = shipment_name.replace("#", "")
+    filename = f"Transfer_{clean_name}.xlsx"
 
     return StreamingResponse(
         buf,
