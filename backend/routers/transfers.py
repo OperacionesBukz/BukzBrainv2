@@ -106,6 +106,7 @@ query inventoryTransfer($id: ID!) {
         node {
           id
           totalQuantity
+          shippedQuantity
           inventoryItem {
             id
             sku
@@ -226,6 +227,7 @@ query transferLineItems($id: ID!, $first: Int!, $after: String) {
         node {
           id
           totalQuantity
+          shippedQuantity
           inventoryItem {
             id
             sku
@@ -261,6 +263,7 @@ def get_transfer(transfer_id: str):
         inv_item = node.get("inventoryItem") or {}
         line_items.append({
             "quantity": node.get("totalQuantity"),
+            "shipped": node.get("shippedQuantity", 0),
             "sku": inv_item.get("sku"),
         })
 
