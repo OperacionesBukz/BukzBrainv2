@@ -201,7 +201,7 @@ def debug_transfer(transfer_id: str):
                 edges {
                   node {
                     id
-                    totalQuantity
+                    quantity
                     inventoryItem { id sku }
                   }
                 }
