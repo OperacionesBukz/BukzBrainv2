@@ -2,7 +2,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { resilientFetch } from "@/lib/resilient-fetch";
 import { db } from "@/lib/firebase";
 import { API_BASE } from "./types";
-import type { DevolucionesConfig, DevolucionItem, EnvioResponse } from "./types";
+import type { DevolucionesConfig, EnvioResponse } from "./types";
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -82,7 +82,6 @@ export async function crearTareaDevolucion(params: {
   destinatario: string;
   codigoDevolucion: string;
   createdBy: string;
-  items?: DevolucionItem[];
 }): Promise<void> {
   const today = new Date();
   const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -96,6 +95,5 @@ export async function crearTareaDevolucion(params: {
     createdAt: serverTimestamp(),
     order: Date.now(),
     startDate,
-    ...(params.items?.length ? { devolucionItems: params.items.map(i => ({ ...i, recibido: false })) } : {}),
   });
 }

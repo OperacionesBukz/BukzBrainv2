@@ -78,7 +78,6 @@ export default function SedesTab() {
               destinatario: data.destinatario,
               codigoDevolucion: codigo,
               createdBy: user?.email ?? "",
-              items: parsedItems,
             }).catch((err) => console.error("[devoluciones] Error al crear tarea:", err));
           }
         },
