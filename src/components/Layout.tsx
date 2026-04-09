@@ -934,8 +934,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <div className="flex-1" />
 
-        {/* GlobalSearch - centrado en desktop, oculto en mobile */}
-        <div id="header-search" className="hidden md:flex md:justify-center md:flex-1 md:max-w-md">
+        {/* GlobalSearch - centrado, visible en todos los tamaños */}
+        <div id="header-search" className="flex justify-center flex-1 max-w-xs sm:max-w-sm md:max-w-md">
           <GlobalSearch />
         </div>
 
