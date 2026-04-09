@@ -224,14 +224,20 @@ const OperationsTaskCard = ({
 
               {/* Link a Historial Devoluciones */}
               {task.department === "Devolución" && (
-                <Link
-                  to="/devoluciones"
-                  className="flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="w-full justify-center gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <ExternalLink className="h-3 w-3" />
-                  Ver en Historial de Devoluciones
-                </Link>
+                  <Link
+                    to={`/devoluciones?tab=historial${task.codigoDevolucion ? `&codigo=${encodeURIComponent(task.codigoDevolucion)}` : ""}`}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver en Historial de Devoluciones
+                  </Link>
+                </Button>
               )}
 
               {/* Dates */}

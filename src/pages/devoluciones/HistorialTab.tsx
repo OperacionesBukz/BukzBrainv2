@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,11 +33,17 @@ function formatDate(ts: { seconds: number } | null | undefined): string {
   });
 }
 
-export default function HistorialTab() {
+export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: string }) {
   const { logs, loading } = useDevolucionesLog();
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightCodigo || loading || logs.length === 0) return;
+    const match = logs.find((l) => l.codigoDevolucion === highlightCodigo);
+    if (match) setExpandedId(match.id);
+  }, [highlightCodigo, loading, logs]);
 
   const filtered = logs.filter((log) => {
     if (filtroTipo !== "todos" && log.tipo !== filtroTipo) return false;

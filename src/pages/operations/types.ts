@@ -16,6 +16,7 @@ export interface Task {
   order?: number;
   startDate?: string;
   dueDate?: string;
+  codigoDevolucion?: string;
 }
 
 export const departments = ["General", "Devolución", "SAC", "Operaciones"];

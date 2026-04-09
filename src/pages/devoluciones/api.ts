@@ -95,5 +95,6 @@ export async function crearTareaDevolucion(params: {
     createdAt: serverTimestamp(),
     order: Date.now(),
     startDate,
+    codigoDevolucion: params.codigoDevolucion,
   });
 }
