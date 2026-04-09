@@ -157,7 +157,12 @@ const OperationsTaskCard = ({
               value={task.department}
               onChange={(e) => updateTask(task.id, { department: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full shrink-0 cursor-pointer border border-border outline-none focus:ring-1 focus:ring-ring appearance-none"
+              className={cn(
+                "text-xs px-2 py-0.5 rounded-full shrink-0 cursor-pointer border outline-none focus:ring-1 focus:ring-ring appearance-none",
+                task.department === "Devolución"
+                  ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30 font-semibold"
+                  : "text-muted-foreground bg-secondary border-border"
+              )}
             >
               {departments.map((d) => (
                 <option key={d} value={d}>{d}</option>
