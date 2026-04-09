@@ -43,6 +43,7 @@ const UserManagement = lazyWithReload(() => import("./pages/admin/UserManagement
 const NotFound = lazyWithReload(() => import("./pages/NotFound"));
 const Login = lazyWithReload(() => import("./pages/Login"));
 const Assistant = lazyWithReload(() => import("./pages/Assistant"));
+const ConciliacionFerias = lazyWithReload(() => import("./pages/ConciliacionFerias"));
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ const App = () => {
                               <Route path="/cortes" element={<Cortes />} />
                               <Route path="/envio-cortes" element={<EnvioCortes />} />
                               <Route path="/devoluciones" element={<Devoluciones />} />
+                              <Route path="/conciliacion-ferias" element={<ConciliacionFerias />} />
                               <Route path="/gift-cards" element={<GiftCards />} />
                               <Route path="/directorio" element={<Directorio />} />
                               <Route path="/cmv" element={<CMV />} />

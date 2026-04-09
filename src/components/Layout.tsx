@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Ship,
   RefreshCw as RefreshCwIcon,
+  Scale,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -91,6 +92,12 @@ const workflowSubCategories = [
     category: "Devoluciones",
     items: [
       { title: "Devoluciones", path: "/devoluciones", icon: Undo2 },
+    ],
+  },
+  {
+    category: "Inventario",
+    items: [
+      { title: "Conciliacion Ferias", path: "/conciliacion-ferias", icon: Scale },
     ],
   },
   {

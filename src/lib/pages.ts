@@ -15,6 +15,7 @@ import {
   GitBranchPlus,
   DollarSign,
   TrendingUp,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 export type WorkspaceId = "general" | "operaciones";
@@ -42,6 +43,7 @@ export const PAGE_REGISTRY: PageDefinition[] = [
   { path: "/cmv", label: "CMV", description: "Costo de Mercancía Vendida", icon: DollarSign, workspace: "operaciones" },
   { path: "/rotacion", label: "Rotación", description: "Rotación de inventario por sede", icon: TrendingUp, workspace: "operaciones" },
   { path: "/calculator", label: "Calculadora", description: "Conversor EUR a COP", icon: Calculator, workspace: "general" },
+  { path: "/conciliacion-ferias", label: "Conciliacion Ferias", description: "Conciliacion de inventario de ferias", icon: Scale, workspace: "operaciones" },
 ];
 
 export const ALL_PAGE_PATHS = PAGE_REGISTRY.map((p) => p.path);
