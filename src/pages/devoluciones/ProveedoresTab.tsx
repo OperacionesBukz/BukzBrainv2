@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import FileUploadField from "./FileUploadField";
 import { useDevolucionesConfig, useEnviarProveedores } from "./hooks";
-import { logDevolucion } from "./api";
+import { logDevolucion, crearTareaDevolucion } from "./api";
 import type { EnvioResponse } from "./types";
 
 type Step = "config" | "processing" | "results";
@@ -41,6 +41,7 @@ export default function ProveedoresTab() {
   const [motivo, setMotivo] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [numCajas, setNumCajas] = useState(1);
+  const [codigoDevolucion, setCodigoDevolucion] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [remitente, setRemitente] = useState("Sebastian Barrios - Bukz");
   const [response, setResponse] = useState<EnvioResponse | null>(null);
@@ -63,6 +64,7 @@ export default function ProveedoresTab() {
           setResponse(data);
           toast.success(`Email enviado a ${data.destinatario}`);
           setStep("results");
+          const codigo = codigoDevolucion.trim();
           logDevolucion({
             tipo: "proveedor",
             destinatario: data.destinatario,
@@ -70,18 +72,28 @@ export default function ProveedoresTab() {
             motivo,
             ciudad,
             numCajas,
+            ...(codigo ? { codigoDevolucion: codigo } : {}),
             nombreArchivo: archivo.name,
             asunto: data.asunto,
             enviadoPor: user?.email ?? "",
             enviadoPorNombre: user?.displayName ?? user?.email ?? "",
             estado: "enviado",
           });
+          if (codigo) {
+            crearTareaDevolucion({
+              motivo,
+              destinatario: data.destinatario,
+              codigoDevolucion: codigo,
+              createdBy: user?.email ?? "",
+            }).catch((err) => console.error("[devoluciones] Error al crear tarea:", err));
+          }
         },
         onError: (err) => {
           toast.error(
             err instanceof Error ? err.message : "Error al enviar email",
           );
           setStep("config");
+          const codigoErr = codigoDevolucion.trim();
           logDevolucion({
             tipo: "proveedor",
             destinatario: proveedor,
@@ -89,6 +101,7 @@ export default function ProveedoresTab() {
             motivo,
             ciudad,
             numCajas,
+            ...(codigoErr ? { codigoDevolucion: codigoErr } : {}),
             nombreArchivo: archivo.name,
             asunto: "",
             enviadoPor: user?.email ?? "",
@@ -99,7 +112,7 @@ export default function ProveedoresTab() {
         },
       },
     );
-  }, [proveedor, motivo, ciudad, numCajas, archivo, remitente, mutation, user]);
+  }, [proveedor, motivo, ciudad, numCajas, codigoDevolucion, archivo, remitente, mutation, user]);
 
   const handleReset = useCallback(() => {
     setStep("config");
@@ -107,6 +120,7 @@ export default function ProveedoresTab() {
     setMotivo("");
     setCiudad("");
     setNumCajas(1);
+    setCodigoDevolucion("");
     setArchivo(null);
     setResponse(null);
   }, []);
@@ -191,7 +205,7 @@ export default function ProveedoresTab() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
               <Label>Ciudad</Label>
               <Select value={ciudad} onValueChange={setCiudad} disabled={configLoading}>
@@ -222,6 +236,16 @@ export default function ProveedoresTab() {
                 min={1}
                 value={numCajas}
                 onChange={(e) => setNumCajas(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="codigo-devolucion-prov">Código Devolución</Label>
+              <Input
+                id="codigo-devolucion-prov"
+                value={codigoDevolucion}
+                onChange={(e) => setCodigoDevolucion(e.target.value)}
+                placeholder="Ej: 001"
               />
             </div>
 

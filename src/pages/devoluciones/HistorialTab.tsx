@@ -94,6 +94,7 @@ export default function HistorialTab() {
                   <th className="text-left px-3 py-2">Tipo</th>
                   <th className="text-left px-3 py-2">Destinatario</th>
                   <th className="text-left px-3 py-2">Motivo</th>
+                  <th className="text-left px-3 py-2">Código</th>
                   <th className="text-left px-3 py-2">Estado</th>
                   <th className="text-left px-3 py-2">Enviado por</th>
                 </tr>
@@ -114,6 +115,9 @@ export default function HistorialTab() {
                       </td>
                       <td className="px-3 py-1.5 font-medium">{log.destinatario}</td>
                       <td className="px-3 py-1.5 text-muted-foreground">{log.motivo}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
+                        {log.codigoDevolucion ?? "—"}
+                      </td>
                       <td className="px-3 py-1.5">
                         <Badge variant="secondary" className={estadoStyle.className}>
                           {estadoStyle.label}

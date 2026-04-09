@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import FileUploadField from "./FileUploadField";
 import { useDevolucionesConfig, useEnviarSedes } from "./hooks";
-import { logDevolucion } from "./api";
+import { logDevolucion, crearTareaDevolucion } from "./api";
 import type { EnvioResponse } from "./types";
 
 type Step = "config" | "processing" | "results";
@@ -25,6 +25,7 @@ export default function SedesTab() {
   const [sede, setSede] = useState("");
   const [motivo, setMotivo] = useState("");
   const [proveedorNombre, setProveedorNombre] = useState("");
+  const [codigoDevolucion, setCodigoDevolucion] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [remitente, setRemitente] = useState("Sebastian Barrios - Bukz");
   const [response, setResponse] = useState<EnvioResponse | null>(null);
@@ -48,30 +49,42 @@ export default function SedesTab() {
           setResponse(data);
           toast.success(`Email enviado a ${data.destinatario}`);
           setStep("results");
+          const codigo = codigoDevolucion.trim();
           logDevolucion({
             tipo: "sede",
             destinatario: data.destinatario,
             correos: data.correos,
             motivo,
             proveedorNombre: proveedorNombre.trim(),
+            ...(codigo ? { codigoDevolucion: codigo } : {}),
             nombreArchivo: archivo.name,
             asunto: data.asunto,
             enviadoPor: user?.email ?? "",
             enviadoPorNombre: user?.displayName ?? user?.email ?? "",
             estado: "enviado",
           });
+          if (codigo) {
+            crearTareaDevolucion({
+              motivo,
+              destinatario: data.destinatario,
+              codigoDevolucion: codigo,
+              createdBy: user?.email ?? "",
+            }).catch((err) => console.error("[devoluciones] Error al crear tarea:", err));
+          }
         },
         onError: (err) => {
           toast.error(
             err instanceof Error ? err.message : "Error al enviar email",
           );
           setStep("config");
+          const codigoErr = codigoDevolucion.trim();
           logDevolucion({
             tipo: "sede",
             destinatario: sede,
             correos: [],
             motivo,
             proveedorNombre: proveedorNombre.trim(),
+            ...(codigoErr ? { codigoDevolucion: codigoErr } : {}),
             nombreArchivo: archivo.name,
             asunto: "",
             enviadoPor: user?.email ?? "",
@@ -82,13 +95,14 @@ export default function SedesTab() {
         },
       },
     );
-  }, [sede, motivo, proveedorNombre, archivo, remitente, mutation, user]);
+  }, [sede, motivo, proveedorNombre, codigoDevolucion, archivo, remitente, mutation, user]);
 
   const handleReset = useCallback(() => {
     setStep("config");
     setSede("");
     setMotivo("");
     setProveedorNombre("");
+    setCodigoDevolucion("");
     setArchivo(null);
     setResponse(null);
   }, []);
@@ -143,7 +157,7 @@ export default function SedesTab() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="proveedor-nombre">Nombre del proveedor</Label>
               <Input
@@ -151,6 +165,16 @@ export default function SedesTab() {
                 value={proveedorNombre}
                 onChange={(e) => setProveedorNombre(e.target.value)}
                 placeholder="Ej: Penguin RandomHouse"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="codigo-devolucion-sedes">Código Devolución</Label>
+              <Input
+                id="codigo-devolucion-sedes"
+                value={codigoDevolucion}
+                onChange={(e) => setCodigoDevolucion(e.target.value)}
+                placeholder="Ej: 001"
               />
             </div>
 

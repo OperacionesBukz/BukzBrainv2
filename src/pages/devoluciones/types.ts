@@ -25,6 +25,7 @@ export interface DevolucionLog {
   ciudad?: string;
   numCajas?: number;
   proveedorNombre?: string;
+  codigoDevolucion?: string;
   nombreArchivo: string;
   asunto: string;
   enviadoPor: string;

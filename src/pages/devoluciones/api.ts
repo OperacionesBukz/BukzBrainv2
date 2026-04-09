@@ -76,3 +76,24 @@ export async function logDevolucion(
     creadoEn: serverTimestamp(),
   });
 }
+
+export async function crearTareaDevolucion(params: {
+  motivo: string;
+  destinatario: string;
+  codigoDevolucion: string;
+  createdBy: string;
+}): Promise<void> {
+  const today = new Date();
+  const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  await addDoc(collection(db, "tasks"), {
+    title: `${params.motivo}-${params.destinatario}-${params.codigoDevolucion}`,
+    department: "Devolución",
+    status: "todo",
+    notes: "",
+    subtasks: [],
+    createdBy: params.createdBy,
+    createdAt: serverTimestamp(),
+    order: Date.now(),
+    startDate,
+  });
+}
