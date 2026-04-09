@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Download, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Send } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 import { utils, writeFile } from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,11 +56,7 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
   });
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -92,9 +90,7 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
       </CardHeader>
       <CardContent>
         {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No hay registros de envío
-          </p>
+          <EmptyState compact icon={Send} title="No hay registros de envío" />
         ) : (
           <div className="rounded border overflow-auto max-h-[500px]">
             <table className="w-full text-sm">

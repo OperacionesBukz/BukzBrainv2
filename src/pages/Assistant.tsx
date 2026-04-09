@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, MessageSquare, Trash2 } from "lucide-react";
+import { Plus, MessageSquare, Trash2, ShieldX } from "lucide-react";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAgentPermissions } from "@/hooks/use-agent-permissions";
@@ -15,9 +16,12 @@ const Assistant = () => {
 
   if (!hasAgentAccess) {
     return (
-      <div className="flex items-center justify-center h-[60vh] text-muted-foreground">
-        No tienes acceso a esta pagina.
-      </div>
+      <ErrorState
+        icon={ShieldX}
+        title="Acceso restringido"
+        message="No tienes acceso a esta página."
+        className="h-[60vh]"
+      />
     );
   }
 

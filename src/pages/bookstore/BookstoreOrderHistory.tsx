@@ -3,8 +3,9 @@ import {
     History,
     Eye,
     Calendar,
-    StickyNote
+    StickyNote,
 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -169,10 +170,7 @@ const BookstoreOrderHistory = ({
                 </div>
             )}
             {orders.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground">
-                    <History className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                    <p>No hay pedidos registrados</p>
-                </div>
+                <EmptyState icon={History} title="No hay pedidos registrados" />
             )}
         </CardContent>
 

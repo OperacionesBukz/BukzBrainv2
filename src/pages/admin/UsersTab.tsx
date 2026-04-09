@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { UserPlus, Users, Clock, ShieldCheck, Search, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/EmptyState";
 import { SUPER_ADMIN_EMAIL } from "@/contexts/AuthContext";
 import { CreateUserDialog } from "./CreateUserDialog";
 import type { RegisteredUser } from "./usePermissionsData";
@@ -91,13 +92,16 @@ export function UsersTab({ users }: UsersTabProps) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-10">
-                  <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery || roleFilter !== "all"
-                      ? "No se encontraron usuarios con esos filtros."
-                      : "No hay usuarios registrados aun."}
-                  </p>
+                <TableCell colSpan={4} className="p-0">
+                  <EmptyState
+                    compact
+                    icon={Users}
+                    title={
+                      searchQuery || roleFilter !== "all"
+                        ? "No se encontraron usuarios con esos filtros"
+                        : "No hay usuarios registrados aún"
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ) : (

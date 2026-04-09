@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ArrowRight,
   User as UserIcon,
+  PackageOpen,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -15,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 
 const priorityColor: Record<string, string> = {
   Baja: "bg-muted text-muted-foreground border-border",
@@ -219,21 +222,14 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold text-foreground mb-4">Mis Tareas Activas</h2>
           <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
             {loading ? (
-              <div className="divide-y divide-border">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 px-5 py-3.5">
-                    <div className="h-2.5 w-2.5 rounded-full bg-muted animate-pulse" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
-                    </div>
-                    <div className="h-5 w-14 rounded-full bg-muted animate-pulse" />
-                  </div>
-                ))}
-              </div>
+              <LoadingState variant="skeleton" count={3} className="p-3" />
             ) : tasks.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-muted-foreground">
-                No tienes tareas pendientes. ¡Buen trabajo!
-              </div>
+              <EmptyState
+                compact
+                icon={ClipboardList}
+                title="No tienes tareas pendientes"
+                description="¡Buen trabajo!"
+              />
             ) : (
               tasks.map((task) => (
                 <div
@@ -278,9 +274,11 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold text-foreground mb-4">Devoluciones Activas</h2>
           <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
             {devTasks.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-muted-foreground italic">
-                No hay devoluciones activas.
-              </div>
+              <EmptyState
+                compact
+                icon={PackageOpen}
+                title="No hay devoluciones activas"
+              />
             ) : (
               devTasks.map((task) => (
                 <div

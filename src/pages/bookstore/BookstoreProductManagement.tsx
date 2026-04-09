@@ -2,8 +2,10 @@ import {
     Plus,
     Trash2,
     Pencil,
-    X
+    X,
+    Tag,
 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -99,7 +101,9 @@ const BookstoreProductManagement = ({
                                 </Button>
                             </div>
                         ))}
-                        {categories.length === 0 && <p className="text-xs text-muted-foreground text-center">No hay categorías. Agrega una arriba.</p>}
+                        {categories.length === 0 && (
+                            <EmptyState compact icon={Tag} title="No hay categorías" description="Agrega una arriba." />
+                        )}
                     </div>
                 </CardContent>
             </Card>

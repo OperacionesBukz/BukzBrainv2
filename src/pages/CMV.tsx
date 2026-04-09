@@ -2,9 +2,10 @@ import { useState } from "react";
 import { ModuleInfoButton } from "@/components/ModuleInfoButton";
 import { MODULE_INFO } from "@/lib/module-info";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2 } from "lucide-react";
+import { Trash2, FileSpreadsheet } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -115,9 +116,8 @@ const CMV = () => {
 
           {state.isProcessing && (
             <Card>
-              <CardContent className="py-16 flex flex-col items-center gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-muted-foreground">Procesando datos, buscando vendors y descuentos...</p>
+              <CardContent className="py-8">
+                <LoadingState message="Procesando datos, buscando vendors y descuentos..." />
               </CardContent>
             </Card>
           )}
@@ -148,15 +148,15 @@ const CMV = () => {
         {/* Tab: Historial */}
         <TabsContent value="historial" className="mt-6">
           {historyLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
+            <LoadingState variant="skeleton" count={3} />
           ) : history.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                No hay registros en el historial. Procesa un CMV y guárdalo para verlo aquí.
+              <CardContent className="py-4">
+                <EmptyState
+                  icon={FileSpreadsheet}
+                  title="Sin historial de CMV"
+                  description="Procesa un CMV y guárdalo para verlo aquí."
+                />
               </CardContent>
             </Card>
           ) : (

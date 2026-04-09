@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CheckCheck } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -86,13 +88,9 @@ export function NotificationBell() {
 
         {/* Content */}
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            Cargando...
-          </div>
+          <LoadingState className="py-6" />
         ) : notifications.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            No tienes notificaciones
-          </div>
+          <EmptyState compact icon={Bell} title="No tienes notificaciones" />
         ) : (
           <ScrollArea className="max-h-80">
             <div className="divide-y">

@@ -1,12 +1,15 @@
 import { useState } from "react";
 import {
-  Loader2,
   Search,
   Ban,
   CheckCircle2,
   XCircle,
   Copy,
+  CreditCard,
 } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -109,18 +112,20 @@ export default function GiftCardList() {
         </form>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Cargando...</span>
-          </div>
+          <LoadingState message="Cargando..." />
         ) : isError ? (
-          <div className="text-center py-8 text-destructive">
-            {error instanceof Error ? error.message : "Error cargando gift cards"}
-          </div>
+          <ErrorState
+            compact
+            message={error instanceof Error ? error.message : "Error cargando gift cards"}
+            onRetry={() => setActiveQuery(activeQuery)}
+          />
         ) : !data?.gift_cards.length ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No se encontraron gift cards
-          </div>
+          <EmptyState
+            compact
+            icon={CreditCard}
+            title="No se encontraron gift cards"
+            description={activeQuery ? "Intenta con otro término de búsqueda" : undefined}
+          />
         ) : (
           <div className="overflow-auto max-h-[60vh] rounded-md border">
             <Table>

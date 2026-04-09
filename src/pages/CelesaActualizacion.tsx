@@ -11,6 +11,7 @@ import {
   ArrowDown,
   XCircle,
 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -470,12 +471,12 @@ export default function CelesaActualizacion() {
       {/* Empty state when differences is empty array */}
       {differences && differences.length === 0 && (
         <Card>
-          <CardContent className="py-12 text-center">
-            <CheckCircle2 className="h-12 w-12 mx-auto text-green-600/40 mb-4" />
-            <h3 className="font-medium text-lg mb-1">Inventario sincronizado</h3>
-            <p className="text-sm text-muted-foreground">
-              No se encontraron diferencias entre Azeta y Shopify.
-            </p>
+          <CardContent className="py-4">
+            <EmptyState
+              icon={CheckCircle2}
+              title="Inventario sincronizado"
+              description="No se encontraron diferencias entre Azeta y Shopify."
+            />
           </CardContent>
         </Card>
       )}

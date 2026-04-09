@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Trash2, FileText } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 import { doc, deleteDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import {
@@ -59,20 +61,11 @@ export default function HistorialTab() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">Cargando historial...</span>
-      </div>
-    );
+    return <LoadingState message="Cargando historial..." />;
   }
 
   if (logs.length === 0) {
-    return (
-      <p className="py-10 text-center text-sm text-muted-foreground">
-        No hay pedidos registrados aún.
-      </p>
-    );
+    return <EmptyState icon={FileText} title="No hay pedidos registrados aún" />;
   }
 
   return (

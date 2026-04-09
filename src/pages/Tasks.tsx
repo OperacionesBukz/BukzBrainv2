@@ -9,6 +9,7 @@ import {
   Plus,
   Minus,
   UserPlus,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -710,7 +713,9 @@ const Tasks = () => {
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2 min-h-[100px] rounded-xl border border-dashed border-border p-3">
                   {loading ? (
-                    <p className="text-xs text-muted-foreground text-center py-8 italic">Cargando...</p>
+                    <LoadingState variant="skeleton" count={3} className="p-2" />
+                  ) : pendingTasks.length === 0 ? (
+                    <EmptyState compact icon={ClipboardList} title="No hay tareas pendientes" />
                   ) : (
                     pendingTasks.map((task, index) => (
                       <TaskCard
@@ -728,7 +733,6 @@ const Tasks = () => {
                       />
                     ))
                   )}
-                  {!loading && pendingTasks.length === 0 && <p className="text-xs text-muted-foreground text-center py-8">No hay tareas pendientes</p>}
                   {provided.placeholder}
                 </div>
               )}
@@ -740,7 +744,9 @@ const Tasks = () => {
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2 min-h-[100px] rounded-xl border border-dashed border-success/30 bg-success/5 p-3">
                   {loading ? (
-                    <p className="text-xs text-muted-foreground text-center py-8 italic">Cargando...</p>
+                    <LoadingState variant="skeleton" count={3} className="p-2" />
+                  ) : completedTasks.length === 0 ? (
+                    <EmptyState compact icon={ClipboardList} title="No hay tareas completadas" />
                   ) : (
                     completedTasks.map((task, index) => (
                       <TaskCard
@@ -758,7 +764,6 @@ const Tasks = () => {
                       />
                     ))
                   )}
-                  {!loading && completedTasks.length === 0 && <p className="text-xs text-muted-foreground text-center py-8">No hay tareas completadas</p>}
                   {provided.placeholder}
                 </div>
               )}

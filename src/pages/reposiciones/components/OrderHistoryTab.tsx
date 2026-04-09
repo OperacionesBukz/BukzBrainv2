@@ -31,7 +31,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, Search } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, Search, Package } from "lucide-react";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { toast } from "sonner";
 import ExpandableOrderRow from "./ExpandableOrderRow";
 import type { OrderHistoryFilters, OrderListItem } from "../types";
@@ -273,9 +276,7 @@ export default function OrderHistoryTab() {
 
       {/* Error state */}
       {error && (
-        <div className="text-sm text-destructive">
-          Error al cargar pedidos: {error}
-        </div>
+        <ErrorState compact message={`Error al cargar pedidos: ${error}`} />
       )}
 
       {/* Table */}
@@ -317,14 +318,14 @@ export default function OrderHistoryTab() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Cargando...
+                  <TableCell colSpan={7} className="p-0">
+                    <LoadingState message="Cargando pedidos..." />
                   </TableCell>
                 </TableRow>
               ) : sortedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No hay pedidos
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState compact icon={Package} title="No hay pedidos" />
                   </TableCell>
                 </TableRow>
               ) : (

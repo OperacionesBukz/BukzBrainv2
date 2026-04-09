@@ -4,8 +4,9 @@ import {
     Send,
     Search,
     StickyNote,
-    Trash2
+    Trash2,
 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -146,10 +147,7 @@ const BookstoreOrderView = ({
                     </CardHeader>
                     <CardContent className="pt-6 space-y-4">
                         {cart.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                <Package className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                                <p>Tu carrito está vacío</p>
-                            </div>
+                            <EmptyState compact icon={Package} title="Tu carrito está vacío" />
                         ) : (
                             <div className="space-y-3">
                                 {cart.map((item) => (

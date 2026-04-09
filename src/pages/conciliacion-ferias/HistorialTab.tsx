@@ -1,6 +1,8 @@
-import { Loader2 } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingState } from "@/components/LoadingState";
+import { EmptyState } from "@/components/EmptyState";
 import {
   Table,
   TableBody,
@@ -29,11 +31,7 @@ export function HistorialTab() {
   const { logs, loading } = useConciliacionLog();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -45,9 +43,7 @@ export function HistorialTab() {
       </CardHeader>
       <CardContent>
         {logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No hay conciliaciones registradas aun.
-          </p>
+          <EmptyState compact icon={FileText} title="No hay conciliaciones registradas aún" />
         ) : (
           <div className="overflow-x-auto">
             <Table>
