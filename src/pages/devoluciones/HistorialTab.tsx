@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Fragment, useState } from "react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDevolucionesLog } from "./hooks";
+import type { DevolucionItem } from "./types";
 
 const TIPO_STYLES = {
   sede: { label: "Sede", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
@@ -36,6 +37,7 @@ export default function HistorialTab() {
   const { logs, loading } = useDevolucionesLog();
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filtered = logs.filter((log) => {
     if (filtroTipo !== "todos" && log.tipo !== filtroTipo) return false;
@@ -90,6 +92,7 @@ export default function HistorialTab() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
+                  <th className="w-8 px-2 py-2" />
                   <th className="text-left px-3 py-2">Fecha</th>
                   <th className="text-left px-3 py-2">Tipo</th>
                   <th className="text-left px-3 py-2">Destinatario</th>
@@ -103,30 +106,81 @@ export default function HistorialTab() {
                 {filtered.map((log) => {
                   const tipoStyle = TIPO_STYLES[log.tipo];
                   const estadoStyle = ESTADO_STYLES[log.estado];
+                  const logItems = log.items as DevolucionItem[] | undefined;
+                  const isExpanded = expandedId === log.id;
                   return (
-                    <tr key={log.id} className="border-t">
-                      <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDate(log.creadoEn as { seconds: number } | null)}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <Badge variant="secondary" className={tipoStyle.className}>
-                          {tipoStyle.label}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-1.5 font-medium">{log.destinatario}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{log.motivo}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
-                        {log.codigoDevolucion ?? "—"}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <Badge variant="secondary" className={estadoStyle.className}>
-                          {estadoStyle.label}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-1.5 text-xs text-muted-foreground">
-                        {log.enviadoPorNombre}
-                      </td>
-                    </tr>
+                    <Fragment key={log.id}>
+                      <tr
+                        className="border-t cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                      >
+                        <td className="px-2 py-1.5 text-muted-foreground">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDate(log.creadoEn as { seconds: number } | null)}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Badge variant="secondary" className={tipoStyle.className}>
+                            {tipoStyle.label}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-1.5 font-medium">{log.destinatario}</td>
+                        <td className="px-3 py-1.5 text-muted-foreground">{log.motivo}</td>
+                        <td className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
+                          {log.codigoDevolucion ?? "—"}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <Badge variant="secondary" className={estadoStyle.className}>
+                            {estadoStyle.label}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                          {log.enviadoPorNombre}
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${log.id}-detail`}>
+                          <td colSpan={8} className="px-3 py-2 bg-muted/30">
+                            {logItems && logItems.length > 0 ? (
+                              <>
+                                <div className="rounded border overflow-auto max-h-[300px]">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-muted/50 sticky top-0">
+                                      <tr>
+                                        <th className="text-left px-2 py-1">#</th>
+                                        <th className="text-left px-2 py-1">ISBN</th>
+                                        <th className="text-left px-2 py-1">Título</th>
+                                        <th className="text-right px-2 py-1">Cantidad</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {logItems.map((item) => (
+                                        <tr key={item.fila} className="border-t">
+                                          <td className="px-2 py-1">{item.fila}</td>
+                                          <td className="px-2 py-1 font-mono">{item.isbn ?? "—"}</td>
+                                          <td className="px-2 py-1">{item.titulo ?? "—"}</td>
+                                          <td className="px-2 py-1 text-right">{item.cantidad}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {logItems.length} item(s) · Total: {logItems.reduce((s, i) => s + i.cantidad, 0)} unidades
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-xs text-muted-foreground py-2">Sin detalle de items</p>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>

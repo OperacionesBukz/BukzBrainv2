@@ -11,8 +11,10 @@ import {
   CheckCircle2,
   Calendar,
   User as UserIcon,
+  PackageCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { StringDatePicker } from "@/components/ui/date-picker";
 import { Progress } from "@/components/ui/progress";
@@ -49,6 +51,16 @@ const OperationsTaskCard = ({
   const completedSubs = task.subtasks?.filter((s) => s.completed).length || 0;
   const totalSubs = task.subtasks?.length || 0;
   const progress = totalSubs > 0 ? (completedSubs / totalSubs) * 100 : 0;
+  const devItems = task.devolucionItems ?? [];
+  const recibidosCount = devItems.filter((i) => i.recibido).length;
+
+  const toggleItemRecibido = async (itemIndex: number) => {
+    if (!task.devolucionItems) return;
+    const updated = task.devolucionItems.map((item, i) =>
+      i === itemIndex ? { ...item, recibido: !item.recibido } : item
+    );
+    await updateTask(task.id, { devolucionItems: updated } as Partial<Task>);
+  };
   const isDone = task.status === "done";
   const isExpanded = expandedTasks[task.id];
   const today = new Date();
@@ -219,6 +231,54 @@ const OperationsTaskCard = ({
                   ))}
                 </div>
               </div>
+
+              {/* Devolucion Items */}
+              {devItems.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <PackageCheck className="h-3 w-3" /> Items Devolución ({recibidosCount}/{devItems.length} recibidos)
+                    </div>
+                  </div>
+                  <div className="rounded border overflow-auto max-h-[250px]">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50 sticky top-0">
+                        <tr>
+                          <th className="w-8 px-2 py-1" />
+                          <th className="text-left px-2 py-1">#</th>
+                          <th className="text-left px-2 py-1">ISBN</th>
+                          <th className="text-left px-2 py-1">Título</th>
+                          <th className="text-right px-2 py-1">Cant.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {devItems.map((item, idx) => (
+                          <tr
+                            key={item.fila}
+                            className={cn("border-t", item.recibido && "bg-success/10")}
+                          >
+                            <td className="px-2 py-1">
+                              <Checkbox
+                                checked={item.recibido}
+                                onCheckedChange={() => toggleItemRecibido(idx)}
+                              />
+                            </td>
+                            <td className="px-2 py-1">{item.fila}</td>
+                            <td className="px-2 py-1 font-mono">{item.isbn ?? "—"}</td>
+                            <td className={cn("px-2 py-1", item.recibido && "line-through text-muted-foreground")}>
+                              {item.titulo ?? "—"}
+                            </td>
+                            <td className="px-2 py-1 text-right">{item.cantidad}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Total: {devItems.reduce((s, i) => s + i.cantidad, 0)} unidades
+                  </p>
+                </div>
+              )}
 
               {/* Dates */}
               <div className="space-y-1.5">

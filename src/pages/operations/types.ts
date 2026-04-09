@@ -4,6 +4,15 @@ export interface SubTask {
   completed: boolean;
 }
 
+export interface DevolucionTaskItem {
+  fila: number;
+  isbn?: string;
+  titulo?: string;
+  cantidad: number;
+  extras?: Record<string, string>;
+  recibido: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -16,6 +25,7 @@ export interface Task {
   order?: number;
   startDate?: string;
   dueDate?: string;
+  devolucionItems?: DevolucionTaskItem[];
 }
 
 export const departments = ["General", "Devolución", "SAC", "Operaciones"];

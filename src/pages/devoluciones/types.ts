@@ -17,6 +17,14 @@ export interface EnvioResponse {
   asunto: string;
 }
 
+export interface DevolucionItem {
+  fila: number;
+  isbn?: string;
+  titulo?: string;
+  cantidad: number;
+  extras?: Record<string, string>;
+}
+
 export interface DevolucionLog {
   tipo: "sede" | "proveedor";
   destinatario: string;
@@ -32,5 +40,6 @@ export interface DevolucionLog {
   enviadoPorNombre: string;
   estado: "enviado" | "error";
   detalle?: string;
+  items?: DevolucionItem[];
   creadoEn: Timestamp;
 }

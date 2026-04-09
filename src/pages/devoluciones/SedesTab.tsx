@@ -16,7 +16,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import FileUploadField from "./FileUploadField";
 import { useDevolucionesConfig, useEnviarSedes } from "./hooks";
 import { logDevolucion, crearTareaDevolucion } from "./api";
-import type { EnvioResponse } from "./types";
+import { parseDevolucionFile } from "./parse-file";
+import type { DevolucionItem, EnvioResponse } from "./types";
 
 type Step = "config" | "processing" | "results";
 
@@ -37,9 +38,16 @@ export default function SedesTab() {
   const canSubmit =
     sede && motivo && proveedorNombre.trim() && archivo && remitente;
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!sede || !motivo || !proveedorNombre.trim() || !archivo || !remitente)
       return;
+
+    let parsedItems: DevolucionItem[] = [];
+    try {
+      parsedItems = await parseDevolucionFile(archivo);
+    } catch (e) {
+      console.warn("[devoluciones] No se pudo parsear archivo:", e);
+    }
 
     setStep("processing");
     mutation.mutate(
@@ -62,6 +70,7 @@ export default function SedesTab() {
             enviadoPor: user?.email ?? "",
             enviadoPorNombre: user?.displayName ?? user?.email ?? "",
             estado: "enviado",
+            ...(parsedItems.length ? { items: parsedItems } : {}),
           });
           if (codigo) {
             crearTareaDevolucion({
@@ -69,6 +78,7 @@ export default function SedesTab() {
               destinatario: data.destinatario,
               codigoDevolucion: codigo,
               createdBy: user?.email ?? "",
+              items: parsedItems,
             }).catch((err) => console.error("[devoluciones] Error al crear tarea:", err));
           }
         },
