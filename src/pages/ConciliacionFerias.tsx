@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { NuevaConciliacionTab } from "./conciliacion-ferias/NuevaConciliacionTab";
 import { ResultadosTab } from "./conciliacion-ferias/ResultadosTab";
 import { HistorialTab } from "./conciliacion-ferias/HistorialTab";
@@ -27,9 +29,12 @@ export default function ConciliacionFerias() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          Conciliacion de Ferias
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+            Conciliacion de Ferias
+          </h1>
+          <ModuleInfoButton content={MODULE_INFO["/conciliacion-ferias"]} />
+        </div>
         <p className="mt-1 text-base text-muted-foreground">
           Cruza inventario enviado, devuelto y vendido para detectar
           faltantes

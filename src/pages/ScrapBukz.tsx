@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { AlertCircle, RefreshCw, Search, Trash2, Database } from "lucide-react";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,7 +69,10 @@ export default function ScrapBukz() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Scrap Bukz</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-semibold">Scrap Bukz</h1>
+            <ModuleInfoButton content={MODULE_INFO["/scrap"]} />
+          </div>
           <p className="mt-1 text-base text-muted-foreground">
             Enriquecimiento de metadatos de libros por ISBN
           </p>

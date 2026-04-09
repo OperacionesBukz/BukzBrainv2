@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRequestsHubData } from "./requests-hub/useRequestsHubData";
@@ -106,9 +108,12 @@ const RequestsHub = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          Hub Solicitudes
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+            Hub Solicitudes
+          </h1>
+          <ModuleInfoButton content={MODULE_INFO["/requests-hub"]} />
+        </div>
         <p className="mt-1 text-base text-muted-foreground">
           Seguimiento centralizado de solicitudes de permisos y pedidos de librerías
         </p>

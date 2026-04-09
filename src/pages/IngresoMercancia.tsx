@@ -3,6 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { useHealthCheck } from "./ingreso/hooks";
 import ConsultaProductosTab from "./ingreso/ConsultaProductosTab";
 import InventarioMultiBodegaTab from "./ingreso/InventarioMultiBodegaTab";
@@ -14,9 +16,12 @@ export default function IngresoMercancia() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-semibold">
-          Ingreso Mercancía
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold">
+            Ingreso Mercancía
+          </h1>
+          <ModuleInfoButton content={MODULE_INFO["/ingreso"]} />
+        </div>
         <p className="mt-1 text-base text-muted-foreground">
           Consulta de productos, inventario multi-bodega y plantillas
         </p>

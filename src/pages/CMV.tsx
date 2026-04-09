@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -72,9 +74,12 @@ const CMV = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          CMV
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+            CMV
+          </h1>
+          <ModuleInfoButton content={MODULE_INFO["/cmv"]} />
+        </div>
         <p className="mt-1 text-base text-muted-foreground">
           Costo de Mercancía Vendida
         </p>

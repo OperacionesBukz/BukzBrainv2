@@ -1,11 +1,16 @@
 import CortesTab from "./operations/cortes/CortesTab";
 import DescuentoTab from "./operations/cortes/DescuentoTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 
 const Cortes = () => (
   <div className="space-y-6">
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Cortes</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Cortes</h1>
+        <ModuleInfoButton content={MODULE_INFO["/cortes"]} />
+      </div>
       <p className="mt-1 text-base text-muted-foreground">
         Procesamiento de promociones y descuentos
       </p>

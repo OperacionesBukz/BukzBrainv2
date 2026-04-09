@@ -1,5 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import SedesTab from "./devoluciones/SedesTab";
 import ProveedoresTab from "./devoluciones/ProveedoresTab";
 import HistorialTab from "./devoluciones/HistorialTab";
@@ -20,9 +22,12 @@ const Devoluciones = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-          Devoluciones
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+            Devoluciones
+          </h1>
+          <ModuleInfoButton content={MODULE_INFO["/devoluciones"]} />
+        </div>
         <p className="mt-1 text-base text-muted-foreground">
           Envío de notificaciones de devolución a sedes y proveedores
         </p>

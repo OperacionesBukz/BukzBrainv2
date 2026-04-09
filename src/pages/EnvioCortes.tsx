@@ -4,6 +4,8 @@ import CortesNoVentasTab from "./envio-cortes/CortesNoVentasTab";
 import CorteIndividualTab from "./envio-cortes/CorteIndividualTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 
 const CortePenguin = lazy(() => import("./CortePenguin"));
 const CortePlaneta = lazy(() => import("./CortePlaneta"));
@@ -12,9 +14,12 @@ const CorteMuseo = lazy(() => import("./CorteMuseo"));
 const EnvioCortes = () => (
   <div className="space-y-6">
     <div>
-      <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-        Envío de Cortes
-      </h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+          Envío de Cortes
+        </h1>
+        <ModuleInfoButton content={MODULE_INFO["/envio-cortes"]} />
+      </div>
       <p className="mt-1 text-base text-muted-foreground">
         Envío de reportes de cortes de venta a proveedores por email
       </p>

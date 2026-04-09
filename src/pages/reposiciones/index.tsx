@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { toast } from "sonner";
 import CacheStatusBadge from "./components/CacheStatusBadge";
 import ConfigPanel from "./components/ConfigPanel";
@@ -414,7 +416,10 @@ export default function ReposicionesPage() {
     <div className="space-y-6">
       {/* Header — stays outside tabs, visible on both */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reposiciones</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Reposiciones</h1>
+          <ModuleInfoButton content={MODULE_INFO["/reposiciones-menu"]} />
+        </div>
         <div className="flex items-center gap-3">
           <CacheStatusBadge />
           {salesStatus?.last_refreshed && (

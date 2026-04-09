@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePickerButton } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
+import { MODULE_INFO } from "@/lib/module-info";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -326,7 +328,10 @@ const Operations = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Tareas Bukz</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Tareas Bukz</h1>
+          <ModuleInfoButton content={MODULE_INFO["/operations"]} />
+        </div>
         <p className="mt-1 text-base text-muted-foreground">
           Gestión de tareas entre áreas
         </p>

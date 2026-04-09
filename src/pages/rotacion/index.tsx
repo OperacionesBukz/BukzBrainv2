@@ -1,5 +1,7 @@
 import { TrendingUp, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ModuleInfoButton } from "@/components/ModuleInfoButton";
+import { MODULE_INFO } from "@/lib/module-info";
 import { useTurnoverFlow } from "./hooks";
 import ConfigSection from "./components/ConfigSection";
 import ProcessingProgress from "./components/ProcessingProgress";
@@ -22,7 +24,10 @@ export default function Rotacion() {
             <TrendingUp className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Rotacion de Inventario</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">Rotacion de Inventario</h1>
+              <ModuleInfoButton content={MODULE_INFO["/rotacion"]} />
+            </div>
             <p className="text-sm text-muted-foreground">
               Analisis de rotacion por sede y capacidad de compra
             </p>
