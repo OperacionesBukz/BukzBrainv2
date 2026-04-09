@@ -22,6 +22,12 @@ const SEMAFORO_BADGE = {
   rojo: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+const SEMAFORO_BAR = {
+  verde: "bg-green-500",
+  amarillo: "bg-yellow-500",
+  rojo: "bg-red-500",
+};
+
 const SEMAFORO_LABEL = {
   verde: "Buena",
   amarillo: "Regular",
@@ -33,6 +39,9 @@ function fmt(n: number): string {
 }
 
 export default function SedeTable({ sedes, totales }: SedeTableProps) {
+  const maxRotacion = Math.max(...sedes.map((s) => s.rotacion ?? 0), 1);
+  const maxSellThrough = Math.max(...sedes.map((s) => s.sell_through_pct ?? 0), 1);
+
   return (
     <Card>
       <CardHeader>
@@ -43,7 +52,7 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sede</TableHead>
+                <TableHead className="sticky left-0 bg-card z-10">Sede</TableHead>
                 <TableHead className="text-right">Inventario</TableHead>
                 <TableHead className="text-right">Ventas</TableHead>
                 <TableHead className="text-right">Rotacion</TableHead>
@@ -54,50 +63,72 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sedes.map((s) => (
-                <TableRow key={s.sede}>
-                  <TableCell className="font-medium whitespace-nowrap">
-                    {s.sede.replace("Bukz ", "")}
-                  </TableCell>
-                  <TableCell className="text-right">{fmt(s.inventario_unidades)}</TableCell>
-                  <TableCell className="text-right">{fmt(s.vendidas_unidades)}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {s.rotacion != null ? `${s.rotacion}x` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {s.dias_inventario != null ? `${s.dias_inventario}d` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {s.sell_through_pct != null ? `${s.sell_through_pct}%` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">{s.venta_diaria}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className={cn("text-xs", SEMAFORO_BADGE[s.semaforo])}>
-                      {SEMAFORO_LABEL[s.semaforo]}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {/* Totals row */}
-              <TableRow className="font-bold border-t-2">
-                <TableCell>TOTAL</TableCell>
-                <TableCell className="text-right">{fmt(totales.inventario_unidades)}</TableCell>
-                <TableCell className="text-right">{fmt(totales.vendidas_unidades)}</TableCell>
-                <TableCell className="text-right">
+              {sedes.map((s) => {
+                const rotPct = s.rotacion != null ? (s.rotacion / maxRotacion) * 100 : 0;
+                const stPct = s.sell_through_pct != null ? (s.sell_through_pct / maxSellThrough) * 100 : 0;
+
+                return (
+                  <TableRow key={s.sede} className="transition-colors hover:bg-muted/50">
+                    <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-card z-10">
+                      {s.sede.replace("Bukz ", "")}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(s.inventario_unidades)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(s.vendidas_unidades)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="font-semibold tabular-nums">
+                          {s.rotacion != null ? `${s.rotacion}x` : "-"}
+                        </span>
+                        <div className="w-[64px] h-[6px] rounded-full bg-muted overflow-hidden hidden sm:block">
+                          <div
+                            className={cn("h-full rounded-full transition-all", SEMAFORO_BAR[s.semaforo])}
+                            style={{ width: `${rotPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {s.dias_inventario != null ? `${s.dias_inventario}d` : "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="tabular-nums">
+                          {s.sell_through_pct != null ? `${s.sell_through_pct}%` : "-"}
+                        </span>
+                        <div className="w-[48px] h-[6px] rounded-full bg-muted overflow-hidden hidden sm:block">
+                          <div
+                            className={cn("h-full rounded-full transition-all", SEMAFORO_BAR[s.semaforo])}
+                            style={{ width: `${stPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{s.venta_diaria}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className={cn("text-xs font-semibold", SEMAFORO_BADGE[s.semaforo])}>
+                        {SEMAFORO_LABEL[s.semaforo]}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {/* Total row */}
+              <TableRow className="font-bold bg-muted/30 border-t-2">
+                <TableCell className="sticky left-0 bg-muted/30 z-10">TOTAL</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(totales.inventario_unidades)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(totales.vendidas_unidades)}</TableCell>
+                <TableCell className="text-right tabular-nums">
                   {totales.rotacion != null ? `${totales.rotacion}x` : "-"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right tabular-nums">
                   {totales.dias_inventario != null ? `${totales.dias_inventario}d` : "-"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right tabular-nums">
                   {totales.sell_through_pct != null ? `${totales.sell_through_pct}%` : "-"}
                 </TableCell>
-                <TableCell className="text-right">{totales.venta_diaria}</TableCell>
+                <TableCell className="text-right tabular-nums">{totales.venta_diaria}</TableCell>
                 <TableCell className="text-center">
-                  <Badge
-                    variant="outline"
-                    className={cn("text-xs", SEMAFORO_BADGE[totales.semaforo])}
-                  >
+                  <Badge variant="outline" className={cn("text-xs font-semibold", SEMAFORO_BADGE[totales.semaforo])}>
                     {SEMAFORO_LABEL[totales.semaforo]}
                   </Badge>
                 </TableCell>
