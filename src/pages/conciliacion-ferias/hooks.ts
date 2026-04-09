@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getLocations, conciliar } from "./api";
-import type { ConciliacionRequest, ConciliacionLog } from "./types";
+import type { ConciliacionParams, ConciliacionLog } from "./types";
 
 export function useLocations() {
   return useQuery({
@@ -22,7 +22,7 @@ export function useLocations() {
 
 export function useConciliar() {
   return useMutation({
-    mutationFn: (params: ConciliacionRequest) => conciliar(params),
+    mutationFn: (params: ConciliacionParams) => conciliar(params),
   });
 }
 

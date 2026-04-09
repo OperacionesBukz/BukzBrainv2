@@ -5,22 +5,22 @@ import { ResultadosTab } from "./conciliacion-ferias/ResultadosTab";
 import { HistorialTab } from "./conciliacion-ferias/HistorialTab";
 import type {
   ConciliacionResponse,
-  ConciliacionRequest,
+  ConciliacionParams,
 } from "./conciliacion-ferias/types";
 
 export default function ConciliacionFerias() {
   const [activeTab, setActiveTab] = useState("nueva");
   const [resultados, setResultados] =
     useState<ConciliacionResponse | null>(null);
-  const [lastRequest, setLastRequest] =
-    useState<ConciliacionRequest | null>(null);
+  const [lastParams, setLastParams] =
+    useState<ConciliacionParams | null>(null);
 
   const handleResultados = (
     data: ConciliacionResponse,
-    request: ConciliacionRequest,
+    params: ConciliacionParams,
   ) => {
     setResultados(data);
-    setLastRequest(request);
+    setLastParams(params);
     setActiveTab("resultados");
   };
 
@@ -50,7 +50,7 @@ export default function ConciliacionFerias() {
           <NuevaConciliacionTab onResultados={handleResultados} />
         </TabsContent>
         <TabsContent value="resultados">
-          <ResultadosTab data={resultados} request={lastRequest} />
+          <ResultadosTab data={resultados} params={lastParams} />
         </TabsContent>
         <TabsContent value="historial">
           <HistorialTab />

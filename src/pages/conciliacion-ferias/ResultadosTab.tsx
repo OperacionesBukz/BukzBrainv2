@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Search,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,11 +31,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { exportarExcel } from "./api";
-import type { ConciliacionResponse, ConciliacionRequest } from "./types";
+import type { ConciliacionResponse, ConciliacionParams } from "./types";
 
 interface ResultadosTabProps {
   data: ConciliacionResponse | null;
-  request: ConciliacionRequest | null;
+  params: ConciliacionParams | null;
 }
 
 const ESTADO_STYLES = {
@@ -55,12 +56,12 @@ const ESTADO_STYLES = {
   },
 };
 
-export function ResultadosTab({ data, request }: ResultadosTabProps) {
+export function ResultadosTab({ data, params }: ResultadosTabProps) {
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [busqueda, setBusqueda] = useState("");
   const [exportando, setExportando] = useState(false);
 
-  if (!data || !request) {
+  if (!data || !params) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -72,7 +73,7 @@ export function ResultadosTab({ data, request }: ResultadosTabProps) {
     );
   }
 
-  const { resumen, items, transfers_enviados, transfers_devueltos } = data;
+  const { resumen, items, archivo_enviado, archivo_devuelto } = data;
 
   const filteredItems = items.filter((item) => {
     if (filtroEstado !== "todos" && item.estado !== filtroEstado)
@@ -90,7 +91,7 @@ export function ResultadosTab({ data, request }: ResultadosTabProps) {
   const handleExport = async () => {
     setExportando(true);
     try {
-      const blob = await exportarExcel(request);
+      const blob = await exportarExcel(params);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -235,44 +236,29 @@ export function ResultadosTab({ data, request }: ResultadosTabProps) {
         </Badge>
       </div>
 
-      {/* Transfers usados */}
-      {(transfers_enviados.length > 0 ||
-        transfers_devueltos.length > 0) && (
+      {/* Archivos utilizados */}
+      {(archivo_enviado || archivo_devuelto) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              Transfers utilizados
+              Archivos utilizados
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {transfers_enviados.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-1">
-                  Enviados a la feria ({transfers_enviados.length}):
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {transfers_enviados.map((t, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
-                      {t}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            {transfers_devueltos.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-1">
-                  Devueltos de la feria ({transfers_devueltos.length}):
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {transfers_devueltos.map((t, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
-                      {t}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {archivo_enviado && (
+                <Badge variant="outline" className="text-xs gap-1.5">
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  Enviado: {archivo_enviado}
+                </Badge>
+              )}
+              {archivo_devuelto && (
+                <Badge variant="outline" className="text-xs gap-1.5">
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  Devuelto: {archivo_devuelto}
+                </Badge>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -353,7 +339,7 @@ export function ResultadosTab({ data, request }: ResultadosTabProps) {
                           {item.sku}
                         </TableCell>
                         <TableCell className="max-w-[250px] truncate">
-                          {item.titulo || "—"}
+                          {item.titulo || "\u2014"}
                         </TableCell>
                         <TableCell className="text-right">
                           {item.enviado}

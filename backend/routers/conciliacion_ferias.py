@@ -1,14 +1,14 @@
 """
-Router de Conciliación de Ferias - cruza transfers enviados, devueltos y ventas
-para detectar pérdidas/robos en ferias.
+Router de Conciliación de Ferias - cruza inventario enviado (Excel),
+devuelto (Excel) y ventas (Shopify) para detectar pérdidas/robos en ferias.
 """
 import io
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import openpyxl
 import requests
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Form, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from config import settings
@@ -54,47 +54,6 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Queries
 # ---------------------------------------------------------------------------
-
-_TRANSFERS_LIST = """
-query inventoryTransfers($first: Int!, $after: String, $query: String) {
-  inventoryTransfers(first: $first, after: $after, query: $query) {
-    edges {
-      node {
-        id
-        name
-        status
-        totalQuantity
-      }
-      cursor
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-"""
-
-_TRANSFER_LINE_ITEMS = """
-query transferLineItems($id: ID!, $first: Int!, $after: String) {
-  inventoryTransfer(id: $id) {
-    lineItems(first: $first, after: $after) {
-      edges {
-        node {
-          totalQuantity
-          inventoryItem {
-            sku
-          }
-        }
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-    }
-  }
-}
-"""
 
 _ORDERS_QUERY = """
 query($first: Int!, $after: String, $query: String) {
@@ -147,65 +106,67 @@ query($first: Int!, $after: String, $query: String) {
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _get_all_transfer_line_items(transfer_id: str) -> dict[str, int]:
-    """Obtiene todos los line items de un transfer, paginando. Retorna {sku: qty}."""
-    sku_qty: dict[str, int] = {}
-    after = None
-    while True:
-        variables: dict = {"id": transfer_id, "first": 250}
-        if after:
-            variables["after"] = after
-        data = _graphql(_TRANSFER_LINE_ITEMS, variables)
-        transfer = data.get("inventoryTransfer") or {}
-        li_data = transfer.get("lineItems", {})
-        for edge in li_data.get("edges", []):
-            node = edge["node"]
-            sku = (node.get("inventoryItem") or {}).get("sku")
-            qty = node.get("totalQuantity", 0)
-            if sku:
-                sku_qty[sku] = sku_qty.get(sku, 0) + qty
-        page_info = li_data.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        after = page_info.get("endCursor")
-    return sku_qty
-
-
-def _get_transfers_for_filter(query_filter: str) -> tuple[dict[str, int], list[str]]:
+def _parse_excel(file_bytes: bytes) -> dict[str, int]:
     """
-    Obtiene todos los transfers que coincidan con el filtro,
-    luego para cada uno obtiene line items.
-    Retorna (sku_totals, transfer_names).
+    Lee un archivo Excel y retorna {sku: quantity}.
+    Detecta columnas por nombre de header (case-insensitive):
+      - SKU: sku, codigo, code
+      - Cantidad: cantidad, qty, quantity, unidades
+    Si no detecta headers, usa col A = SKU, col B = cantidad.
+    Ignora filas con SKU vacío o cantidad no numérica.
     """
-    sku_totals: dict[str, int] = {}
-    transfer_names: list[str] = []
-    after = None
+    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+    ws = wb.active
+    if ws is None:
+        return {}
 
-    while True:
-        variables: dict = {"first": 50, "query": query_filter}
-        if after:
-            variables["after"] = after
-        data = _graphql(_TRANSFERS_LIST, variables)
-        connection = data.get("inventoryTransfers", {})
-        edges = connection.get("edges", [])
+    sku_col: int | None = None
+    qty_col: int | None = None
 
-        for edge in edges:
-            node = edge["node"]
-            transfer_id = node.get("id")
-            transfer_name = node.get("name", "?")
-            transfer_names.append(f"{transfer_name} (qty: {node.get('totalQuantity', 0)})")
+    sku_headers = {"sku", "codigo", "code", "código"}
+    qty_headers = {"cantidad", "qty", "quantity", "unidades"}
 
-            # Obtener line items del transfer
-            items = _get_all_transfer_line_items(transfer_id)
-            for sku, qty in items.items():
-                sku_totals[sku] = sku_totals.get(sku, 0) + qty
+    # Intentar detectar headers en la primera fila
+    first_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=False), None)
+    if first_row:
+        for cell in first_row:
+            val = str(cell.value or "").strip().lower()
+            if val in sku_headers:
+                sku_col = cell.column
+            elif val in qty_headers:
+                qty_col = cell.column
 
-        page_info = connection.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        after = page_info.get("endCursor")
+    # Fallback: primeras 2 columnas
+    start_row = 1
+    if sku_col is not None and qty_col is not None:
+        start_row = 2  # saltar header
+    else:
+        sku_col = 1
+        qty_col = 2
 
-    return sku_totals, transfer_names
+    result: dict[str, int] = {}
+    for row in ws.iter_rows(min_row=start_row, values_only=False):
+        sku_cell = None
+        qty_cell = None
+        for cell in row:
+            if cell.column == sku_col:
+                sku_cell = cell.value
+            elif cell.column == qty_col:
+                qty_cell = cell.value
+
+        sku_val = str(sku_cell).strip() if sku_cell is not None else ""
+        if not sku_val:
+            continue
+
+        try:
+            qty_val = int(float(str(qty_cell)))
+        except (TypeError, ValueError):
+            continue
+
+        result[sku_val] = result.get(sku_val, 0) + qty_val
+
+    wb.close()
+    return result
 
 
 def _get_sales_for_location(location_id: str, fecha_inicio: str, fecha_fin: str) -> dict[str, int]:
@@ -277,12 +238,17 @@ def _enrich_titles(skus: set[str]) -> dict[str, str]:
     return titles
 
 
-def _run_conciliacion(body: dict) -> dict:
+def _run_conciliacion(
+    location_name: str,
+    location_id: str,
+    fecha_inicio: str,
+    fecha_fin: str,
+    enviados_por_sku: dict[str, int],
+    devueltos_por_sku: dict[str, int],
+    nombre_archivo_enviado: str,
+    nombre_archivo_devuelto: str,
+) -> dict:
     """Ejecuta toda la lógica de conciliación y retorna el resultado."""
-    location_name = body.get("location_name", "")
-    location_id = body.get("location_id", "")
-    fecha_inicio = body.get("fecha_inicio", "")
-    fecha_fin = body.get("fecha_fin", "")
 
     # Validaciones
     if not location_name or not location_id or not fecha_inicio or not fecha_fin:
@@ -300,33 +266,18 @@ def _run_conciliacion(body: dict) -> dict:
     if dt_inicio > dt_fin:
         raise HTTPException(status_code=400, detail="fecha_inicio debe ser <= fecha_fin")
 
-    # Extraer ID numérico
-    numeric_id = location_id.split("/")[-1]
+    logger.info(f"Conciliación: {location_name} del {fecha_inicio} al {fecha_fin}")
+    logger.info(f"Excel enviado: {len(enviados_por_sku)} SKUs, Excel devuelto: {len(devueltos_por_sku)} SKUs")
 
-    # Fecha fin + 30 días para transfers de devolución
-    fecha_fin_plus_30 = (dt_fin + timedelta(days=30)).strftime("%Y-%m-%d")
-
-    logger.info(f"Conciliación: {location_name} ({numeric_id}) del {fecha_inicio} al {fecha_fin}")
-
-    # 1. Transfers enviados A la feria
-    enviados_filter = f"destination_id:{numeric_id} AND created_at:>={fecha_inicio} AND created_at:<={fecha_fin}"
-    enviados_por_sku, transfers_enviados = _get_transfers_for_filter(enviados_filter)
-    logger.info(f"Transfers enviados: {len(transfers_enviados)}, SKUs: {len(enviados_por_sku)}")
-
-    # 2. Transfers devueltos DE la feria
-    devueltos_filter = f"origin_id:{numeric_id} AND created_at:>={fecha_inicio} AND created_at:<={fecha_fin_plus_30}"
-    devueltos_por_sku, transfers_devueltos = _get_transfers_for_filter(devueltos_filter)
-    logger.info(f"Transfers devueltos: {len(transfers_devueltos)}, SKUs: {len(devueltos_por_sku)}")
-
-    # 3. Ventas en la location
+    # Ventas en la location (desde Shopify)
     vendido_por_sku = _get_sales_for_location(location_id, fecha_inicio, fecha_fin)
     logger.info(f"Ventas: {len(vendido_por_sku)} SKUs")
 
-    # 4. Enrichment de títulos
+    # Enrichment de títulos
     all_skus = set(enviados_por_sku.keys()) | set(devueltos_por_sku.keys()) | set(vendido_por_sku.keys())
     titles = _enrich_titles(all_skus) if all_skus else {}
 
-    # 5. Calcular diferencias
+    # Calcular diferencias
     items = []
     total_enviado = 0
     total_devuelto = 0
@@ -389,8 +340,8 @@ def _run_conciliacion(body: dict) -> dict:
             "skus_sobrante": skus_sobrante,
         },
         "items": items,
-        "transfers_enviados": transfers_enviados,
-        "transfers_devueltos": transfers_devueltos,
+        "archivo_enviado": nombre_archivo_enviado,
+        "archivo_devuelto": nombre_archivo_devuelto,
     }
 
 
@@ -411,15 +362,72 @@ def list_locations():
 
 
 @router.post("/conciliar")
-def conciliar(body: dict = Body(...)):
+async def conciliar(
+    file_enviado: UploadFile = File(...),
+    file_devuelto: UploadFile = File(...),
+    location_name: str = Form(...),
+    location_id: str = Form(...),
+    fecha_inicio: str = Form(...),
+    fecha_fin: str = Form(...),
+):
     """Ejecuta la conciliación y retorna los resultados."""
-    return _run_conciliacion(body)
+    enviado_bytes = await file_enviado.read()
+    devuelto_bytes = await file_devuelto.read()
+
+    enviados_por_sku = _parse_excel(enviado_bytes)
+    devueltos_por_sku = _parse_excel(devuelto_bytes)
+
+    if not enviados_por_sku:
+        raise HTTPException(status_code=400, detail="El archivo de inventario enviado está vacío o no se pudo leer")
+
+    if not devueltos_por_sku:
+        raise HTTPException(status_code=400, detail="El archivo de inventario devuelto está vacío o no se pudo leer")
+
+    return _run_conciliacion(
+        location_name=location_name,
+        location_id=location_id,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        enviados_por_sku=enviados_por_sku,
+        devueltos_por_sku=devueltos_por_sku,
+        nombre_archivo_enviado=file_enviado.filename or "enviado.xlsx",
+        nombre_archivo_devuelto=file_devuelto.filename or "devuelto.xlsx",
+    )
 
 
 @router.post("/exportar")
-def exportar(body: dict = Body(...)):
+async def exportar(
+    file_enviado: UploadFile = File(...),
+    file_devuelto: UploadFile = File(...),
+    location_name: str = Form(...),
+    location_id: str = Form(...),
+    fecha_inicio: str = Form(...),
+    fecha_fin: str = Form(...),
+):
     """Ejecuta la conciliación y genera un Excel con los resultados."""
-    result = _run_conciliacion(body)
+    enviado_bytes = await file_enviado.read()
+    devuelto_bytes = await file_devuelto.read()
+
+    enviados_por_sku = _parse_excel(enviado_bytes)
+    devueltos_por_sku = _parse_excel(devuelto_bytes)
+
+    if not enviados_por_sku:
+        raise HTTPException(status_code=400, detail="El archivo de inventario enviado está vacío o no se pudo leer")
+
+    if not devueltos_por_sku:
+        raise HTTPException(status_code=400, detail="El archivo de inventario devuelto está vacío o no se pudo leer")
+
+    result = _run_conciliacion(
+        location_name=location_name,
+        location_id=location_id,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        enviados_por_sku=enviados_por_sku,
+        devueltos_por_sku=devueltos_por_sku,
+        nombre_archivo_enviado=file_enviado.filename or "enviado.xlsx",
+        nombre_archivo_devuelto=file_devuelto.filename or "devuelto.xlsx",
+    )
+
     resumen = result["resumen"]
     items = result["items"]
     faltantes = [i for i in items if i["estado"] == "faltante"]
@@ -442,6 +450,8 @@ def exportar(body: dict = Body(...)):
         ("SKUs OK", resumen["skus_ok"]),
         ("SKUs Faltantes", resumen["skus_faltante"]),
         ("SKUs Sobrantes", resumen["skus_sobrante"]),
+        ("Archivo Enviado", result["archivo_enviado"]),
+        ("Archivo Devuelto", result["archivo_devuelto"]),
     ]
     for row in resumen_rows:
         ws_resumen.append(row)

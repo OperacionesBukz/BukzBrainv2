@@ -7,11 +7,13 @@ export interface LocationOption {
   id: string;
 }
 
-export interface ConciliacionRequest {
+export interface ConciliacionParams {
   location_name: string;
   location_id: string;
   fecha_inicio: string;
   fecha_fin: string;
+  file_enviado: File;
+  file_devuelto: File;
 }
 
 export interface ConciliacionItem {
@@ -41,8 +43,8 @@ export interface ConciliacionResumen {
 export interface ConciliacionResponse {
   resumen: ConciliacionResumen;
   items: ConciliacionItem[];
-  transfers_enviados: string[];
-  transfers_devueltos: string[];
+  archivo_enviado: string;
+  archivo_devuelto: string;
 }
 
 export interface ConciliacionLog {
