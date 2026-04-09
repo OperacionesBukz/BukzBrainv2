@@ -3,6 +3,7 @@ import { Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react"
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { CortesRow } from "./types";
 
 type SortKey = keyof CortesRow;
@@ -25,6 +26,7 @@ const columns: { key: SortKey; label: string; align?: "center" }[] = [
 ];
 
 export default function CortesResultTable({ rows, onDownload }: CortesResultTableProps) {
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -80,79 +82,144 @@ export default function CortesResultTable({ rows, onDownload }: CortesResultTabl
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 w-64"
-            />
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{filtered.length} filas</span>
-            <span>·</span>
-            <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">
-              {regalosCount} regalos
-            </Badge>
-            <Badge variant="secondary">
-              {noAplicaCount} no aplica
-            </Badge>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={onDownload}>
-          <Download className="h-4 w-4 mr-2" />
-          Descargar Excel
-        </Button>
+      {/* Toolbar */}
+      <div className={`flex ${isMobile ? "flex-col" : "flex-col sm:flex-row items-start sm:items-center justify-between"} gap-3`}>
+        {isMobile ? (
+          <>
+            <div className="relative w-full">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 w-full"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                <span>{filtered.length} filas</span>
+                <span>·</span>
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">
+                  {regalosCount} regalos
+                </Badge>
+                <Badge variant="secondary">
+                  {noAplicaCount} no aplica
+                </Badge>
+              </div>
+              <Button variant="outline" size="sm" onClick={onDownload} className="shrink-0">
+                <Download className="h-4 w-4 mr-2" />
+                Excel
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 w-64"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>{filtered.length} filas</span>
+                <span>·</span>
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">
+                  {regalosCount} regalos
+                </Badge>
+                <Badge variant="secondary">
+                  {noAplicaCount} no aplica
+                </Badge>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={onDownload}>
+              <Download className="h-4 w-4 mr-2" />
+              Descargar Excel
+            </Button>
+          </>
+        )}
       </div>
 
-      <div className="overflow-auto border rounded-md max-h-[60vh]">
-        <table className="w-full text-sm">
-          <thead className="bg-background sticky top-0 z-10 shadow-[0_1px_0_0_hsl(var(--border))]">
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className={`px-3 py-2 font-medium select-none cursor-pointer hover:bg-muted/50 transition-colors ${
-                    col.align === "center" ? "text-center" : "text-left"
-                  }`}
-                >
-                  <span className="inline-flex items-center">
-                    {col.label}
-                    <SortIcon col={col.key} />
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {filtered.map((row, i) => (
-              <tr key={i} className="hover:bg-muted/30">
-                <td className="px-3 py-1.5 whitespace-nowrap">{row.orderName}</td>
-                <td className="px-3 py-1.5 whitespace-nowrap text-muted-foreground">{row.sku}</td>
-                <td className="px-3 py-1.5 max-w-[250px] truncate">{row.productTitle}</td>
-                <td className="px-3 py-1.5 whitespace-nowrap">{row.vendor}</td>
-                <td className="px-3 py-1.5 whitespace-nowrap">{row.discountName}</td>
-                <td className="px-3 py-1.5 text-center">{row.netItemsSold}</td>
-                <td className="px-3 py-1.5 text-center">{row.udsConDescuento}</td>
-                <td className="px-3 py-1.5">
-                  {row.detalle === "Regalo" && (
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">
-                      Regalo
-                    </Badge>
-                  )}
-                  {row.detalle === "NO APLICA" && (
-                    <Badge variant="secondary">NO APLICA</Badge>
-                  )}
-                </td>
+      {/* Mobile card view */}
+      {isMobile ? (
+        <div className="space-y-2 max-h-[60vh] overflow-auto">
+          {filtered.map((row, i) => (
+            <div key={i} className="rounded-lg border p-3 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{row.orderName}</span>
+                {row.detalle === "Regalo" && (
+                  <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white text-xs">
+                    Regalo
+                  </Badge>
+                )}
+                {row.detalle === "NO APLICA" && (
+                  <Badge variant="secondary" className="text-xs">NO APLICA</Badge>
+                )}
+              </div>
+              <p className="text-sm truncate">{row.productTitle}</p>
+              <p className="text-xs text-muted-foreground">
+                SKU: {row.sku} · {row.vendor}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Desc: {row.discountName}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Uds: {row.netItemsSold}  ·  Desc: {row.udsConDescuento}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Desktop table view */
+        <div className="overflow-auto border rounded-md max-h-[60vh]">
+          <table className="w-full text-sm">
+            <thead className="bg-background sticky top-0 z-10 shadow-[0_1px_0_0_hsl(var(--border))]">
+              <tr>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className={`px-3 py-2 font-medium select-none cursor-pointer hover:bg-muted/50 transition-colors ${
+                      col.align === "center" ? "text-center" : "text-left"
+                    }`}
+                  >
+                    <span className="inline-flex items-center">
+                      {col.label}
+                      <SortIcon col={col.key} />
+                    </span>
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y">
+              {filtered.map((row, i) => (
+                <tr key={i} className="hover:bg-muted/30">
+                  <td className="px-3 py-1.5 whitespace-nowrap">{row.orderName}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap text-muted-foreground">{row.sku}</td>
+                  <td className="px-3 py-1.5 max-w-[250px] truncate">{row.productTitle}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">{row.vendor}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">{row.discountName}</td>
+                  <td className="px-3 py-1.5 text-center">{row.netItemsSold}</td>
+                  <td className="px-3 py-1.5 text-center">{row.udsConDescuento}</td>
+                  <td className="px-3 py-1.5">
+                    {row.detalle === "Regalo" && (
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white">
+                        Regalo
+                      </Badge>
+                    )}
+                    {row.detalle === "NO APLICA" && (
+                      <Badge variant="secondary">NO APLICA</Badge>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

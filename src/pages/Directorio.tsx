@@ -27,10 +27,10 @@ const Directorio = () => {
         </p>
       </div>
       <Tabs defaultValue="empleados">
-        <TabsList>
-          <TabsTrigger value="empleados">Empleados</TabsTrigger>
-          <TabsTrigger value="temporales">Temporales</TabsTrigger>
-          <TabsTrigger value="proveedores">Proveedores</TabsTrigger>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="empleados" className="flex-1 sm:flex-initial">Empleados</TabsTrigger>
+          <TabsTrigger value="temporales" className="flex-1 sm:flex-initial">Temporales</TabsTrigger>
+          <TabsTrigger value="proveedores" className="flex-1 sm:flex-initial">Proveedores</TabsTrigger>
         </TabsList>
         <TabsContent value="empleados">
           <DirectoryTab

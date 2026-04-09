@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StringDatePicker } from "@/components/ui/date-picker";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Task } from "./types";
 
 interface OperationsTaskCardProps {
@@ -48,6 +49,7 @@ const OperationsTaskCard = ({
   deleteSubtask,
   departments,
 }: OperationsTaskCardProps) => {
+  const isMobile = useIsMobile();
   const completedSubs = task.subtasks?.filter((s) => s.completed).length || 0;
   const totalSubs = task.subtasks?.length || 0;
   const progress = totalSubs > 0 ? (completedSubs / totalSubs) * 100 : 0;
@@ -73,7 +75,7 @@ const OperationsTaskCard = ({
           style={provided.draggableProps.style}
         >
           {/* Task header */}
-          <div className="flex items-center gap-2 px-4 py-3">
+          <div className={cn("flex items-center gap-2 px-4", isMobile ? "py-3.5" : "py-3")}>
             <button
               onClick={() =>
                 updateTask(task.id, {
@@ -81,25 +83,29 @@ const OperationsTaskCard = ({
                 })
               }
               className={cn(
-                "shrink-0 transition-theme",
+                "shrink-0 transition-theme flex items-center justify-center",
+                isMobile ? "h-10 w-10 -ml-1" : "",
                 isDone ? "text-success" : "text-muted-foreground hover:text-primary"
               )}
             >
               {isDone ? (
-                <CheckCircle2 className="h-5 w-5" />
+                <CheckCircle2 className={cn(isMobile ? "h-6 w-6" : "h-5 w-5")} />
               ) : (
-                <Circle className="h-5 w-5" />
+                <Circle className={cn(isMobile ? "h-6 w-6" : "h-5 w-5")} />
               )}
             </button>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => toggleExpand(task.id)}
-                className="text-muted-foreground"
+                className={cn(
+                  "text-muted-foreground flex items-center justify-center",
+                  isMobile && "h-10 w-8"
+                )}
               >
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className={cn(isMobile ? "h-5 w-5" : "h-4 w-4")} />
                 ) : (
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className={cn(isMobile ? "h-5 w-5" : "h-4 w-4")} />
                 )}
               </button>
               {task.notes && (
@@ -158,7 +164,8 @@ const OperationsTaskCard = ({
               onChange={(e) => updateTask(task.id, { department: e.target.value })}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                "text-xs px-2 py-0.5 rounded-full shrink-0 cursor-pointer border outline-none focus:ring-1 focus:ring-ring appearance-none",
+                "text-xs px-2 rounded-full shrink-0 cursor-pointer border outline-none focus:ring-1 focus:ring-ring appearance-none",
+                isMobile ? "py-1.5 min-h-[32px]" : "py-0.5",
                 task.department === "Devolución"
                   ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30 font-semibold"
                   : "text-muted-foreground bg-secondary border-border"
@@ -170,9 +177,12 @@ const OperationsTaskCard = ({
             </select>
             <button
               onClick={() => deleteTask(task.id)}
-              className="text-muted-foreground hover:text-destructive transition-theme"
+              className={cn(
+                "text-muted-foreground hover:text-destructive transition-theme flex items-center justify-center",
+                isMobile && "h-10 w-10 -mr-1"
+              )}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className={cn(isMobile ? "h-[18px] w-[18px]" : "h-3.5 w-3.5")} />
             </button>
           </div>
 
@@ -189,22 +199,25 @@ const OperationsTaskCard = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => addSubtask(task.id)}
-                    className="h-6 text-xs gap-1"
+                    className={cn(isMobile ? "h-9 text-xs gap-1.5 px-3" : "h-6 text-xs gap-1")}
                   >
-                    <Plus className="h-3 w-3" /> Agregar
+                    <Plus className={cn(isMobile ? "h-4 w-4" : "h-3 w-3")} /> Agregar
                   </Button>
                 </div>
                 <div className="space-y-1">
                   {task.subtasks.map((sub) => (
                     <div
                       key={sub.id}
-                      className="group/sub flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5"
+                      className={cn(
+                        "group/sub flex items-center gap-2 rounded-lg bg-muted/50 px-3",
+                        isMobile ? "py-2.5 min-h-[44px]" : "py-1.5"
+                      )}
                     >
                       <input
                         type="checkbox"
                         checked={sub.completed}
                         onChange={() => toggleSubtask(task.id, sub.id)}
-                        className="accent-primary h-3.5 w-3.5"
+                        className={cn("accent-primary", isMobile ? "h-5 w-5" : "h-3.5 w-3.5")}
                       />
                       <input
                         value={sub.title}
@@ -213,14 +226,18 @@ const OperationsTaskCard = ({
                         }
                         className={cn(
                           "flex-1 bg-transparent text-sm text-foreground outline-none",
+                          isMobile && "min-h-[24px]",
                           sub.completed && "line-through text-muted-foreground"
                         )}
                       />
                       <button
                         onClick={() => deleteSubtask(task.id, sub.id)}
-                        className="opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                        className={cn(
+                          "text-muted-foreground hover:text-destructive transition-all flex items-center justify-center",
+                          isMobile ? "opacity-100 h-10 w-10 -mr-2" : "opacity-0 group-hover/sub:opacity-100"
+                        )}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className={cn(isMobile ? "h-4 w-4" : "h-3 w-3")} />
                       </button>
                     </div>
                   ))}
@@ -256,7 +273,7 @@ const OperationsTaskCard = ({
                     <StringDatePicker
                       value={task.startDate || ""}
                       onChange={(val) => updateTask(task.id, { startDate: val || undefined })}
-                      className={cn("h-8 flex-1 text-xs")}
+                      className={cn(isMobile ? "h-10" : "h-8", "flex-1 text-xs")}
                     />
                   </div>
                   <div className="flex items-center gap-2 flex-1">
@@ -265,7 +282,8 @@ const OperationsTaskCard = ({
                       value={task.dueDate || ""}
                       onChange={(val) => updateTask(task.id, { dueDate: val || undefined })}
                       className={cn(
-                        "h-8 flex-1 text-xs",
+                        isMobile ? "h-10" : "h-8",
+                        "flex-1 text-xs",
                         isOverdue && "border-destructive/50 bg-destructive/5 text-destructive"
                       )}
                     />

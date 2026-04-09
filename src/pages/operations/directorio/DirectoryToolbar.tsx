@@ -36,7 +36,7 @@ export default function DirectoryToolbar({
 
   return (
     <div className="flex flex-wrap gap-3 items-center">
-      <div className="relative flex-1 min-w-0 w-full sm:max-w-xs">
+      <div className="relative min-w-0 w-full sm:flex-1 sm:max-w-xs">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder={`Buscar ${entityLabel.toLowerCase()}...`}
@@ -99,11 +99,11 @@ export default function DirectoryToolbar({
         <div className="ml-auto flex gap-2">
           <Button variant="outline" size="sm" onClick={onImport} className="gap-2">
             <Upload className="h-4 w-4" />
-            Importar
+            <span className="hidden sm:inline">Importar</span>
           </Button>
           <Button variant="outline" size="sm" onClick={onExport} className="gap-2">
             <Download className="h-4 w-4" />
-            Excel
+            <span className="hidden sm:inline">Excel</span>
           </Button>
         </div>
       )}
@@ -112,7 +112,7 @@ export default function DirectoryToolbar({
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={onExport} className="gap-2">
             <Download className="h-4 w-4" />
-            Excel
+            <span className="hidden sm:inline">Excel</span>
           </Button>
         </div>
       )}

@@ -348,7 +348,7 @@ const Operations = () => {
                   setShowNewTaskForm(true);
                 }
               }}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group min-h-[44px] md:min-h-0"
             >
               <span className={cn(
                 "flex items-center justify-center h-6 w-6 rounded-full border transition-all",
@@ -370,25 +370,28 @@ const Operations = () => {
                   }
                 }}
                 className={cn(
-                  "flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm max-w-lg mt-2 overflow-hidden",
+                  "flex flex-col gap-2 bg-card p-3 rounded-xl border border-primary/20 shadow-sm w-full md:max-w-lg mt-2 overflow-hidden",
                   isTaskFormClosing
                     ? "animate-out fade-out slide-out-to-top-2 duration-200 fill-mode-forwards"
                     : "animate-in fade-in slide-in-from-top-2 duration-200"
                 )}>
                 {/* Fila 1: Input título + Select departamento */}
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className={cn("flex items-center gap-1.5 min-w-0", isMobile && "flex-col")}>
                   <Input
                     placeholder="Título de la tarea..."
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addTask()}
                     autoFocus
-                    className="h-8 text-sm px-3 flex-1 min-w-0"
+                    className={cn("text-sm px-3 flex-1 min-w-0", isMobile ? "h-10" : "h-8")}
                   />
                   <select
                     value={newTaskDept}
                     onChange={(e) => setNewTaskDept(e.target.value)}
-                    className="h-8 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground shrink-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none"
+                    className={cn(
+                      "rounded-md border border-border bg-background px-2 text-xs text-muted-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring appearance-none",
+                      isMobile ? "h-10 w-full" : "h-8 shrink-0"
+                    )}
                   >
                     {departments.map((d) => (
                       <option key={d} value={d}>{d}</option>
@@ -396,27 +399,29 @@ const Operations = () => {
                   </select>
                 </div>
                 {/* Fila 2: Fechas + Agregar */}
-                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <DatePickerButton
-                    value={newStartDate}
-                    onChange={setNewStartDate}
-                    placeholder="Inicio"
-                    className="h-7 w-auto max-w-[140px] text-xs"
-                  />
-                  <DatePickerButton
-                    value={newDueDate}
-                    onChange={setNewDueDate}
-                    placeholder="Límite"
-                    className="h-7 w-auto max-w-[140px] text-xs"
-                  />
-                  <div className="flex-1" />
+                <div className={cn("flex items-center gap-1.5 flex-wrap min-w-0", isMobile && "flex-col items-stretch")}>
+                  <div className={cn("flex items-center gap-1.5", isMobile && "w-full")}>
+                    <DatePickerButton
+                      value={newStartDate}
+                      onChange={setNewStartDate}
+                      placeholder="Inicio"
+                      className={cn(isMobile ? "h-10 flex-1 text-xs" : "h-7 w-auto max-w-[140px] text-xs")}
+                    />
+                    <DatePickerButton
+                      value={newDueDate}
+                      onChange={setNewDueDate}
+                      placeholder="Límite"
+                      className={cn(isMobile ? "h-10 flex-1 text-xs" : "h-7 w-auto max-w-[140px] text-xs")}
+                    />
+                  </div>
+                  {!isMobile && <div className="flex-1" />}
                   <Button
                     size="sm"
                     onClick={addTask}
                     disabled={!newTaskTitle.trim()}
-                    className="h-7 text-xs px-3 gap-1 shrink-0"
+                    className={cn(isMobile ? "h-10 text-sm px-4 gap-1.5 w-full" : "h-7 text-xs px-3 gap-1 shrink-0")}
                   >
-                    <Plus className="h-3 w-3" /> Agregar
+                    <Plus className={cn(isMobile ? "h-4 w-4" : "h-3 w-3")} /> Agregar
                   </Button>
                 </div>
               </div>
@@ -424,13 +429,19 @@ const Operations = () => {
           </div>
 
           {/* Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className={cn(
+            "flex gap-2",
+            isMobile
+              ? "overflow-x-auto flex-nowrap pb-1 -mx-1 px-1 scrollbar-none"
+              : "flex-wrap"
+          )}>
             {["All", ...departments].map((d) => (
               <button
                 key={d}
                 onClick={() => setFilterDept(d)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-theme border",
+                  "rounded-full px-3 text-xs font-medium transition-theme border whitespace-nowrap shrink-0",
+                  isMobile ? "py-2 min-h-[36px]" : "py-1",
                   filterDept === d
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-muted text-muted-foreground hover:bg-secondary border-border"

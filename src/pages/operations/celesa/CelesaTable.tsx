@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Copy, Pencil, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
   CELESA_STATUS_CONFIG,
@@ -74,10 +75,12 @@ export default function CelesaTable({
   onDelete,
   onDuplicate,
 }: CelesaTableProps) {
+  const isMobile = useIsMobile();
   const [newRow, setNewRow] = useState({ ...emptyNew });
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showMobileForm, setShowMobileForm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleAddRow = async () => {
@@ -257,6 +260,338 @@ export default function CelesaTable({
       </span>
     );
   };
+
+  /* ── Mobile: new row form ── */
+  const renderMobileNewRow = () => {
+    if (!showMobileForm) return null;
+    return (
+      <div className="rounded-lg border bg-primary/5 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Nuevo pedido</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShowMobileForm(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <Input
+          placeholder="N° pedido"
+          value={newRow.numeroPedido}
+          onChange={(e) =>
+            setNewRow((r) => ({ ...r, numeroPedido: e.target.value }))
+          }
+          className="h-9 text-sm"
+        />
+        <Input
+          placeholder="Cliente"
+          value={newRow.cliente}
+          onChange={(e) =>
+            setNewRow((r) => ({ ...r, cliente: e.target.value }))
+          }
+          className="h-9 text-sm"
+        />
+        <Input
+          placeholder="Producto"
+          value={newRow.producto}
+          onChange={(e) =>
+            setNewRow((r) => ({ ...r, producto: e.target.value }))
+          }
+          className="h-9 text-sm"
+        />
+        <Input
+          placeholder="ISBN"
+          value={newRow.isbn}
+          onChange={(e) =>
+            setNewRow((r) => ({ ...r, isbn: e.target.value }))
+          }
+          className="h-9 text-sm"
+        />
+        <StringDatePicker
+          value={newRow.fechaPedido}
+          onChange={(val) => setNewRow((r) => ({ ...r, fechaPedido: val }))}
+          className="h-9 text-sm w-full"
+        />
+        <select
+          value={newRow.estado}
+          onChange={(e) =>
+            setNewRow((r) => ({
+              ...r,
+              estado: e.target.value as CelesaStatus,
+            }))
+          }
+          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          {CELESA_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <Button
+          className="w-full"
+          size="sm"
+          onClick={async () => {
+            await handleAddRow();
+            setShowMobileForm(false);
+          }}
+          disabled={!newRow.numeroPedido.trim() || !newRow.cliente.trim()}
+        >
+          Agregar pedido
+        </Button>
+      </div>
+    );
+  };
+
+  /* ── Mobile: single order card ── */
+  const renderMobileCard = (order: CelesaOrder) => {
+    const isEditingField = (field: EditingCell["field"]) =>
+      editingCell?.orderId === order.id && editingCell?.field === field;
+
+    return (
+      <div
+        key={order.id}
+        className="rounded-lg border bg-card p-3 space-y-2"
+      >
+        {/* Row 1: Status + Days */}
+        <div className="flex items-center justify-between">
+          {renderStatusSelect(order)}
+          {renderDays(order)}
+        </div>
+
+        {/* Row 2: Pedido + Cliente */}
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          {isEditingField("numeroPedido") ? (
+            <div className="flex-1 min-w-0">
+              <Input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEdit();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                onBlur={commitEdit}
+                autoFocus
+                className="h-8 text-sm font-semibold"
+              />
+            </div>
+          ) : (
+            <span
+              onClick={() =>
+                startEdit(order.id, "numeroPedido", order.numeroPedido)
+              }
+              className="text-sm font-semibold cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 shrink-0"
+            >
+              {order.numeroPedido || "—"}
+            </span>
+          )}
+          <span className="text-muted-foreground text-xs">·</span>
+          {isEditingField("cliente") ? (
+            <div className="flex-1 min-w-0">
+              <Input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEdit();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                onBlur={commitEdit}
+                autoFocus
+                className="h-8 text-sm"
+              />
+            </div>
+          ) : (
+            <span
+              onClick={() => startEdit(order.id, "cliente", order.cliente)}
+              className="text-sm truncate cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 min-w-0"
+            >
+              {order.cliente || "—"}
+            </span>
+          )}
+        </div>
+
+        {/* Row 3: Producto */}
+        {isEditingField("producto") ? (
+          <Input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitEdit();
+              if (e.key === "Escape") cancelEdit();
+            }}
+            onBlur={commitEdit}
+            autoFocus
+            className="h-8 text-xs"
+          />
+        ) : (
+          <p
+            onClick={() => startEdit(order.id, "producto", order.producto)}
+            className="text-xs text-muted-foreground truncate cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1"
+          >
+            {order.producto || "Sin producto"}
+          </p>
+        )}
+
+        {/* Row 4: ISBN + Fecha */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {isEditingField("isbn") ? (
+            <div className="flex-1 min-w-0">
+              <Input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEdit();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                onBlur={commitEdit}
+                autoFocus
+                className="h-7 text-xs"
+              />
+            </div>
+          ) : (
+            <span
+              onClick={() => startEdit(order.id, "isbn", order.isbn)}
+              className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1"
+            >
+              {order.isbn || "Sin ISBN"}
+            </span>
+          )}
+          <span>·</span>
+          {isEditingField("fechaPedido") ? (
+            <StringDatePicker
+              value={editValue}
+              onChange={(val) => {
+                if (!val) {
+                  setEditingCell(null);
+                  return;
+                }
+                const updates: Record<string, string> = { fechaPedido: val };
+                if (
+                  order.estado !== "Agotado" &&
+                  order.estado !== "Entregado"
+                ) {
+                  const days = businessDaysSince(val);
+                  if (days > 30) {
+                    updates.estado = "Atrasado";
+                  } else if (order.estado === "Atrasado") {
+                    updates.estado = "Pendiente";
+                  }
+                }
+                onUpdate(order.id, updates);
+                setEditingCell(null);
+              }}
+              className="h-7 text-xs"
+            />
+          ) : (
+            <span
+              onClick={() =>
+                startEdit(order.id, "fechaPedido", order.fechaPedido)
+              }
+              className="cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1"
+            >
+              {order.fechaPedido || "Sin fecha"}
+            </span>
+          )}
+        </div>
+
+        {/* Row 5: Actions */}
+        <div className="flex gap-1 pt-1 border-t">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => onDuplicate(order)}
+            title="Duplicar pedido"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() =>
+              startEdit(order.id, "numeroPedido", order.numeroPedido)
+            }
+            title="Editar"
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-destructive hover:text-destructive"
+            onClick={() => setDeleteId(order.id)}
+            title="Eliminar"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── Mobile: full view ── */
+  const renderMobileView = () => (
+    <>
+      <div className="space-y-3">
+        {renderMobileNewRow()}
+
+        {orders.length === 0 && !showMobileForm && (
+          <div className="text-center text-muted-foreground py-12 border rounded-lg">
+            No hay pedidos. Toca el botón + para agregar uno.
+          </div>
+        )}
+
+        {orders.map((order) => renderMobileCard(order))}
+      </div>
+
+      {/* FAB */}
+      {!showMobileForm && (
+        <Button
+          size="icon"
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+          onClick={() => setShowMobileForm(true)}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
+
+      <AlertDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar pedido</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar este pedido? Esta acción no se
+              puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteId) onDelete(deleteId);
+                setDeleteId(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+
+  if (isMobile) return renderMobileView();
 
   return (
     <TooltipProvider delayDuration={200}>

@@ -55,7 +55,7 @@ export default function CortesUpload({ onFileSelected, disabled }: CortesUploadP
       onDrop={handleDrop}
       onClick={() => !disabled && inputRef.current?.click()}
       className={`
-        flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-10 cursor-pointer transition-colors
+        flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-6 md:p-10 cursor-pointer transition-colors
         ${isDragging
           ? "border-primary bg-primary/5"
           : "border-muted-foreground/25 hover:border-muted-foreground/50"
@@ -63,7 +63,7 @@ export default function CortesUpload({ onFileSelected, disabled }: CortesUploadP
         ${disabled ? "opacity-50 pointer-events-none" : ""}
       `}
     >
-      <Upload className="h-10 w-10 text-muted-foreground" />
+      <Upload className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground" />
       <div className="text-center">
         <p className="text-sm font-medium">
           Arrastra un archivo de corte aquí
@@ -75,7 +75,7 @@ export default function CortesUpload({ onFileSelected, disabled }: CortesUploadP
       <p className="text-xs text-muted-foreground mt-2">
         Se procesarán las filas con descuento "3X2"
       </p>
-      <div className="mt-2 text-xs text-muted-foreground/70 text-center space-y-0.5">
+      <div className="mt-2 text-xs text-muted-foreground/70 text-center space-y-0.5 hidden md:block">
         <p className="font-medium text-muted-foreground">Columnas requeridas:</p>
         <p>Order name · Discount name · Product variant SKU</p>
         <p className="italic">Opcionales: Product title · Product vendor · Net items sold</p>

@@ -16,7 +16,7 @@ const Cortes = () => (
       </p>
     </div>
     <Tabs defaultValue="3x2">
-      <TabsList>
+      <TabsList className="w-full md:w-auto">
         <TabsTrigger value="3x2">3X2</TabsTrigger>
         <TabsTrigger value="descuento">% Descuento</TabsTrigger>
       </TabsList>

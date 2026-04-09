@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, Fragment } from "react";
-import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, ChevronDown, Plus, X } from "lucide-react";
+import { Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, ChevronDown, Plus, X, Phone, Mail } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import EmployeeLeaveHistory from "./EmployeeLeaveHistory";
 import {
@@ -41,6 +42,7 @@ import type {
   DirectoryType,
   DirectoryStatus,
   PersonClasificacion,
+  PersonEntry,
   SupplierEntry,
   ContactoComercial,
 } from "./types";
@@ -100,6 +102,7 @@ export default function DirectoryTable({
   onDelete,
   isAdmin,
 }: DirectoryTableProps) {
+  const isMobile = useIsMobile();
   const isPersonType = type === "empleado" || type === "temporal";
   const [newRow, setNewRow] = useState(
     isPersonType ? { ...emptyPerson } : { ...emptySupplier }
@@ -111,6 +114,7 @@ export default function DirectoryTable({
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showMobileNewForm, setShowMobileNewForm] = useState(false);
 
   const toggleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
@@ -394,6 +398,474 @@ export default function DirectoryTable({
   };
 
   const colCount = isPersonType ? 8 : 9;
+
+  // ── Mobile rendering functions ──
+
+  const renderMobileEditableField = (
+    entry: DirectoryEntry,
+    field: EditableField,
+    displayValue: string,
+    formattedOverride?: string,
+    className?: string
+  ) => {
+    const isEditing =
+      editingCell?.entryId === entry.id && editingCell?.field === field;
+    const formatted = formattedOverride ?? displayValue;
+
+    if (isEditing) {
+      return (
+        <Input
+          ref={inputRef}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitEdit();
+            if (e.key === "Escape") cancelEdit();
+          }}
+          onBlur={commitEdit}
+          autoFocus
+          className="h-8 text-sm w-full"
+        />
+      );
+    }
+
+    if (!isAdmin) {
+      return <span className={cn("block", className)}>{formatted || "\u2014"}</span>;
+    }
+
+    return (
+      <span
+        onClick={(e) => { e.stopPropagation(); startEdit(entry.id, field, displayValue); }}
+        className={cn("block cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1", className)}
+      >
+        {formatted || "\u2014"}
+      </span>
+    );
+  };
+
+  const renderMobilePersonCard = (entry: DirectoryEntry & { nombre: string; apellido: string; cedula: string; celular: string; correo: string }) => {
+    const isExpanded = expandedId === entry.id;
+    const isInactive = entry.estado === "Inactivo";
+    const clasificacion = getClasificacion(entry as PersonEntry);
+    const clasConfig = CLASIFICACION_CONFIG[clasificacion];
+
+    return (
+      <div key={entry.id} className={cn("rounded-lg border bg-card", isInactive && "opacity-50")}>
+        <div
+          className="p-3 space-y-1.5 cursor-pointer active:bg-muted/30 transition-colors"
+          onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+        >
+          {/* Top row: clasificacion + estado badges */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {isAdmin ? renderClasificacionSelect(entry) : (
+                <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap", clasConfig.bg, clasConfig.text)}>
+                  {clasificacion}
+                </span>
+              )}
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              {renderStatusSelect(entry)}
+            </div>
+          </div>
+
+          {/* Name */}
+          <div className={cn("font-medium text-sm", isInactive && "line-through")} onClick={(e) => isAdmin && e.stopPropagation()}>
+            {renderMobileEditableField(entry, "nombre", `${entry.nombre} ${entry.apellido}`.trim(), undefined, "font-medium")}
+          </div>
+
+          {/* Cedula + Celular */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            <span onClick={(e) => isAdmin && e.stopPropagation()} className="inline-flex items-center gap-1">
+              {renderMobileEditableField(entry, "cedula", entry.cedula, entry.cedula ? `C.C. ${entry.cedula}` : "\u2014", "text-xs")}
+            </span>
+            {entry.celular && (
+              <>
+                <span className="text-muted-foreground/40">&middot;</span>
+                <span onClick={(e) => isAdmin && e.stopPropagation()} className="inline-flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {renderMobileEditableField(entry, "celular", entry.celular, undefined, "text-xs")}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Correo */}
+          {entry.correo && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground" onClick={(e) => isAdmin && e.stopPropagation()}>
+              <Mail className="h-3 w-3 shrink-0" />
+              {renderMobileEditableField(entry, "correo", entry.correo, undefined, "text-xs truncate")}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {isAdmin && (
+          <div className="flex items-center gap-2 border-t px-3 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs gap-1.5 flex-1"
+              onClick={() => startEdit(entry.id, "nombre", `${entry.nombre} ${entry.apellido}`.trim())}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs gap-1.5 flex-1 text-destructive hover:text-destructive"
+              onClick={() => setDeleteId(entry.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Eliminar
+            </Button>
+          </div>
+        )}
+
+        {/* Expanded section */}
+        {isExpanded && (
+          <div className="border-t">
+            <EmployeeLeaveHistory cedula={entry.cedula} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMobileSupplierCard = (entry: SupplierEntry) => {
+    const isExpanded = expandedId === entry.id;
+    const isInactive = entry.estado === "Inactivo";
+
+    return (
+      <div key={entry.id} className={cn("rounded-lg border bg-card", isInactive && "opacity-50")}>
+        <div
+          className="p-3 space-y-1.5 cursor-pointer active:bg-muted/30 transition-colors"
+          onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+        >
+          {/* Top row: estado + margen */}
+          <div className="flex items-center justify-between gap-2">
+            <div onClick={(e) => e.stopPropagation()}>
+              {renderStatusSelect(entry)}
+            </div>
+            {entry.margen != null && (
+              <span onClick={(e) => isAdmin && e.stopPropagation()}>
+                {renderMobileEditableField(entry, "margen", String(entry.margen), `${entry.margen}%`, "text-sm font-semibold tabular-nums")}
+              </span>
+            )}
+          </div>
+
+          {/* Empresa */}
+          <div className={cn("font-medium text-sm", isInactive && "line-through")} onClick={(e) => isAdmin && e.stopPropagation()}>
+            {renderMobileEditableField(entry, "empresa", entry.empresa, undefined, "font-medium")}
+          </div>
+
+          {/* RazonSocial + NIT */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            <span onClick={(e) => isAdmin && e.stopPropagation()}>
+              {renderMobileEditableField(entry, "razonSocial", entry.razonSocial, undefined, "text-xs")}
+            </span>
+            {entry.nit && (
+              <>
+                <span className="text-muted-foreground/40">&middot;</span>
+                <span onClick={(e) => isAdmin && e.stopPropagation()}>
+                  {renderMobileEditableField(entry, "nit", entry.nit, `NIT ${entry.nit}`, "text-xs")}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Correo */}
+          {entry.correo && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground" onClick={(e) => isAdmin && e.stopPropagation()}>
+              <Mail className="h-3 w-3 shrink-0" />
+              {renderMobileEditableField(entry, "correo", entry.correo, undefined, "text-xs truncate")}
+            </div>
+          )}
+
+          {/* Observaciones */}
+          {entry.observaciones && (
+            <div className={cn("text-xs text-muted-foreground", entry.observaciones.toLowerCase() !== "automatico" && "font-bold")} onClick={(e) => isAdmin && e.stopPropagation()}>
+              {renderMobileEditableField(entry, "observaciones", entry.observaciones, `Obs: ${entry.observaciones}`, "text-xs")}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {isAdmin && (
+          <div className="flex items-center gap-2 border-t px-3 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs gap-1.5 flex-1"
+              onClick={() => startEdit(entry.id, "empresa", entry.empresa)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs gap-1.5 flex-1 text-destructive hover:text-destructive"
+              onClick={() => setDeleteId(entry.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Eliminar
+            </Button>
+          </div>
+        )}
+
+        {/* Expanded: contactos comerciales */}
+        {isExpanded && (
+          <div className="border-t px-3 py-3 space-y-2">
+            <h4 className="text-sm font-medium">Contactos Comerciales</h4>
+            <p className="text-xs text-muted-foreground">
+              Se usan para pedidos y devoluciones. El correo principal se usa para cortes.
+            </p>
+            {(entry.contactos?.length ?? 0) > 0 && (
+              <div className="space-y-2">
+                {entry.contactos!.map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm bg-background rounded p-2 border">
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="font-medium text-xs">{c.nombre || "\u2014"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{c.correo}</p>
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded inline-block">{c.ciudad || "General"}</span>
+                    </div>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveContacto(entry, i); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {isAdmin && (
+              <div className="space-y-2 pt-1">
+                <Input
+                  placeholder="Nombre"
+                  value={newContacto.nombre}
+                  onChange={(e) => setNewContacto((c) => ({ ...c, nombre: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddContacto(entry)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  placeholder="Correo"
+                  value={newContacto.correo}
+                  onChange={(e) => setNewContacto((c) => ({ ...c, correo: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddContacto(entry)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  placeholder="Ciudad"
+                  value={newContacto.ciudad}
+                  onChange={(e) => setNewContacto((c) => ({ ...c, ciudad: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddContacto(entry)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 text-xs w-full"
+                  onClick={(e) => { e.stopPropagation(); handleAddContacto(entry); }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Agregar contacto
+                </Button>
+              </div>
+            )}
+            {!isAdmin && (entry.contactos?.length ?? 0) === 0 && (
+              <p className="text-xs text-muted-foreground italic">Sin contactos comerciales</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMobileNewForm = () => {
+    if (!isAdmin) return null;
+
+    return (
+      <div className="space-y-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full h-9 gap-2"
+          onClick={() => setShowMobileNewForm((v) => !v)}
+        >
+          {showMobileNewForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {showMobileNewForm ? "Cancelar" : "Agregar registro"}
+        </Button>
+        {showMobileNewForm && (
+          <div className="rounded-lg border bg-primary/5 p-3 space-y-2">
+            {isPersonType ? (
+              <>
+                <Input
+                  placeholder="Nombre completo"
+                  value={(newRow as typeof emptyPerson).nombreCompleto}
+                  onChange={(e) => setNewRow((r) => ({ ...r, nombreCompleto: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="C\u00e9dula"
+                  value={(newRow as typeof emptyPerson).cedula}
+                  onChange={(e) => setNewRow((r) => ({ ...r, cedula: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Celular"
+                  value={(newRow as typeof emptyPerson).celular}
+                  onChange={(e) => setNewRow((r) => ({ ...r, celular: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Correo"
+                  value={(newRow as typeof emptyPerson).correo}
+                  onChange={(e) => setNewRow((r) => ({ ...r, correo: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <select
+                  value={(newRow as typeof emptyPerson).clasificacion}
+                  onChange={(e) =>
+                    setNewRow((r) => ({ ...r, clasificacion: e.target.value as PersonClasificacion }))
+                  }
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">
+                    {type === "empleado" ? "Empleado" : "Temporal"}
+                  </option>
+                  {PERSON_CLASIFICACIONES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="Empresa"
+                  value={(newRow as typeof emptySupplier).empresa}
+                  onChange={(e) => setNewRow((r) => ({ ...r, empresa: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Raz\u00f3n Social"
+                  value={(newRow as typeof emptySupplier).razonSocial}
+                  onChange={(e) => setNewRow((r) => ({ ...r, razonSocial: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="NIT"
+                  value={(newRow as typeof emptySupplier).nit}
+                  onChange={(e) => setNewRow((r) => ({ ...r, nit: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Margen %"
+                  type="number"
+                  value={(newRow as typeof emptySupplier).margen}
+                  onChange={(e) => setNewRow((r) => ({ ...r, margen: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Correo"
+                  value={(newRow as typeof emptySupplier).correo}
+                  onChange={(e) => setNewRow((r) => ({ ...r, correo: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="Observaciones"
+                  value={(newRow as typeof emptySupplier).observaciones}
+                  onChange={(e) => setNewRow((r) => ({ ...r, observaciones: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </>
+            )}
+            <select
+              value={newRow.estado}
+              onChange={(e) =>
+                setNewRow((r) => ({ ...r, estado: e.target.value as DirectoryStatus }))
+              }
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {DIRECTORY_STATUSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <Button
+              className="w-full h-9"
+              onClick={async () => {
+                await handleAddRow();
+                setShowMobileNewForm(false);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Agregar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMobileView = () => (
+    <div className="space-y-3">
+      {renderMobileNewForm()}
+      {sortedEntries.length === 0 && (
+        <div className="text-center text-muted-foreground py-12 border rounded-lg">
+          No hay registros.{" "}
+          {isAdmin && "Agrega uno con el bot\u00f3n superior."}
+        </div>
+      )}
+      {sortedEntries.map((entry) =>
+        isPerson(entry)
+          ? renderMobilePersonCard(entry)
+          : renderMobileSupplierCard(entry as SupplierEntry)
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {renderMobileView()}
+        <AlertDialog
+          open={deleteId !== null}
+          onOpenChange={(open) => !open && setDeleteId(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar registro</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Est\u00e1s seguro de que deseas eliminar este registro? Esta acci\u00f3n no
+                se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteId) onDelete(deleteId);
+                  setDeleteId(null);
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={200}>
