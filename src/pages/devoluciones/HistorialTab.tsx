@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Loader2 } from "lucide-react";
+import { utils, writeFile } from "xlsx";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -176,9 +178,33 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
                                     </tbody>
                                   </table>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {logItems.length} item(s) · Total: {logItems.reduce((s, i) => s + i.cantidad, 0)} unidades
-                                </p>
+                                <div className="flex items-center justify-between mt-1">
+                                  <p className="text-xs text-muted-foreground">
+                                    {logItems.length} item(s) · Total: {logItems.reduce((s, i) => s + i.cantidad, 0)} unidades
+                                  </p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1.5"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const rows = logItems.map((i) => ({
+                                        "#": i.fila,
+                                        ISBN: i.isbn ?? "",
+                                        Título: i.titulo ?? "",
+                                        Cantidad: i.cantidad,
+                                        ...(i.extras ?? {}),
+                                      }));
+                                      const wb = utils.book_new();
+                                      utils.book_append_sheet(wb, utils.json_to_sheet(rows), "Items");
+                                      const name = `devolucion_${log.destinatario.replace(/\s+/g, "_")}${log.codigoDevolucion ? `_${log.codigoDevolucion}` : ""}.xlsx`;
+                                      writeFile(wb, name);
+                                    }}
+                                  >
+                                    <Download className="h-3 w-3" />
+                                    Descargar Excel
+                                  </Button>
+                                </div>
                               </>
                             ) : (
                               <p className="text-xs text-muted-foreground py-2">Sin detalle de items</p>
