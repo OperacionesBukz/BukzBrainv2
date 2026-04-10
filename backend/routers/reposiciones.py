@@ -1081,7 +1081,8 @@ def approve_draft(body: ApproveRequest):
             "status": "aprobado",
             "approved_by": body.approved_by,
             "approved_at": now_str,
-            "effective_products": [p.dict() for p in body.effective_products],
+            "effective_product_count": len(body.effective_products),
+            "effective_chunked": True,
         })
 
     transaction = db.transaction()
@@ -1091,6 +1092,14 @@ def approve_draft(body: ApproveRequest):
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error aprobando borrador: {str(e)}")
+
+    # Store effective_products in subcollection chunks to avoid 1MB limit
+    products_dicts = [p.dict() for p in body.effective_products]
+    for i in range(0, len(products_dicts), _DRAFT_CHUNK_SIZE):
+        chunk = products_dicts[i:i + _DRAFT_CHUNK_SIZE]
+        doc_ref.collection("effective_chunks").document(f"chunk_{i // _DRAFT_CHUNK_SIZE}").set({
+            "products": chunk,
+        })
 
     return ApproveResponse(status="aprobado", approved_at=now_str)
 
@@ -1112,7 +1121,16 @@ def generate_orders(body: GenerateOrdersRequest):
     if draft_data.get("status") != "aprobado":
         raise HTTPException(status_code=409, detail="El borrador no ha sido aprobado")
 
-    effective_products = draft_data.get("effective_products", [])
+    # Read effective_products: chunked subcollection or legacy inline
+    if draft_data.get("effective_chunked"):
+        effective_products = []
+        chunks = db.collection(_REPLENISHMENT_ORDERS_COLLECTION).document(
+            body.draft_id
+        ).collection("effective_chunks").stream()
+        for chunk in sorted(chunks, key=lambda c: c.id):
+            effective_products.extend(chunk.to_dict().get("products", []))
+    else:
+        effective_products = draft_data.get("effective_products", [])
     now_str = datetime.now(timezone.utc).isoformat()
 
     created_orders: list[dict] = []

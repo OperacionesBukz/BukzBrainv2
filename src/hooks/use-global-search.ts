@@ -107,7 +107,6 @@ async function fetchTasks(userId: string): Promise<SearchResult[]> {
       query(
         collection(db, "user_tasks"),
         where("userId", "==", userId),
-        orderBy("createdAt", "desc"),
         limit(50)
       )
     );
