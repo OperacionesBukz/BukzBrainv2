@@ -436,6 +436,135 @@ def _process_sales_jsonl(url: str, locations: dict[str, str]) -> dict[str, dict]
     return sales
 
 
+# -- Ventas por sede (queries paginados por location_id) -----------------
+
+def _fetch_sales_for_location(
+    loc_name: str, loc_gid: str, months: int,
+) -> dict:
+    """
+    Obtiene ventas para UNA sede via queries GraphQL paginados.
+    Usa filtro location_id para obtener solo ordenes de esa sede.
+    Retorna {"total_units_sold": N, "sku_count": N}.
+    """
+    loc_numeric_id = loc_gid.split("/")[-1]
+    date_start = (datetime.now() - timedelta(days=months * 30)).strftime("%Y-%m-%dT00:00:00Z")
+    query_filter = f"created_at:>={date_start} financial_status:paid location_id:{loc_numeric_id}"
+
+    total_units = 0
+    skus_seen: set[str] = set()
+    total_orders = 0
+    has_next = True
+    cursor = None
+    page = 0
+
+    while has_next:
+        after_clause = f', after: "{cursor}"' if cursor else ""
+        query = """
+        {
+          orders(first: 250%s, query: "%s") {
+            edges {
+              node {
+                id
+                lineItems(first: 100) {
+                  edges {
+                    node {
+                      sku
+                      quantity
+                    }
+                  }
+                }
+              }
+              cursor
+            }
+            pageInfo {
+              hasNextPage
+            }
+          }
+        }
+        """ % (after_clause, query_filter)
+
+        # Reintentos: hasta 2 veces ante fallos transitorios
+        last_err = None
+        for attempt in range(3):
+            try:
+                data = _gql(query, timeout=30)
+                last_err = None
+                break
+            except Exception as e:
+                last_err = e
+                if attempt < 2:
+                    print(f"[TURNOVER] Retry {attempt + 1} para {loc_name} pagina {page}: {e}", flush=True)
+                    time.sleep(2)
+
+        if last_err:
+            raise RuntimeError(
+                f"Error obteniendo ventas para {loc_name} (pagina {page}): {last_err}"
+            )
+
+        edges = data["orders"]["edges"]
+        page_info = data["orders"]["pageInfo"]
+
+        for edge in edges:
+            total_orders += 1
+            order = edge["node"]
+            for li_edge in order.get("lineItems", {}).get("edges", []):
+                li = li_edge["node"]
+                sku = str(li.get("sku") or "").strip()
+                qty = li.get("quantity", 0)
+                if sku and qty > 0:
+                    total_units += qty
+                    skus_seen.add(sku)
+            cursor = edge["cursor"]
+
+        has_next = page_info["hasNextPage"]
+        page += 1
+
+        if page % 5 == 0:
+            print(f"[TURNOVER]   {loc_name}: pagina {page}, {total_orders} ordenes...", flush=True)
+
+        # Rate limiting: pausa entre paginas
+        if has_next:
+            time.sleep(0.5)
+
+    print(
+        f"[TURNOVER] Ventas {loc_name}: {total_units:,} unidades, "
+        f"{len(skus_seen)} SKUs, {total_orders} ordenes",
+        flush=True,
+    )
+    return {"total_units_sold": total_units, "sku_count": len(skus_seen)}
+
+
+def _fetch_all_sales(months: int, locations: dict[str, str]) -> dict[str, dict]:
+    """
+    Obtiene ventas para TODAS las sedes via queries paginados.
+    Si cualquier sede falla, propaga el error (no resultados parciales).
+    """
+    date_start = (datetime.now() - timedelta(days=months * 30)).strftime("%Y-%m-%d")
+    print(
+        f"[TURNOVER] === FASE VENTAS ({months} meses, desde {date_start}) ===",
+        flush=True,
+    )
+
+    sales: dict[str, dict] = {}
+    for loc_name, loc_gid in locations.items():
+        print(f"[TURNOVER] Consultando ventas: {loc_name}...", flush=True)
+        sales[loc_name] = _fetch_sales_for_location(loc_name, loc_gid, months)
+
+    total_sold = sum(v["total_units_sold"] for v in sales.values())
+    print(f"[TURNOVER] Ventas total: {total_sold:,} unidades", flush=True)
+
+    # Warning si alguna sede tiene 0 ventas
+    for loc_name, data in sales.items():
+        if data["total_units_sold"] == 0:
+            print(
+                f"[TURNOVER] ⚠ {loc_name}: 0 ventas en {months} meses — "
+                f"verificar que la sede tenga ordenes POS en Shopify",
+                flush=True,
+            )
+
+    return sales
+
+
 # -- Result builder ------------------------------------------------------
 
 def _get_semaforo(rotacion: float | None) -> str:
@@ -541,12 +670,9 @@ def _turnover_worker(months: int):
         total_skus = sum(v["product_count"] for v in inventory.values())
         print(f"[TURNOVER] Inventario total: {total_inv} unidades, {total_skus} SKUs", flush=True)
 
-        # Fase 3: Bulk op ventas (secuencial — Shopify solo permite 1 bulk query a la vez)
+        # Fase 3: Ventas por sede (queries paginados por location_id)
         _job["phase"] = "sales"
-        print(f"[TURNOVER] === FASE VENTAS ({months} meses) ===", flush=True)
-        sales = _run_sales_pipeline(months, locations)
-        total_sold = sum(v["total_units_sold"] for v in sales.values())
-        print(f"[TURNOVER] Ventas total: {total_sold} unidades", flush=True)
+        sales = _fetch_all_sales(months, locations)
 
         # Fase 4: Calcular rotacion
         _job["phase"] = "processing"
@@ -573,10 +699,7 @@ def _turnover_worker_excel(months: int, inventory: dict[str, dict]):
 
         # Inventario ya viene del Excel — solo necesitamos ventas
         _job["phase"] = "sales"
-        print(f"[TURNOVER-EXCEL] === FASE VENTAS ({months} meses) ===", flush=True)
-        sales = _run_sales_pipeline(months, locations)
-        total_sold = sum(v["total_units_sold"] for v in sales.values())
-        print(f"[TURNOVER-EXCEL] Ventas total: {total_sold} unidades", flush=True)
+        sales = _fetch_all_sales(months, locations)
 
         _job["phase"] = "processing"
         _job["result"] = _build_result(locations, inventory, sales, months)

@@ -488,7 +488,7 @@ export default function CrearProductos() {
                         </TableCell>
                         <TableCell className="max-w-[300px] text-sm text-muted-foreground truncate">
                           {r.success
-                            ? r.shopify_id?.split("/").pop() ?? "OK"
+                            ? `${r.shopify_id?.split("/").pop() ?? "OK"}${r.published === false ? " — Sin Sales Channels" : ""}`
                             : r.error}
                         </TableCell>
                       </TableRow>

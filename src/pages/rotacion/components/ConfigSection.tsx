@@ -41,7 +41,7 @@ export default function ConfigSection({ onStart, disabled }: ConfigSectionProps)
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 mt-6">
+        <div className="grid gap-4 mt-6">
           <div className="space-y-2">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Periodo de ventas
