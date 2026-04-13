@@ -18,6 +18,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from config import settings
+from services.shopify_service import _throttler
 
 router = APIRouter(prefix="/api/dead-stock", tags=["Dead Stock"])
 
@@ -51,20 +52,25 @@ class DeadStockRequest(BaseModel):
 # -- GraphQL helper ------------------------------------------------------
 
 def _gql(query: str, timeout: int = 30) -> dict:
-    for attempt in range(8):
+    for attempt in range(10):
+        _throttler.wait_if_needed()
         resp = requests.post(
             settings.get_graphql_url(),
             json={"query": query},
             headers=settings.get_shopify_headers(),
             timeout=timeout,
         )
+        _throttler.update_from_response(resp)
         resp.raise_for_status()
         body = resp.json()
         if "errors" in body:
             codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
-            if "THROTTLED" in codes and attempt < 7:
-                wait = 4 * (attempt + 1)  # 4, 8, 12, 16, 20, 24, 28s
-                print(f"[GQL] Throttled (intento {attempt + 1}/8), esperando {wait}s...", flush=True)
+            if "THROTTLED" in codes and attempt < 9:
+                # Signal to shared throttler that bucket is empty
+                with _throttler._lock:
+                    _throttler._available_ratio = 0.0
+                wait = 5 * (attempt + 1)
+                print(f"[DEAD-STOCK] Throttled (intento {attempt + 1}/10), esperando {wait}s...", flush=True)
                 time.sleep(wait)
                 continue
             raise RuntimeError(f"GraphQL errors: {body['errors']}")
