@@ -28,6 +28,12 @@ const SEMAFORO_BAR = {
   rojo: "bg-red-500",
 };
 
+const SEMAFORO_BORDER = {
+  verde: "border-l-[3px] border-l-green-500",
+  amarillo: "border-l-[3px] border-l-yellow-500",
+  rojo: "border-l-[3px] border-l-red-500",
+};
+
 const SEMAFORO_LABEL = {
   verde: "Buena",
   amarillo: "Regular",
@@ -45,21 +51,28 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Detalle por Sede</CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle className="text-lg">Detalle por Sede</CardTitle>
+          <Badge variant="secondary" className="text-xs font-mono">
+            {sedes.length} sedes
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="sticky left-0 bg-card z-10">Sede</TableHead>
-                <TableHead className="text-right">Inventario</TableHead>
-                <TableHead className="text-right">Ventas</TableHead>
-                <TableHead className="text-right">Rotacion</TableHead>
-                <TableHead className="text-right">Dias Inv.</TableHead>
-                <TableHead className="text-right">Sell-Through</TableHead>
-                <TableHead className="text-right">Venta/Dia</TableHead>
-                <TableHead className="text-center">Estado</TableHead>
+              <TableRow className="bg-muted/50 dark:bg-muted/30 border-b-2 border-border">
+                <TableHead className="sticky left-0 bg-muted/50 dark:bg-muted/30 z-10 text-[11px] uppercase tracking-wider font-semibold">
+                  Sede
+                </TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold">Inventario</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold">Ventas</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold">Rotacion</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold">Dias Inv.</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold">Sell-Through</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider font-semibold">Venta/Dia</TableHead>
+                <TableHead className="text-center text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -68,8 +81,11 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
                 const stPct = s.sell_through_pct != null ? (s.sell_through_pct / maxSellThrough) * 100 : 0;
 
                 return (
-                  <TableRow key={s.sede} className="transition-colors hover:bg-muted/50">
-                    <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-card z-10">
+                  <TableRow
+                    key={s.sede}
+                    className={cn("group transition-colors hover:bg-muted/50", SEMAFORO_BORDER[s.semaforo])}
+                  >
+                    <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-card group-hover:bg-muted/50 z-10 transition-colors">
                       {s.sede.replace("Bukz ", "")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(s.inventario_unidades)}</TableCell>
@@ -79,7 +95,7 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
                         <span className="font-semibold tabular-nums">
                           {s.rotacion != null ? `${s.rotacion}x` : "-"}
                         </span>
-                        <div className="w-[64px] h-[6px] rounded-full bg-muted overflow-hidden hidden sm:block">
+                        <div className="w-[80px] h-[10px] rounded-full bg-muted/80 overflow-hidden">
                           <div
                             className={cn("h-full rounded-full transition-all", SEMAFORO_BAR[s.semaforo])}
                             style={{ width: `${rotPct}%` }}
@@ -95,7 +111,7 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
                         <span className="tabular-nums">
                           {s.sell_through_pct != null ? `${s.sell_through_pct}%` : "-"}
                         </span>
-                        <div className="w-[48px] h-[6px] rounded-full bg-muted overflow-hidden hidden sm:block">
+                        <div className="w-[64px] h-[10px] rounded-full bg-muted/80 overflow-hidden">
                           <div
                             className={cn("h-full rounded-full transition-all", SEMAFORO_BAR[s.semaforo])}
                             style={{ width: `${stPct}%` }}
@@ -113,8 +129,10 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
                 );
               })}
               {/* Total row */}
-              <TableRow className="font-bold bg-muted/30 border-t-2">
-                <TableCell className="sticky left-0 bg-muted/30 z-10">TOTAL</TableCell>
+              <TableRow className="font-bold bg-primary/5 dark:bg-primary/10 border-t-2 border-primary/30">
+                <TableCell className="sticky left-0 bg-muted z-10 text-primary uppercase tracking-wide">
+                  TOTAL
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(totales.inventario_unidades)}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(totales.vendidas_unidades)}</TableCell>
                 <TableCell className="text-right tabular-nums">

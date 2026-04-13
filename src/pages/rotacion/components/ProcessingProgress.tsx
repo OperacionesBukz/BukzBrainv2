@@ -1,5 +1,4 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface ProcessingProgressProps {
@@ -18,7 +17,7 @@ export default function ProcessingProgress({
   elapsedSeconds,
 }: ProcessingProgressProps) {
   const currentIdx = STEPS.findIndex((s) => s.key === backendPhase);
-  const progressPct = currentIdx === -1 ? 0 : Math.round(((currentIdx + 0.5) / STEPS.length) * 100);
+  const progressPct = currentIdx === -1 ? 10 : Math.round(((currentIdx + 0.5) / STEPS.length) * 100);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -27,18 +26,34 @@ export default function ProcessingProgress({
   };
 
   return (
-    <Card className="max-w-[480px] mx-auto">
-      <CardContent className="py-8 px-6">
-        {/* Progress bar */}
-        <div className="h-[6px] rounded-full bg-muted overflow-hidden">
+    <div className="relative max-w-[480px] mx-auto overflow-hidden rounded-2xl border border-border/50 bg-card">
+      {/* Background texture */}
+      <div className="absolute inset-0 bg-dot-pattern opacity-20 dark:opacity-10" />
+
+      <div className="relative py-8 px-6">
+        {/* Orbital visualization */}
+        <div className="relative w-[120px] h-[120px] mx-auto mb-8">
+          {/* Pulsing ring */}
+          <div className="absolute inset-0 rounded-full border border-primary/20 animate-pulse-ring" />
+          {/* Static outer ring */}
+          <div className="absolute inset-0 rounded-full border-2 border-primary/15" />
+          {/* Orbiting dots */}
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-            style={{ width: `${progressPct}%` }}
+            className="absolute w-3 h-3 rounded-full bg-primary animate-orbit"
+            style={{ top: "50%", left: "50%", marginTop: "-6px", marginLeft: "-6px" }}
           />
+          <div
+            className="absolute w-2 h-2 rounded-full bg-primary/50 animate-orbit-reverse"
+            style={{ top: "50%", left: "50%", marginTop: "-4px", marginLeft: "-4px" }}
+          />
+          {/* Center content */}
+          <div className="absolute inset-[20px] rounded-full border-2 border-primary/30 bg-card/80 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-2xl font-bold font-mono text-primary">{progressPct}%</span>
+          </div>
         </div>
 
         {/* Steps timeline */}
-        <div className="mt-8 space-y-0">
+        <div className="space-y-0">
           {STEPS.map((step, i) => {
             const isDone = i < currentIdx;
             const isActive = i === currentIdx;
@@ -59,18 +74,21 @@ export default function ProcessingProgress({
                   )}
                   {!isLast && (
                     <div className={cn(
-                      "w-[2px] h-[32px]",
+                      "w-[2px] h-[28px]",
                       isDone ? "bg-green-600 dark:bg-green-400" : "bg-muted"
                     )} />
                   )}
                 </div>
 
                 {/* Content */}
-                <div className="pb-6">
+                <div className={cn(
+                  "pb-5 -mt-0.5 px-3 py-2 rounded-lg transition-colors",
+                  isActive && "bg-primary/5 dark:bg-primary/10",
+                )}>
                   <p className={cn(
                     "text-sm font-medium",
                     isDone && "text-green-600 dark:text-green-400",
-                    isActive && "text-foreground",
+                    isActive && "text-foreground font-semibold",
                     !isDone && !isActive && "text-muted-foreground",
                   )}>
                     {step.label}
@@ -85,13 +103,15 @@ export default function ProcessingProgress({
         </div>
 
         {/* Timer */}
-        <div className="text-center mt-2">
-          <p className="text-lg font-mono font-semibold text-primary">
+        <div className="text-center border-t border-border/50 pt-4 mt-2">
+          <p className="text-2xl font-mono font-bold tracking-wider text-primary">
             {formatTime(elapsedSeconds)}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Tiempo transcurrido</p>
+          <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mt-1">
+            Tiempo transcurrido
+          </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
