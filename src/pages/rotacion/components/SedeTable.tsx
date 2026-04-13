@@ -93,7 +93,7 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className="font-semibold tabular-nums">
-                          {s.rotacion != null ? `${s.rotacion}x` : "-"}
+                          {s.rotacion != null ? `${Math.round(s.rotacion * 100)}%` : "-"}
                         </span>
                         <div className="w-[80px] h-[10px] rounded-full bg-muted/80 overflow-hidden">
                           <div
@@ -136,7 +136,7 @@ export default function SedeTable({ sedes, totales }: SedeTableProps) {
                 <TableCell className="text-right tabular-nums">{fmt(totales.inventario_unidades)}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(totales.vendidas_unidades)}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {totales.rotacion != null ? `${totales.rotacion}x` : "-"}
+                  {totales.rotacion != null ? `${Math.round(totales.rotacion * 100)}%` : "-"}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {totales.dias_inventario != null ? `${totales.dias_inventario}d` : "-"}

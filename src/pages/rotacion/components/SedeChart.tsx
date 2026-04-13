@@ -36,7 +36,7 @@ function CustomTooltip({ active, payload, label }: any) {
           <span className="font-mono font-semibold">
             {typeof entry.value === "number"
               ? entry.name === "Rotacion"
-                ? `${entry.value}x`
+                ? `${Math.round(entry.value)}%`
                 : entry.value.toLocaleString("es-CO")
               : entry.value}
           </span>
@@ -51,7 +51,7 @@ export default function SedeChart({ sedes }: SedeChartProps) {
     sede: s.sede.replace("Bukz ", ""),
     inventario: s.inventario_unidades,
     ventas: s.vendidas_unidades,
-    rotacion: s.rotacion ?? 0,
+    rotacion: s.rotacion != null ? Math.round(s.rotacion * 100) : 0,
     semaforo: s.semaforo,
   }));
 
@@ -99,7 +99,7 @@ export default function SedeChart({ sedes }: SedeChartProps) {
             <div className="absolute inset-0 bg-grid-pattern opacity-20 dark:opacity-10" />
             <div className="relative">
               <p className="text-base font-semibold mb-0.5">Rotacion por Sede</p>
-              <p className="text-xs text-muted-foreground mb-3">Coloreado por estado</p>
+              <p className="text-xs text-muted-foreground mb-3">% del inventario vendido</p>
               <div className="h-[200px] sm:h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data} layout="vertical">

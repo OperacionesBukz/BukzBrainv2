@@ -65,11 +65,8 @@ export default function ResultsSummary({ totales, meses }: ResultsSummaryProps) 
             </div>
             <div className="flex items-baseline gap-1.5 mt-2">
               <span className="text-6xl sm:text-7xl font-bold tracking-tighter text-primary">
-                {totales.rotacion != null ? <AnimatedValue end={totales.rotacion} decimals={1} /> : "N/A"}
+                {totales.rotacion != null ? <AnimatedValue end={totales.rotacion * 100} decimals={0} suffix="%" /> : "N/A"}
               </span>
-              {totales.rotacion != null && (
-                <span className="text-3xl font-normal text-primary/70">x</span>
-              )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               en {meses} meses de analisis
