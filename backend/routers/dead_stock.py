@@ -3,9 +3,14 @@ Router: Stock Muerto por Proveedor
 Endpoints:
   POST /api/dead-stock/start   -> Inicia analisis en background
   GET  /api/dead-stock/status  -> Estado y resultados
+
+Usa Bulk Operations de Shopify para evitar throttling de rate-limit.
+Las Bulk Ops se ejecutan asincrónicamente en servidores de Shopify y no
+compiten por el bucket de puntos con otros queries.
 """
 
 import base64
+import json
 import threading
 import time
 import requests
@@ -18,7 +23,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from config import settings
-from services.shopify_service import _throttler as _shopify_throttler
+from services.shopify_service import check_bulk_operation_status
 
 router = APIRouter(prefix="/api/dead-stock", tags=["Dead Stock"])
 
@@ -49,65 +54,154 @@ class DeadStockRequest(BaseModel):
     min_product_age_months: int = 2
 
 
-# -- GraphQL helper ------------------------------------------------------
-# Usa el throttler compartido de shopify_service para coordinar con todos
-# los demas threads que hacen llamadas a la API de Shopify (vendors refresh,
-# inventory cache, etc.). Esto garantiza que solo 1 thread hace llamadas
-# cuando el bucket tiene suficiente capacidad.
+# -- Bulk Operation helpers -----------------------------------------------
 
-def _gql(query: str, timeout: int = 30) -> dict:
-    """Ejecuta un query GraphQL con retry simple en THROTTLED."""
-    for attempt in range(8):
-        _shopify_throttler.wait_if_needed()
-        resp = requests.post(
-            settings.get_graphql_url(),
-            json={"query": query},
-            headers=settings.get_shopify_headers(),
-            timeout=timeout,
-        )
-        _shopify_throttler.update_from_response(resp)
-        resp.raise_for_status()
-        body = resp.json()
-        if "errors" in body:
-            codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
-            if "THROTTLED" in codes and attempt < 7:
-                wait = 3.0 * (attempt + 1)
-                print(f"[DEAD-STOCK] Throttled ({attempt + 1}/8), {wait:.0f}s...", flush=True)
-                time.sleep(wait)
+def _wait_for_free_bulk_slot(max_wait: int = 120):
+    """Espera a que no haya ninguna Bulk Operation activa en Shopify."""
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        status = check_bulk_operation_status()
+        if status.get("status") not in ("RUNNING", "CREATED"):
+            return
+        print("[DEAD-STOCK] Esperando que termine Bulk Op en curso...", flush=True)
+        time.sleep(5)
+    raise RuntimeError("Timeout esperando a que termine la Bulk Operation activa")
+
+
+def _start_bulk_op(inner_query: str) -> str:
+    """
+    Lanza una Bulk Operation con la query dada.
+    Espera si hay otra bulk op activa. Retorna operation_id.
+    """
+    _wait_for_free_bulk_slot()
+
+    mutation = """
+    mutation {
+      bulkOperationRunQuery(
+        query: \"\"\"%s\"\"\"
+      ) {
+        bulkOperation { id status }
+        userErrors { field message }
+      }
+    }
+    """ % inner_query
+
+    resp = requests.post(
+        settings.get_graphql_url(),
+        json={"query": mutation},
+        headers=settings.get_shopify_headers(),
+        timeout=30,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+
+    if "errors" in body:
+        raise RuntimeError(f"GraphQL errors al iniciar Bulk Op: {body['errors']}")
+
+    result = body.get("data", {}).get("bulkOperationRunQuery", {})
+    user_errors = result.get("userErrors", [])
+    if user_errors:
+        msgs = "; ".join(e.get("message", "") for e in user_errors)
+        raise RuntimeError(f"Bulk Op userErrors: {msgs}")
+
+    op = result.get("bulkOperation", {})
+    op_id = op.get("id")
+    if not op_id:
+        raise RuntimeError("Bulk Op no retorno operation ID")
+
+    print(f"[DEAD-STOCK] Bulk Op iniciada: {op_id} ({op.get('status')})", flush=True)
+    return op_id
+
+
+def _poll_bulk_op(max_wait: int = 600) -> str:
+    """
+    Poll currentBulkOperation hasta COMPLETED.
+    Retorna URL de descarga del JSONL.
+    """
+    query = "{ currentBulkOperation { id status errorCode objectCount url } }"
+    headers = settings.get_shopify_headers()
+    graphql_url = settings.get_graphql_url()
+    start = time.monotonic()
+
+    while time.monotonic() - start < max_wait:
+        time.sleep(5)
+        try:
+            resp = requests.post(
+                graphql_url, json={"query": query}, headers=headers, timeout=30,
+            )
+            if resp.status_code != 200:
                 continue
-            raise RuntimeError(f"GraphQL errors: {body['errors']}")
-        return body["data"]
-    raise RuntimeError("[DEAD-STOCK] Agotados 8 intentos")
+            op = resp.json().get("data", {}).get("currentBulkOperation")
+            if not op:
+                continue
+
+            status = op.get("status")
+            count = op.get("objectCount", 0)
+            elapsed = int(time.monotonic() - start)
+
+            if elapsed % 30 < 6:
+                print(
+                    f"[DEAD-STOCK] Bulk Op: status={status}, objects={count}, "
+                    f"elapsed={elapsed}s",
+                    flush=True,
+                )
+
+            if status == "COMPLETED":
+                download_url = op.get("url")
+                if not download_url:
+                    raise RuntimeError("Bulk Op COMPLETED pero sin URL de descarga")
+                print(f"[DEAD-STOCK] Bulk Op completada: {count} objetos", flush=True)
+                return download_url
+
+            if status in ("FAILED", "CANCELED"):
+                raise RuntimeError(
+                    f"Bulk Op {status}: {op.get('errorCode', 'unknown')}"
+                )
+        except RuntimeError:
+            raise
+        except Exception as e:
+            print(f"[DEAD-STOCK] Error polling Bulk Op: {e}", flush=True)
+
+    raise RuntimeError(f"Bulk Op timeout despues de {max_wait}s")
 
 
-# -- Fase 1: Obtener productos del vendor --------------------------------
+def _download_jsonl(url: str) -> list[dict]:
+    """Descarga JSONL de Shopify y retorna lista de objetos parseados."""
+    resp = requests.get(url, timeout=300, stream=True)
+    resp.raise_for_status()
+    objects = []
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        try:
+            obj = json.loads(line.decode("utf-8") if isinstance(line, bytes) else line)
+            objects.append(obj)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+    return objects
+
+
+# -- Fase 1: Obtener productos del vendor (Bulk Operation) ----------------
 
 def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
     """
-    Pagina todos los productos del vendor con inventario por location.
-    Filtra productos creados hace mas de min_age_months meses.
-    Retorna lista de variantes con stock > 0.
+    Usa Bulk Operation para obtener todos los productos del vendor con
+    inventario por location. Filtra por antiguedad y stock > 0.
+    Retorna lista de variantes con el mismo formato que la version original.
     """
     cutoff_date = datetime.now() - timedelta(days=min_age_months * 30)
-    variants = []
-    cursor = None
-    page = 0
+    safe_vendor = vendor.replace("'", "\\'").replace('"', '\\"')
 
-    # Escapar comillas simples en el nombre del vendor
-    safe_vendor = vendor.replace("'", "\\'")
-
-    while True:
-        after_clause = f', after: "{cursor}"' if cursor else ""
-        query = """
+    inner_query = """
         {
-          products(first: 50%s, query: "vendor:'%s'") {
+          products(query: "vendor:'%s'") {
             edges {
               node {
                 id
                 title
                 vendor
                 createdAt
-                variants(first: 10) {
+                variants {
                   edges {
                     node {
                       id
@@ -116,9 +210,10 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
                       title
                       inventoryItem {
                         id
-                        inventoryLevels(first: 5) {
+                        inventoryLevels {
                           edges {
                             node {
+                              id
                               location {
                                 name
                               }
@@ -134,105 +229,143 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
                   }
                 }
               }
-              cursor
-            }
-            pageInfo {
-              hasNextPage
             }
           }
         }
-        """ % (after_clause, safe_vendor)
+    """ % safe_vendor
 
-        data = _gql(query, timeout=30)
+    print(f"[DEAD-STOCK] Iniciando Bulk Op de productos para '{vendor}'...", flush=True)
+    _start_bulk_op(inner_query)
+    download_url = _poll_bulk_op(max_wait=600)
+    objects = _download_jsonl(download_url)
+    print(f"[DEAD-STOCK] Descargados {len(objects)} registros JSONL", flush=True)
 
-        edges = data["products"]["edges"]
-        page_info = data["products"]["pageInfo"]
+    # -- Parsear JSONL plano con __parentId --
+    # Bulk Ops aplastan la jerarquia: cada connection node es una linea separada.
+    # Single-object relations (como inventoryItem) se inlinean en el parent.
+    #
+    # Estructura esperada:
+    #   Product:          {id: "gid://.../Product/X", title, vendor, createdAt}
+    #   ProductVariant:   {id: "gid://.../ProductVariant/Y", sku, barcode, title,
+    #                      inventoryItem: {id: "gid://.../InventoryItem/Z"},
+    #                      __parentId: "gid://.../Product/X"}
+    #   InventoryLevel:   {id: "gid://.../InventoryLevel/W", location: {name},
+    #                      quantities: [...],
+    #                      __parentId: variant_gid o inventoryItem_gid}
 
-        for edge in edges:
-            product = edge["node"]
-            cursor = edge["cursor"]
+    products_by_id: dict[str, dict] = {}
+    variants_by_id: dict[str, dict] = {}
+    inv_item_to_variant: dict[str, str] = {}  # InventoryItem gid -> Variant gid
+    variants_result: list[dict] = []
 
-            # Filtrar productos creados recientemente
-            created_at = datetime.fromisoformat(product["createdAt"].replace("Z", "+00:00"))
-            if created_at.replace(tzinfo=None) > cutoff_date:
-                continue
+    # Primera pasada: construir mapeos de Product, Variant, InventoryItem
+    for obj in objects:
+        gid = obj.get("id", "")
+        parent_id = obj.get("__parentId", "")
 
-            product_title = product["title"]
-            product_vendor = product["vendor"]
-            created_str = created_at.strftime("%Y-%m-%d")
+        if "Product/" in gid and "ProductVariant/" not in gid:
+            products_by_id[gid] = {
+                "title": (obj.get("title") or "").strip(),
+                "vendor": (obj.get("vendor") or "").strip(),
+                "createdAt": obj.get("createdAt", ""),
+            }
 
-            for v_edge in product.get("variants", {}).get("edges", []):
-                variant = v_edge["node"]
-                sku = str(variant.get("sku") or "").strip()
-                barcode = str(variant.get("barcode") or "").strip()
-                variant_title = variant.get("title", "")
+        elif "ProductVariant/" in gid:
+            variants_by_id[gid] = {
+                "sku": (obj.get("sku") or "").strip(),
+                "barcode": (obj.get("barcode") or "").strip(),
+                "title": (obj.get("title") or "").strip(),
+                "product_gid": parent_id,
+            }
+            inv_item = obj.get("inventoryItem") or {}
+            if inv_item.get("id"):
+                inv_item_to_variant[inv_item["id"]] = gid
 
-                inv_item = variant.get("inventoryItem", {})
-                levels = inv_item.get("inventoryLevels", {}).get("edges", [])
+        elif "InventoryItem/" in gid:
+            # InventoryItem como linea separada (no inline)
+            if parent_id and "ProductVariant/" in parent_id:
+                inv_item_to_variant[gid] = parent_id
 
-                for level_edge in levels:
-                    level = level_edge["node"]
-                    loc_name = level.get("location", {}).get("name", "")
+    # Segunda pasada: procesar InventoryLevels
+    for obj in objects:
+        gid = obj.get("id", "")
+        parent_id = obj.get("__parentId", "")
 
-                    # Solo sedes objetivo
-                    if loc_name not in TARGET_LOCATIONS:
-                        continue
+        if "InventoryLevel/" not in gid:
+            continue
 
-                    qty = 0
-                    for q in level.get("quantities", []):
-                        if q.get("name") == "available":
-                            qty = q.get("quantity", 0)
-                            break
+        loc_name = (obj.get("location") or {}).get("name", "")
+        if loc_name not in TARGET_LOCATIONS:
+            continue
 
-                    if qty > 0:
-                        variants.append({
-                            "sku": sku,
-                            "barcode": barcode,
-                            "product_title": product_title,
-                            "variant_title": variant_title,
-                            "vendor": product_vendor,
-                            "created_at": created_str,
-                            "location": loc_name,
-                            "stock": qty,
-                        })
+        qty = 0
+        for q in obj.get("quantities", []):
+            if q.get("name") == "available":
+                qty = q.get("quantity", 0)
+                break
+        if qty <= 0:
+            continue
 
-        page += 1
-        if page % 3 == 0:
-            print(f"[DEAD-STOCK] Products: pagina {page}, {len(variants)} variantes con stock...", flush=True)
+        # Resolver el variant parent (puede ser directo o via InventoryItem)
+        variant_gid = None
+        if parent_id in variants_by_id:
+            variant_gid = parent_id
+        elif parent_id in inv_item_to_variant:
+            variant_gid = inv_item_to_variant[parent_id]
 
-        if not page_info["hasNextPage"]:
-            break
+        if not variant_gid or variant_gid not in variants_by_id:
+            continue
 
-        time.sleep(0.5)
+        variant = variants_by_id[variant_gid]
+        product = products_by_id.get(variant["product_gid"], {})
 
-    print(f"[DEAD-STOCK] Total variantes con stock del vendor '{vendor}': {len(variants)}", flush=True)
-    return variants
+        # Filtrar por antiguedad del producto
+        created_str = product.get("createdAt", "")
+        if created_str:
+            try:
+                created_at = datetime.fromisoformat(
+                    created_str.replace("Z", "+00:00")
+                )
+                if created_at.replace(tzinfo=None) > cutoff_date:
+                    continue
+            except (ValueError, TypeError):
+                pass
+
+        variants_result.append({
+            "sku": variant["sku"],
+            "barcode": variant["barcode"],
+            "product_title": product.get("title", ""),
+            "variant_title": variant["title"],
+            "vendor": product.get("vendor", vendor),
+            "created_at": created_str[:10] if created_str else "",
+            "location": loc_name,
+            "stock": qty,
+        })
+
+    print(
+        f"[DEAD-STOCK] Total variantes con stock del vendor '{vendor}': "
+        f"{len(variants_result)}",
+        flush=True,
+    )
+    return variants_result
 
 
-# -- Fase 2: Obtener SKUs vendidos en el periodo -------------------------
+# -- Fase 2: Obtener SKUs vendidos en el periodo (Bulk Operation) ---------
 
 def _fetch_sold_skus(days: int) -> set[str]:
     """
-    Pagina ordenes pagadas en los ultimos N dias.
+    Usa Bulk Operation para obtener todas las ordenes pagadas en el periodo.
     Retorna set de SKUs que tuvieron al menos 1 venta.
     """
     date_start = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%dT00:00:00Z")
-    query_filter = f"created_at:>={date_start} financial_status:paid"
 
-    sold_skus: set[str] = set()
-    cursor = None
-    page = 0
-    total_orders = 0
-
-    while True:
-        after_clause = f', after: "{cursor}"' if cursor else ""
-        query = """
+    inner_query = """
         {
-          orders(first: 100%s, query: "%s") {
+          orders(query: "created_at:>=%s financial_status:paid") {
             edges {
               node {
                 id
-                lineItems(first: 100) {
+                lineItems {
                   edges {
                     node {
                       sku
@@ -240,47 +373,26 @@ def _fetch_sold_skus(days: int) -> set[str]:
                   }
                 }
               }
-              cursor
-            }
-            pageInfo {
-              hasNextPage
             }
           }
         }
-        """ % (after_clause, query_filter)
+    """ % date_start
 
-        data = _gql(query, timeout=30)
+    print(f"[DEAD-STOCK] Iniciando Bulk Op de ventas (ultimos {days} dias)...", flush=True)
+    _start_bulk_op(inner_query)
+    download_url = _poll_bulk_op(max_wait=600)
+    objects = _download_jsonl(download_url)
+    print(f"[DEAD-STOCK] Descargados {len(objects)} registros JSONL de ventas", flush=True)
 
-        edges = data["orders"]["edges"]
-        page_info = data["orders"]["pageInfo"]
-
-        for edge in edges:
-            total_orders += 1
-            order = edge["node"]
-            cursor = edge["cursor"]
-
-            for li_edge in order.get("lineItems", {}).get("edges", []):
-                li = li_edge["node"]
-                sku = str(li.get("sku") or "").strip()
-                if sku:
-                    sold_skus.add(sku)
-
-        page += 1
-        if page % 10 == 0:
-            print(
-                f"[DEAD-STOCK] Sales: pagina {page}, {total_orders} ordenes, "
-                f"{len(sold_skus)} SKUs unicos vendidos...",
-                flush=True,
-            )
-
-        if not page_info["hasNextPage"]:
-            break
-
-        time.sleep(0.5)
+    # Parsear: solo necesitamos SKUs de LineItems
+    sold_skus: set[str] = set()
+    for obj in objects:
+        sku = (obj.get("sku") or "").strip()
+        if sku:
+            sold_skus.add(sku)
 
     print(
-        f"[DEAD-STOCK] Ventas: {total_orders} ordenes, {len(sold_skus)} SKUs vendidos "
-        f"en los ultimos {days} dias",
+        f"[DEAD-STOCK] Ventas: {len(sold_skus)} SKUs vendidos en ultimos {days} dias",
         flush=True,
     )
     return sold_skus
@@ -368,11 +480,9 @@ def _generate_excel(dead_rows: list[dict], vendor: str, days: int) -> str:
 # -- Background worker ---------------------------------------------------
 
 def _dead_stock_worker(vendor: str, days: int, min_age_months: int):
-    """Ejecuta el analisis de stock muerto en 3 fases."""
+    """Ejecuta el analisis de stock muerto en 3 fases usando Bulk Operations."""
     try:
-        # Fase 1: Productos del vendor con stock
-        # El throttler compartido (_shopify_throttler) se encarga de esperar
-        # capacidad real antes de cada query. No se necesita un ping previo.
+        # Fase 1: Productos del vendor con stock (Bulk Operation)
         _job["phase"] = "products"
         print(f"[DEAD-STOCK] === FASE 1: Productos de '{vendor}' ===", flush=True)
         vendor_variants = _fetch_vendor_products(vendor, min_age_months)
@@ -394,10 +504,7 @@ def _dead_stock_worker(vendor: str, days: int, min_age_months: int):
             print(f"[DEAD-STOCK] Sin productos con stock para '{vendor}'", flush=True)
             return
 
-        # Extraer set de SKUs del vendor para optimizar fase 2
-        vendor_skus = {v["sku"] for v in vendor_variants if v["sku"]}
-
-        # Fase 2: SKUs vendidos
+        # Fase 2: SKUs vendidos (Bulk Operation)
         _job["phase"] = "sales"
         print(f"[DEAD-STOCK] === FASE 2: Ventas ultimos {days} dias ===", flush=True)
         sold_skus = _fetch_sold_skus(days)
