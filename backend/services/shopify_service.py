@@ -124,10 +124,14 @@ class ShopifyThrottler:
             )
             time.sleep(sleep_time)
 
-    # Alias para compatibilidad con codigo existente
     def wait_if_needed(self):
-        """Compatibilidad: usa la nueva espera basada en capacidad."""
-        self.wait_for_capacity()
+        """Espera ligera para callers existentes (vendors, inventory, etc.)."""
+        with self._lock:
+            estimated = self._estimate_current_available()
+        if estimated < self._maximum * 0.1:
+            time.sleep(2.0)
+        elif estimated < self._maximum * 0.2:
+            time.sleep(0.5)
 
     def handle_throttled_error(self, retry_after_header: str | None = None) -> float:
         """
