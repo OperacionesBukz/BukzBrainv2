@@ -19,6 +19,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from config import settings
 from services.shopify_service import _throttler
+from routers import reposiciones as _repo
 
 router = APIRouter(prefix="/api/dead-stock", tags=["Dead Stock"])
 
@@ -51,8 +52,20 @@ class DeadStockRequest(BaseModel):
 
 # -- GraphQL helper ------------------------------------------------------
 
+def _wait_for_api_free():
+    """Espera a que el vendors refresh termine antes de usar la API."""
+    for i in range(90):  # max 90 segundos
+        with _repo._vendors_refresh_lock:
+            if not _repo._vendors_refreshing:
+                return
+        if i % 10 == 0:
+            print(f"[DEAD-STOCK] Esperando a que vendors refresh termine...", flush=True)
+        time.sleep(1)
+    print("[DEAD-STOCK] Timeout esperando vendors refresh, continuando...", flush=True)
+
+
 def _gql(query: str, timeout: int = 30) -> dict:
-    for attempt in range(10):
+    for attempt in range(5):
         _throttler.wait_if_needed()
         resp = requests.post(
             settings.get_graphql_url(),
@@ -65,12 +78,9 @@ def _gql(query: str, timeout: int = 30) -> dict:
         body = resp.json()
         if "errors" in body:
             codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
-            if "THROTTLED" in codes and attempt < 9:
-                # Signal to shared throttler that bucket is empty
-                with _throttler._lock:
-                    _throttler._available_ratio = 0.0
-                wait = 5 * (attempt + 1)
-                print(f"[DEAD-STOCK] Throttled (intento {attempt + 1}/10), esperando {wait}s...", flush=True)
+            if "THROTTLED" in codes and attempt < 4:
+                wait = 4 * (attempt + 1)
+                print(f"[DEAD-STOCK] Throttled (intento {attempt + 1}/5), esperando {wait}s...", flush=True)
                 time.sleep(wait)
                 continue
             raise RuntimeError(f"GraphQL errors: {body['errors']}")
@@ -367,6 +377,10 @@ def _generate_excel(dead_rows: list[dict], vendor: str, days: int) -> str:
 def _dead_stock_worker(vendor: str, days: int, min_age_months: int):
     """Ejecuta el analisis de stock muerto en 3 fases."""
     try:
+        # Esperar a que el vendors refresh termine (evitar competir por rate limit)
+        _job["phase"] = "waiting"
+        _wait_for_api_free()
+
         # Fase 1: Productos del vendor con stock
         _job["phase"] = "products"
         print(f"[DEAD-STOCK] === FASE 1: Productos de '{vendor}' ===", flush=True)
