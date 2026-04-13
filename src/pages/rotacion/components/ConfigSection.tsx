@@ -23,9 +23,8 @@ export default function ConfigSection({ onStart, disabled }: ConfigSectionProps)
 
   return (
     <div className="relative max-w-[640px] mx-auto overflow-hidden rounded-2xl border border-border/50 bg-card">
-      {/* Atmospheric background */}
+      {/* Subtle background texture */}
       <div className="absolute inset-0 bg-dot-pattern opacity-30 dark:opacity-15" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.08)_0%,transparent_70%)] animate-glow-pulse" />
 
       <div className="relative pt-8 pb-8 px-6 sm:px-8">
         <div className="flex flex-col items-center text-center">
@@ -65,7 +64,7 @@ export default function ConfigSection({ onStart, disabled }: ConfigSectionProps)
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Inventario por sede (Excel)
             </label>
-            <div className="rounded-xl border-2 border-dashed border-primary/20 hover:border-primary/40 transition-colors p-3">
+            <div className="rounded-xl bg-muted/30 p-3">
               <FileUploadZone
                 title="Subir inventario"
                 hint="Excel con columnas: Sede, Inventario"
