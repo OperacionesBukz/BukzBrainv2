@@ -61,7 +61,7 @@ export default function ResultsSummary({ totales, meses }: ResultsSummaryProps) 
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/15">
                 <TrendingUp className="h-5 w-5 text-primary" />
               </div>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Rotacion Total</p>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Rotacion Mensual</p>
             </div>
             <div className="flex items-baseline gap-1.5 mt-2">
               <span className="text-6xl sm:text-7xl font-bold tracking-tighter text-primary">
@@ -69,7 +69,7 @@ export default function ResultsSummary({ totales, meses }: ResultsSummaryProps) 
               </span>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              en {meses} meses de analisis
+              promedio mensual ({meses} meses de datos)
             </p>
           </div>
 

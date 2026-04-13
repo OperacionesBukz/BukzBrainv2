@@ -568,11 +568,12 @@ def _fetch_all_sales(months: int, locations: dict[str, str]) -> dict[str, dict]:
 # -- Result builder ------------------------------------------------------
 
 def _get_semaforo(rotacion: float | None) -> str:
+    """Semaforo basado en rotacion mensual promedio."""
     if rotacion is None:
         return "rojo"
-    if rotacion >= 3.0:
+    if rotacion >= 0.25:      # >=25%/mes ≈ 3x/año
         return "verde"
-    if rotacion >= 2.0:
+    if rotacion >= 0.15:      # >=15%/mes ≈ 1.8x/año
         return "amarillo"
     return "rojo"
 
@@ -593,10 +594,11 @@ def _build_result(
         sold_units = sal.get("total_units_sold", 0)
         sku_count = inv.get("product_count", 0)
 
-        turnover = round(sold_units / inv_units, 2) if inv_units > 0 else None
+        monthly_sold = sold_units / months if months > 0 else 0
+        turnover = round(monthly_sold / inv_units, 4) if inv_units > 0 else None
         days_of_inv = round((inv_units / sold_units) * days_in_period) if sold_units > 0 else None
         venta_diaria = round(sold_units / days_in_period, 2) if days_in_period > 0 else 0
-        sell_through = round((sold_units / (sold_units + inv_units)) * 100, 1) if (sold_units + inv_units) > 0 else None
+        sell_through = round((monthly_sold / (monthly_sold + inv_units)) * 100, 1) if (monthly_sold + inv_units) > 0 else None
 
         rows.append({
             "sede": loc_name,
@@ -613,7 +615,8 @@ def _build_result(
 
     total_inv = sum(r["inventario_unidades"] for r in rows)
     total_sold = sum(r["vendidas_unidades"] for r in rows)
-    total_turnover = round(total_sold / total_inv, 2) if total_inv > 0 else None
+    monthly_total_sold = total_sold / months if months > 0 else 0
+    total_turnover = round(monthly_total_sold / total_inv, 4) if total_inv > 0 else None
     total_venta_diaria = round(total_sold / days_in_period, 2) if days_in_period > 0 else 0
 
     return {
@@ -626,7 +629,7 @@ def _build_result(
             "rotacion": total_turnover,
             "dias_inventario": round((total_inv / total_sold) * days_in_period) if total_sold > 0 else None,
             "venta_diaria": total_venta_diaria,
-            "sell_through_pct": round((total_sold / (total_sold + total_inv)) * 100, 1) if (total_sold + total_inv) > 0 else None,
+            "sell_through_pct": round((monthly_total_sold / (monthly_total_sold + total_inv)) * 100, 1) if (monthly_total_sold + total_inv) > 0 else None,
             "semaforo": _get_semaforo(total_turnover),
         },
     }
