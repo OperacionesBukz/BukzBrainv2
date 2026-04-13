@@ -18,8 +18,6 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from config import settings
-from services.shopify_service import _throttler
-from routers import reposiciones as _repo
 
 router = APIRouter(prefix="/api/dead-stock", tags=["Dead Stock"])
 
@@ -52,36 +50,46 @@ class DeadStockRequest(BaseModel):
 
 # -- GraphQL helper ------------------------------------------------------
 
-def _wait_for_api_free():
-    """Espera a que el vendors refresh termine antes de usar la API."""
-    for i in range(90):  # max 90 segundos
-        with _repo._vendors_refresh_lock:
-            if not _repo._vendors_refreshing:
+def _wait_for_api_capacity():
+    """Hace un query minimo para verificar que la API tiene capacidad."""
+    for i in range(30):
+        try:
+            resp = requests.post(
+                settings.get_graphql_url(),
+                json={"query": "{ shop { name } }"},
+                headers=settings.get_shopify_headers(),
+                timeout=10,
+            )
+            body = resp.json()
+            if "errors" not in body:
+                print(f"[DEAD-STOCK] API disponible (espero {i * 5}s)", flush=True)
                 return
-        if i % 10 == 0:
-            print(f"[DEAD-STOCK] Esperando a que vendors refresh termine...", flush=True)
-        time.sleep(1)
-    print("[DEAD-STOCK] Timeout esperando vendors refresh, continuando...", flush=True)
+            codes = [e.get("extensions", {}).get("code") for e in body.get("errors", [])]
+            if "THROTTLED" in codes:
+                if i % 3 == 0:
+                    print(f"[DEAD-STOCK] API ocupada, esperando 5s...", flush=True)
+                time.sleep(5)
+                continue
+        except Exception:
+            time.sleep(5)
+    print("[DEAD-STOCK] API no disponible tras 150s, intentando igual...", flush=True)
 
 
 def _gql(query: str, timeout: int = 30) -> dict:
     for attempt in range(5):
-        _throttler.wait_if_needed()
         resp = requests.post(
             settings.get_graphql_url(),
             json={"query": query},
             headers=settings.get_shopify_headers(),
             timeout=timeout,
         )
-        _throttler.update_from_response(resp)
         resp.raise_for_status()
         body = resp.json()
         if "errors" in body:
             codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
             if "THROTTLED" in codes and attempt < 4:
-                wait = 4 * (attempt + 1)
-                print(f"[DEAD-STOCK] Throttled (intento {attempt + 1}/5), esperando {wait}s...", flush=True)
-                time.sleep(wait)
+                print(f"[DEAD-STOCK] Throttled (intento {attempt + 1}/5), esperando 5s...", flush=True)
+                time.sleep(5)
                 continue
             raise RuntimeError(f"GraphQL errors: {body['errors']}")
         return body["data"]
@@ -377,9 +385,9 @@ def _generate_excel(dead_rows: list[dict], vendor: str, days: int) -> str:
 def _dead_stock_worker(vendor: str, days: int, min_age_months: int):
     """Ejecuta el analisis de stock muerto en 3 fases."""
     try:
-        # Esperar a que el vendors refresh termine (evitar competir por rate limit)
+        # Esperar a que la API tenga capacidad (otros procesos pueden estar usandola)
         _job["phase"] = "waiting"
-        _wait_for_api_free()
+        _wait_for_api_capacity()
 
         # Fase 1: Productos del vendor con stock
         _job["phase"] = "products"
