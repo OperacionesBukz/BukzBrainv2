@@ -1,0 +1,1 @@
+import{j as e}from"./index-BEb7kn2b.js";function t(){return e.jsxs("div",{className:"space-y-6",children:[e.jsx("h1",{className:"text-2xl font-bold",children:"Novedades"}),e.jsx("p",{className:"text-muted-foreground",children:"Próximamente..."})]})}export{t as default};
