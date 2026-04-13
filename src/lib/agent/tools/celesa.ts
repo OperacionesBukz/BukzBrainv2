@@ -13,7 +13,7 @@ import { cached } from "./cache";
 export const celesaTools: ToolDefinition[] = [
   {
     name: "queryCelesaOrders",
-    description: "Consulta pedidos de Celesa. Puede buscar por número de pedido, por estado, o listar todos. Campos de cada pedido: numeroPedido, cliente, producto, isbn, fechaPedido, estado (En curso/Entregado/Agotado/Atrasado).",
+    description: "Consulta pedidos de Celesa. Puede buscar por número de pedido, por estado, o listar todos. Campos de cada pedido: numeroPedido, cliente, producto, isbn, fechaPedido, estado (Pendiente/Confirmado/Pedido/Entregado/Atrasado/Agotado).",
     parameters: {
       type: "object",
       properties: {
@@ -80,7 +80,7 @@ export const celesaTools: ToolDefinition[] = [
       try {
         const data = await cached("celesa_stats", async () => {
           const ref = collection(db, "celesa_orders");
-          const estados = ["En curso", "Entregado", "Agotado", "Atrasado", "Pendiente"];
+          const estados = ["Pendiente", "Confirmado", "Pedido", "Entregado", "Atrasado", "Agotado"];
           const countPromises = estados.map(async (estado) => {
             const q = query(ref, where("estado", "==", estado));
             const snap = await getCountFromServer(q);

@@ -10,7 +10,7 @@ export default function CelesaKpiCards({ orders }: CelesaKpiCardsProps) {
   const total = orders.length;
   const entregados = orders.filter((o) => o.estado === "Entregado").length;
   const enTransito = orders.filter(
-    (o) => o.estado === "Confirmado"
+    (o) => o.estado === "Confirmado" || o.estado === "Pedido"
   ).length;
   const atrasados = orders.filter((o) => o.estado === "Atrasado").length;
 

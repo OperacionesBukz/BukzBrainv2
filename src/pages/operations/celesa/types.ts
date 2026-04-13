@@ -3,6 +3,7 @@ import { Timestamp } from "firebase/firestore";
 export type CelesaStatus =
   | "Pendiente"
   | "Confirmado"
+  | "Pedido"
   | "Entregado"
   | "Atrasado"
   | "Agotado";
@@ -34,6 +35,11 @@ export const CELESA_STATUS_CONFIG: Record<
     bg: "bg-yellow-100 dark:bg-yellow-900/40",
     text: "text-yellow-700 dark:text-yellow-300",
   },
+  Pedido: {
+    label: "Pedido",
+    bg: "bg-blue-100 dark:bg-blue-900/40",
+    text: "text-blue-700 dark:text-blue-300",
+  },
   Entregado: {
     label: "Entregado",
     bg: "bg-green-100 dark:bg-green-900/40",
@@ -55,6 +61,7 @@ export const CELESA_STATUS_CONFIG: Record<
 export const CELESA_STATUSES: CelesaStatus[] = [
   "Pendiente",
   "Confirmado",
+  "Pedido",
   "Entregado",
   "Atrasado",
   "Agotado",
