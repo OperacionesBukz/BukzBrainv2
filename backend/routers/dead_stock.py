@@ -84,14 +84,14 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         after_clause = f', after: "{cursor}"' if cursor else ""
         query = """
         {
-          products(first: 40%s, query: "vendor:'%s'") {
+          products(first: 50%s, query: "vendor:'%s'") {
             edges {
               node {
                 id
                 title
                 vendor
                 createdAt
-                variants(first: 100) {
+                variants(first: 10) {
                   edges {
                     node {
                       id
@@ -100,7 +100,7 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
                       title
                       inventoryItem {
                         id
-                        inventoryLevels(first: 10) {
+                        inventoryLevels(first: 5) {
                           edges {
                             node {
                               location {
