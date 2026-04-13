@@ -240,6 +240,10 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
     objects = _download_jsonl(download_url)
     print(f"[DEAD-STOCK] Descargados {len(objects)} registros JSONL", flush=True)
 
+    # Debug: mostrar primeros 3 objetos para diagnosticar estructura JSONL
+    for i, obj in enumerate(objects[:3]):
+        print(f"[DEAD-STOCK] JSONL sample[{i}]: {json.dumps(obj, default=str)[:500]}", flush=True)
+
     # -- Parsear JSONL plano con __parentId --
     # Bulk Ops aplastan la jerarquia: cada connection node es una linea separada.
     # Single-object relations (como inventoryItem) se inlinean en el parent.
@@ -342,11 +346,34 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
             "stock": qty,
         })
 
+    # Diagnostico detallado
+    inv_levels_total = sum(1 for o in objects if "InventoryLevel/" in o.get("id", ""))
+    inv_levels_at_target = sum(
+        1 for o in objects
+        if "InventoryLevel/" in o.get("id", "")
+        and (o.get("location") or {}).get("name", "") in TARGET_LOCATIONS
+    )
     print(
-        f"[DEAD-STOCK] Total variantes con stock del vendor '{vendor}': "
-        f"{len(variants_result)}",
+        f"[DEAD-STOCK] Parseo: {len(products_by_id)} productos, "
+        f"{len(variants_by_id)} variantes, "
+        f"{len(inv_item_to_variant)} inv_items mapeados, "
+        f"{inv_levels_total} inv_levels total, "
+        f"{inv_levels_at_target} en sedes objetivo, "
+        f"{len(variants_result)} variantes finales con stock",
         flush=True,
     )
+
+    # Guardar diagnostico en _job para debug
+    _job["_debug"] = {
+        "jsonl_objects": len(objects),
+        "products_parsed": len(products_by_id),
+        "variants_parsed": len(variants_by_id),
+        "inv_items_mapped": len(inv_item_to_variant),
+        "inv_levels_total": inv_levels_total,
+        "inv_levels_at_target": inv_levels_at_target,
+        "variants_with_stock": len(variants_result),
+    }
+
     return variants_result
 
 
@@ -598,10 +625,13 @@ def start_dead_stock(req: DeadStockRequest):
 @router.get("/status")
 def dead_stock_status():
     """Retorna el estado del analisis y los resultados si estan listos."""
-    return {
+    resp = {
         "running": _job["running"],
         "phase": _job["phase"],
         "error": _job["error"],
         "started_at": _job["started_at"],
         "result": _job["result"],
     }
+    if "_debug" in _job:
+        resp["_debug"] = _job["_debug"]
+    return resp
