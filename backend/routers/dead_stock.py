@@ -55,44 +55,29 @@ class DeadStockRequest(BaseModel):
 # inventory cache, etc.). Esto garantiza que solo 1 thread hace llamadas
 # cuando el bucket tiene suficiente capacidad.
 
-def _gql(query: str, timeout: int = 30, estimated_cost: float = 0.0) -> dict:
-    """
-    Ejecuta un query GraphQL usando el throttler global compartido.
-    Espera capacidad real antes de enviar (no solo un ping de 1 punto).
-    Maneja THROTTLED con backoff exponencial si aun asi ocurre.
-    """
+def _gql(query: str, timeout: int = 30) -> dict:
+    """Ejecuta un query GraphQL con retry simple en THROTTLED."""
     for attempt in range(8):
-        # Esperar hasta tener capacidad suficiente en el bucket compartido
-        _shopify_throttler.wait_for_capacity(estimated_cost)
-
+        _shopify_throttler.wait_if_needed()
         resp = requests.post(
             settings.get_graphql_url(),
             json={"query": query},
             headers=settings.get_shopify_headers(),
             timeout=timeout,
         )
-        resp.raise_for_status()
-
-        # Siempre actualizar el throttler con el estado real del bucket
         _shopify_throttler.update_from_response(resp)
-
+        resp.raise_for_status()
         body = resp.json()
         if "errors" in body:
             codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
-            if "THROTTLED" in codes:
-                wait = _shopify_throttler.handle_throttled_error()
-                print(
-                    f"[DEAD-STOCK] THROTTLED (intento {attempt + 1}/8), "
-                    f"esperando {wait:.1f}s para que el bucket se recupere...",
-                    flush=True,
-                )
+            if "THROTTLED" in codes and attempt < 7:
+                wait = 3.0 * (attempt + 1)
+                print(f"[DEAD-STOCK] Throttled ({attempt + 1}/8), {wait:.0f}s...", flush=True)
                 time.sleep(wait)
                 continue
             raise RuntimeError(f"GraphQL errors: {body['errors']}")
-
         return body["data"]
-
-    raise RuntimeError("[DEAD-STOCK] No se pudo ejecutar la query tras 8 intentos (bucket agotado)")
+    raise RuntimeError("[DEAD-STOCK] Agotados 8 intentos")
 
 
 # -- Fase 1: Obtener productos del vendor --------------------------------
@@ -158,9 +143,7 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         }
         """ % (after_clause, safe_vendor)
 
-        # Costo estimado conservador: products(50) x variants(10) x inventoryLevels(5)
-        # En plan estandar (~1000 pts bucket) esto puede costar ~250-300 pts solicitados.
-        data = _gql(query, timeout=30, estimated_cost=300.0)
+        data = _gql(query, timeout=30)
 
         edges = data["products"]["edges"]
         page_info = data["products"]["pageInfo"]
@@ -266,8 +249,7 @@ def _fetch_sold_skus(days: int) -> set[str]:
         }
         """ % (after_clause, query_filter)
 
-        # orders(100) x lineItems(100): ~150 pts estimados
-        data = _gql(query, timeout=30, estimated_cost=150.0)
+        data = _gql(query, timeout=30)
 
         edges = data["orders"]["edges"]
         page_info = data["orders"]["pageInfo"]
