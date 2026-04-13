@@ -51,17 +51,24 @@ class DeadStockRequest(BaseModel):
 # -- GraphQL helper ------------------------------------------------------
 
 def _gql(query: str, timeout: int = 30) -> dict:
-    resp = requests.post(
-        settings.get_graphql_url(),
-        json={"query": query},
-        headers=settings.get_shopify_headers(),
-        timeout=timeout,
-    )
-    resp.raise_for_status()
-    body = resp.json()
-    if "errors" in body:
-        raise RuntimeError(f"GraphQL errors: {body['errors']}")
-    return body["data"]
+    for attempt in range(5):
+        resp = requests.post(
+            settings.get_graphql_url(),
+            json={"query": query},
+            headers=settings.get_shopify_headers(),
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        body = resp.json()
+        if "errors" in body:
+            codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
+            if "THROTTLED" in codes and attempt < 4:
+                wait = 2 * (attempt + 1)
+                print(f"[GQL] Throttled, esperando {wait}s...", flush=True)
+                time.sleep(wait)
+                continue
+            raise RuntimeError(f"GraphQL errors: {body['errors']}")
+        return body["data"]
 
 
 # -- Fase 1: Obtener productos del vendor --------------------------------
