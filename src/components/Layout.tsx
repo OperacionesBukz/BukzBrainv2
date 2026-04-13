@@ -26,6 +26,7 @@ import {
   Ship,
   RefreshCw as RefreshCwIcon,
   Scale,
+  Skull,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -117,6 +118,7 @@ const reposicionesSubItems = [
   { title: "Reposiciones Manuales", path: "/reposicion", icon: Package },
   { title: "Novedades", path: "/novedades", icon: AlertCircle },
   { title: "Rotacion", path: "/rotacion", icon: TrendingUp },
+  { title: "Stock Muerto", path: "/stock-muerto", icon: Skull },
 ];
 const REPOSICIONES_PATHS = reposicionesSubItems.map((s) => s.path);
 

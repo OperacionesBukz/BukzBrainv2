@@ -15,7 +15,7 @@ type NavOrderMap = Record<string, string[]>;
 const WORKFLOW_SUB_PATHS = ["/ingreso", "/crear-productos", "/actualizar-productos", "/scrap", "/cortes", "/envio-cortes", "/devoluciones", "/gift-cards", "/conciliacion-ferias"];
 
 // Sub-rutas agrupadas bajo /reposiciones-menu
-const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades", "/rotacion"];
+const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades", "/rotacion", "/stock-muerto"];
 
 // Sub-rutas agrupadas bajo /celesa
 const CELESA_SUB_PATHS = ["/celesa-seguimiento", "/celesa-actualizacion"];

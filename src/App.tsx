@@ -44,6 +44,7 @@ const NotFound = lazyWithReload(() => import("./pages/NotFound"));
 const Login = lazyWithReload(() => import("./pages/Login"));
 const Assistant = lazyWithReload(() => import("./pages/Assistant"));
 const ConciliacionFerias = lazyWithReload(() => import("./pages/ConciliacionFerias"));
+const StockMuerto = lazyWithReload(() => import("./pages/StockMuerto"));
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ const App = () => {
                               <Route path="/directorio" element={<Directorio />} />
                               <Route path="/cmv" element={<CMV />} />
                               <Route path="/rotacion" element={<Rotacion />} />
+                              <Route path="/stock-muerto" element={<StockMuerto />} />
                               <Route path="/assistant" element={<Assistant />} />
                               <Route path="/calculator" element={<CalculatorPage />} />
                               <Route path="/user-admin" element={<UserManagement />} />

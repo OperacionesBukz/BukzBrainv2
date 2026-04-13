@@ -30,6 +30,7 @@ from routers import agent_commands
 from routers import transfers
 from routers import conciliacion_ferias
 from routers import search
+from routers import dead_stock
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -81,6 +82,7 @@ app.include_router(celesa_sync.router, dependencies=_auth)
 app.include_router(agent_commands.router, dependencies=_auth)
 app.include_router(conciliacion_ferias.router, dependencies=_auth)
 app.include_router(search.router, dependencies=_auth)
+app.include_router(dead_stock.router, dependencies=_auth)
 
 # Webhooks — SIN auth (Shopify envia su propia verificacion HMAC)
 app.include_router(webhooks.router)
