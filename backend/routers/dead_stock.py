@@ -252,16 +252,11 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
 
     # URL null = 0 resultados de la bulk op
     if not download_url:
-        print(f"[DEAD-STOCK] Bulk Op completada con 0 resultados (URL null)", flush=True)
-        _job["_debug"] = {"products_bulk_url": None, "jsonl_objects": 0}
+        print("[DEAD-STOCK] Bulk Op completada con 0 resultados (URL null)", flush=True)
         return []
 
     objects = _download_jsonl(download_url)
     print(f"[DEAD-STOCK] Descargados {len(objects)} registros JSONL", flush=True)
-
-    # Debug: mostrar primeros 3 objetos para diagnosticar estructura JSONL
-    for i, obj in enumerate(objects[:3]):
-        print(f"[DEAD-STOCK] JSONL sample[{i}]: {json.dumps(obj, default=str)[:500]}", flush=True)
 
     # -- Parsear JSONL plano con __parentId --
     # Bulk Ops aplastan la jerarquia: cada connection node es una linea separada.
@@ -381,41 +376,6 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         f"{len(variants_result)} variantes finales con stock",
         flush=True,
     )
-
-    # Guardar diagnostico en _job para debug
-    # Incluir muestras JSONL para diagnosticar estructura
-    jsonl_samples = []
-    seen_types = set()
-    for obj in objects:
-        gid = obj.get("id", "")
-        obj_type = "unknown"
-        if "Product/" in gid and "Variant" not in gid:
-            obj_type = "Product"
-        elif "ProductVariant/" in gid:
-            obj_type = "ProductVariant"
-        elif "InventoryItem/" in gid:
-            obj_type = "InventoryItem"
-        elif "InventoryLevel/" in gid:
-            obj_type = "InventoryLevel"
-        if obj_type not in seen_types:
-            seen_types.add(obj_type)
-            sample = {k: v for k, v in obj.items()}
-            # Truncar valores largos
-            for k, v in sample.items():
-                if isinstance(v, str) and len(v) > 100:
-                    sample[k] = v[:100] + "..."
-            jsonl_samples.append({"_type": obj_type, **sample})
-
-    _job["_debug"] = {
-        "jsonl_objects": len(objects),
-        "products_parsed": len(products_by_id),
-        "variants_parsed": len(variants_by_id),
-        "inv_items_mapped": len(inv_item_to_variant),
-        "inv_levels_total": inv_levels_total,
-        "inv_levels_at_target": inv_levels_at_target,
-        "variants_with_stock": len(variants_result),
-        "jsonl_samples": jsonl_samples,
-    }
 
     return variants_result
 
@@ -673,13 +633,10 @@ def start_dead_stock(req: DeadStockRequest):
 @router.get("/status")
 def dead_stock_status():
     """Retorna el estado del analisis y los resultados si estan listos."""
-    resp = {
+    return {
         "running": _job["running"],
         "phase": _job["phase"],
         "error": _job["error"],
         "started_at": _job["started_at"],
         "result": _job["result"],
     }
-    if "_debug" in _job:
-        resp["_debug"] = _job["_debug"]
-    return resp
