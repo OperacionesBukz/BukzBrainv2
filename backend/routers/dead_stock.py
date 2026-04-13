@@ -113,12 +113,22 @@ def _start_bulk_op(inner_query: str) -> str:
     return op_id
 
 
-def _poll_bulk_op(max_wait: int = 600) -> str:
+def _poll_bulk_op(op_id: str, max_wait: int = 600) -> str:
     """
-    Poll currentBulkOperation hasta COMPLETED.
-    Retorna URL de descarga del JSONL.
+    Poll una bulk operation especifica por ID hasta COMPLETED.
+    Usar node(id:) en vez de currentBulkOperation evita confundir
+    nuestra op con otra del scheduler o reposiciones.
     """
-    query = "{ currentBulkOperation { id status errorCode objectCount url } }"
+    # Poll por ID especifico (mas seguro que currentBulkOperation)
+    query = """
+    {
+      node(id: "%s") {
+        ... on BulkOperation {
+          id status errorCode objectCount url
+        }
+      }
+    }
+    """ % op_id
     headers = settings.get_shopify_headers()
     graphql_url = settings.get_graphql_url()
     start = time.monotonic()
@@ -131,7 +141,7 @@ def _poll_bulk_op(max_wait: int = 600) -> str:
             )
             if resp.status_code != 200:
                 continue
-            op = resp.json().get("data", {}).get("currentBulkOperation")
+            op = resp.json().get("data", {}).get("node")
             if not op:
                 continue
 
@@ -141,17 +151,19 @@ def _poll_bulk_op(max_wait: int = 600) -> str:
 
             if elapsed % 30 < 6:
                 print(
-                    f"[DEAD-STOCK] Bulk Op: status={status}, objects={count}, "
-                    f"elapsed={elapsed}s",
+                    f"[DEAD-STOCK] Bulk Op {op_id}: status={status}, "
+                    f"objects={count}, elapsed={elapsed}s",
                     flush=True,
                 )
 
             if status == "COMPLETED":
                 download_url = op.get("url")
-                if not download_url:
-                    raise RuntimeError("Bulk Op COMPLETED pero sin URL de descarga")
-                print(f"[DEAD-STOCK] Bulk Op completada: {count} objetos", flush=True)
-                return download_url
+                print(
+                    f"[DEAD-STOCK] Bulk Op completada: {count} objetos, "
+                    f"url={'SI' if download_url else 'NULL (0 resultados)'}",
+                    flush=True,
+                )
+                return download_url  # Puede ser None si 0 resultados
 
             if status in ("FAILED", "CANCELED"):
                 raise RuntimeError(
@@ -235,8 +247,15 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
     """ % safe_vendor
 
     print(f"[DEAD-STOCK] Iniciando Bulk Op de productos para '{vendor}'...", flush=True)
-    _start_bulk_op(inner_query)
-    download_url = _poll_bulk_op(max_wait=600)
+    op_id = _start_bulk_op(inner_query)
+    download_url = _poll_bulk_op(op_id, max_wait=600)
+
+    # URL null = 0 resultados de la bulk op
+    if not download_url:
+        print(f"[DEAD-STOCK] Bulk Op completada con 0 resultados (URL null)", flush=True)
+        _job["_debug"] = {"products_bulk_url": None, "jsonl_objects": 0}
+        return []
+
     objects = _download_jsonl(download_url)
     print(f"[DEAD-STOCK] Descargados {len(objects)} registros JSONL", flush=True)
 
@@ -364,6 +383,29 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
     )
 
     # Guardar diagnostico en _job para debug
+    # Incluir muestras JSONL para diagnosticar estructura
+    jsonl_samples = []
+    seen_types = set()
+    for obj in objects:
+        gid = obj.get("id", "")
+        obj_type = "unknown"
+        if "Product/" in gid and "Variant" not in gid:
+            obj_type = "Product"
+        elif "ProductVariant/" in gid:
+            obj_type = "ProductVariant"
+        elif "InventoryItem/" in gid:
+            obj_type = "InventoryItem"
+        elif "InventoryLevel/" in gid:
+            obj_type = "InventoryLevel"
+        if obj_type not in seen_types:
+            seen_types.add(obj_type)
+            sample = {k: v for k, v in obj.items()}
+            # Truncar valores largos
+            for k, v in sample.items():
+                if isinstance(v, str) and len(v) > 100:
+                    sample[k] = v[:100] + "..."
+            jsonl_samples.append({"_type": obj_type, **sample})
+
     _job["_debug"] = {
         "jsonl_objects": len(objects),
         "products_parsed": len(products_by_id),
@@ -372,6 +414,7 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         "inv_levels_total": inv_levels_total,
         "inv_levels_at_target": inv_levels_at_target,
         "variants_with_stock": len(variants_result),
+        "jsonl_samples": jsonl_samples,
     }
 
     return variants_result
@@ -406,8 +449,13 @@ def _fetch_sold_skus(days: int) -> set[str]:
     """ % date_start
 
     print(f"[DEAD-STOCK] Iniciando Bulk Op de ventas (ultimos {days} dias)...", flush=True)
-    _start_bulk_op(inner_query)
-    download_url = _poll_bulk_op(max_wait=600)
+    op_id = _start_bulk_op(inner_query)
+    download_url = _poll_bulk_op(op_id, max_wait=600)
+
+    if not download_url:
+        print("[DEAD-STOCK] Bulk Op ventas: 0 resultados (URL null)", flush=True)
+        return set()
+
     objects = _download_jsonl(download_url)
     print(f"[DEAD-STOCK] Descargados {len(objects)} registros JSONL de ventas", flush=True)
 
