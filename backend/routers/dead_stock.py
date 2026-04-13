@@ -51,7 +51,7 @@ class DeadStockRequest(BaseModel):
 # -- GraphQL helper ------------------------------------------------------
 
 def _gql(query: str, timeout: int = 30) -> dict:
-    for attempt in range(5):
+    for attempt in range(8):
         resp = requests.post(
             settings.get_graphql_url(),
             json={"query": query},
@@ -62,9 +62,9 @@ def _gql(query: str, timeout: int = 30) -> dict:
         body = resp.json()
         if "errors" in body:
             codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
-            if "THROTTLED" in codes and attempt < 4:
-                wait = 2 * (attempt + 1)
-                print(f"[GQL] Throttled, esperando {wait}s...", flush=True)
+            if "THROTTLED" in codes and attempt < 7:
+                wait = 4 * (attempt + 1)  # 4, 8, 12, 16, 20, 24, 28s
+                print(f"[GQL] Throttled (intento {attempt + 1}/8), esperando {wait}s...", flush=True)
                 time.sleep(wait)
                 continue
             raise RuntimeError(f"GraphQL errors: {body['errors']}")
@@ -134,20 +134,7 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         }
         """ % (after_clause, safe_vendor)
 
-        last_err = None
-        for attempt in range(3):
-            try:
-                data = _gql(query, timeout=30)
-                last_err = None
-                break
-            except Exception as e:
-                last_err = e
-                if attempt < 2:
-                    print(f"[DEAD-STOCK] Retry {attempt + 1} products page {page}: {e}", flush=True)
-                    time.sleep(2)
-
-        if last_err:
-            raise RuntimeError(f"Error obteniendo productos (pagina {page}): {last_err}")
+        data = _gql(query, timeout=30)
 
         edges = data["products"]["edges"]
         page_info = data["products"]["pageInfo"]
@@ -253,20 +240,7 @@ def _fetch_sold_skus(days: int) -> set[str]:
         }
         """ % (after_clause, query_filter)
 
-        last_err = None
-        for attempt in range(3):
-            try:
-                data = _gql(query, timeout=30)
-                last_err = None
-                break
-            except Exception as e:
-                last_err = e
-                if attempt < 2:
-                    print(f"[DEAD-STOCK] Retry {attempt + 1} sales page {page}: {e}", flush=True)
-                    time.sleep(2)
-
-        if last_err:
-            raise RuntimeError(f"Error obteniendo ventas (pagina {page}): {last_err}")
+        data = _gql(query, timeout=30)
 
         edges = data["orders"]["edges"]
         page_info = data["orders"]["pageInfo"]
