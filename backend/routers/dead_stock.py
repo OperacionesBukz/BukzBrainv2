@@ -84,7 +84,7 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         after_clause = f', after: "{cursor}"' if cursor else ""
         query = """
         {
-          products(first: 100%s, query: "vendor:'%s'") {
+          products(first: 50%s, query: "vendor:'%s'") {
             edges {
               node {
                 id
@@ -225,7 +225,7 @@ def _fetch_sold_skus(days: int) -> set[str]:
         after_clause = f', after: "{cursor}"' if cursor else ""
         query = """
         {
-          orders(first: 250%s, query: "%s") {
+          orders(first: 100%s, query: "%s") {
             edges {
               node {
                 id
