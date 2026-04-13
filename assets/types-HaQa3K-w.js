@@ -1,0 +1,1 @@
+const o="https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host",a=["Bukz Bogota 109","Bukz Las Lomas","Bukz Museo de Antioquia","Bukz Viva Envigado","Cedi Lomas","Reserva B2B"],s=[...a];export{o as A,s as F,a as M};
