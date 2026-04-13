@@ -333,7 +333,6 @@ def _run_csv_comparison(csv_content: bytes):
         # Validate required columns
         required_cols = [
             "Variant SKU",
-            "Variant ID",
             "Vendor",
             "Inventory Available: Dropshipping [España]",
         ]
@@ -397,7 +396,6 @@ def _run_csv_comparison(csv_content: bytes):
             sku = str(row["Variant SKU"])
             shopify_qty = int(row["Inventory Available: Dropshipping [España]"])
             azeta_qty = int(row["Stock_Azeta"])
-            variant_id = str(row.get("Variant ID", "")).replace(".0", "")
             title = str(row.get("Title", row.get("Variant SKU", "")))
 
             product_id = str(row.get("ID", "")).replace(".0", "")
@@ -410,7 +408,6 @@ def _run_csv_comparison(csv_content: bytes):
                 "azeta_qty": azeta_qty,
                 "diff": azeta_qty - shopify_qty,
                 "inventory_item_id": "",
-                "variant_id": variant_id,
                 "product_id": product_id,
             })
 

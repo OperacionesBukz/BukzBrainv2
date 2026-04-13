@@ -12,7 +12,6 @@ export interface CelesaDifference {
   azeta_qty: number;
   diff: number;
   inventory_item_id: string;
-  variant_id?: string;
 }
 
 export interface CelesaSummary {
