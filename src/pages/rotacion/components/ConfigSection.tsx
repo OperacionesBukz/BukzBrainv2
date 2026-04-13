@@ -46,7 +46,6 @@ export default function ConfigSection({ onStart, disabled }: ConfigSectionProps)
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Periodo de ventas
             </label>
-            <div className="rounded-xl bg-muted/30 p-3">
               <Select value={months} onValueChange={setMonths}>
                 <SelectTrigger>
                   <SelectValue />
@@ -57,14 +56,12 @@ export default function ConfigSection({ onStart, disabled }: ConfigSectionProps)
                   <SelectItem value="12">12 meses</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Inventario por sede (Excel)
             </label>
-            <div className="rounded-xl bg-muted/30 p-3">
               <FileUploadZone
                 title="Subir inventario"
                 hint="Excel con columnas: Sede, Inventario"
@@ -72,7 +69,6 @@ export default function ConfigSection({ onStart, disabled }: ConfigSectionProps)
                 isLoaded={!!file}
                 onFileSelected={setFile}
               />
-            </div>
           </div>
         </div>
 
