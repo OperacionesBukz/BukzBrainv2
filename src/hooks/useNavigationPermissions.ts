@@ -12,10 +12,10 @@ type WorkspaceMap = Record<string, boolean>;
 type NavOrderMap = Record<string, string[]>;
 
 // Sub-rutas agrupadas bajo /workflow que aún existen como permisos individuales en Firestore
-const WORKFLOW_SUB_PATHS = ["/ingreso", "/crear-productos", "/actualizar-productos", "/scrap", "/cortes", "/envio-cortes", "/devoluciones", "/gift-cards", "/conciliacion-ferias"];
+const WORKFLOW_SUB_PATHS = ["/ingreso", "/crear-productos", "/actualizar-productos", "/scrap", "/cortes", "/envio-cortes", "/devoluciones", "/gift-cards", "/conciliacion-ferias", "/stock-muerto"];
 
 // Sub-rutas agrupadas bajo /reposiciones-menu
-const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades", "/rotacion", "/stock-muerto"];
+const REPOSICIONES_SUB_PATHS = ["/reposiciones", "/reposicion", "/pedidos", "/novedades", "/rotacion"];
 
 // Sub-rutas agrupadas bajo /celesa
 const CELESA_SUB_PATHS = ["/celesa-seguimiento", "/celesa-actualizacion"];

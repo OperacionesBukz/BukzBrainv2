@@ -93,6 +93,7 @@ const workflowSubCategories = [
     category: "Devoluciones",
     items: [
       { title: "Devoluciones", path: "/devoluciones", icon: Undo2 },
+      { title: "Stock Muerto", path: "/stock-muerto", icon: Skull },
     ],
   },
   {
@@ -118,7 +119,6 @@ const reposicionesSubItems = [
   { title: "Reposiciones Manuales", path: "/reposicion", icon: Package },
   { title: "Novedades", path: "/novedades", icon: AlertCircle },
   { title: "Rotacion", path: "/rotacion", icon: TrendingUp },
-  { title: "Stock Muerto", path: "/stock-muerto", icon: Skull },
 ];
 const REPOSICIONES_PATHS = reposicionesSubItems.map((s) => s.path);
 
