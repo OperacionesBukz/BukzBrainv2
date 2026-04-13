@@ -18,6 +18,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from config import settings
+from services.shopify_service import _throttler as _shopify_throttler
 
 router = APIRouter(prefix="/api/dead-stock", tags=["Dead Stock"])
 
@@ -49,34 +50,21 @@ class DeadStockRequest(BaseModel):
 
 
 # -- GraphQL helper ------------------------------------------------------
+# Usa el throttler compartido de shopify_service para coordinar con todos
+# los demas threads que hacen llamadas a la API de Shopify (vendors refresh,
+# inventory cache, etc.). Esto garantiza que solo 1 thread hace llamadas
+# cuando el bucket tiene suficiente capacidad.
 
-def _wait_for_api_capacity():
-    """Hace un query minimo para verificar que la API tiene capacidad."""
-    for i in range(30):
-        try:
-            resp = requests.post(
-                settings.get_graphql_url(),
-                json={"query": "{ shop { name } }"},
-                headers=settings.get_shopify_headers(),
-                timeout=10,
-            )
-            body = resp.json()
-            if "errors" not in body:
-                print(f"[DEAD-STOCK] API disponible (espero {i * 5}s)", flush=True)
-                return
-            codes = [e.get("extensions", {}).get("code") for e in body.get("errors", [])]
-            if "THROTTLED" in codes:
-                if i % 3 == 0:
-                    print(f"[DEAD-STOCK] API ocupada, esperando 5s...", flush=True)
-                time.sleep(5)
-                continue
-        except Exception:
-            time.sleep(5)
-    print("[DEAD-STOCK] API no disponible tras 150s, intentando igual...", flush=True)
+def _gql(query: str, timeout: int = 30, estimated_cost: float = 0.0) -> dict:
+    """
+    Ejecuta un query GraphQL usando el throttler global compartido.
+    Espera capacidad real antes de enviar (no solo un ping de 1 punto).
+    Maneja THROTTLED con backoff exponencial si aun asi ocurre.
+    """
+    for attempt in range(8):
+        # Esperar hasta tener capacidad suficiente en el bucket compartido
+        _shopify_throttler.wait_for_capacity(estimated_cost)
 
-
-def _gql(query: str, timeout: int = 30) -> dict:
-    for attempt in range(5):
         resp = requests.post(
             settings.get_graphql_url(),
             json={"query": query},
@@ -84,15 +72,27 @@ def _gql(query: str, timeout: int = 30) -> dict:
             timeout=timeout,
         )
         resp.raise_for_status()
+
+        # Siempre actualizar el throttler con el estado real del bucket
+        _shopify_throttler.update_from_response(resp)
+
         body = resp.json()
         if "errors" in body:
             codes = [e.get("extensions", {}).get("code") for e in body["errors"]]
-            if "THROTTLED" in codes and attempt < 4:
-                print(f"[DEAD-STOCK] Throttled (intento {attempt + 1}/5), esperando 5s...", flush=True)
-                time.sleep(5)
+            if "THROTTLED" in codes:
+                wait = _shopify_throttler.handle_throttled_error()
+                print(
+                    f"[DEAD-STOCK] THROTTLED (intento {attempt + 1}/8), "
+                    f"esperando {wait:.1f}s para que el bucket se recupere...",
+                    flush=True,
+                )
+                time.sleep(wait)
                 continue
             raise RuntimeError(f"GraphQL errors: {body['errors']}")
+
         return body["data"]
+
+    raise RuntimeError("[DEAD-STOCK] No se pudo ejecutar la query tras 8 intentos (bucket agotado)")
 
 
 # -- Fase 1: Obtener productos del vendor --------------------------------
@@ -158,7 +158,9 @@ def _fetch_vendor_products(vendor: str, min_age_months: int) -> list[dict]:
         }
         """ % (after_clause, safe_vendor)
 
-        data = _gql(query, timeout=30)
+        # Costo estimado conservador: products(50) x variants(10) x inventoryLevels(5)
+        # En plan estandar (~1000 pts bucket) esto puede costar ~250-300 pts solicitados.
+        data = _gql(query, timeout=30, estimated_cost=300.0)
 
         edges = data["products"]["edges"]
         page_info = data["products"]["pageInfo"]
@@ -264,7 +266,8 @@ def _fetch_sold_skus(days: int) -> set[str]:
         }
         """ % (after_clause, query_filter)
 
-        data = _gql(query, timeout=30)
+        # orders(100) x lineItems(100): ~150 pts estimados
+        data = _gql(query, timeout=30, estimated_cost=150.0)
 
         edges = data["orders"]["edges"]
         page_info = data["orders"]["pageInfo"]
@@ -385,11 +388,9 @@ def _generate_excel(dead_rows: list[dict], vendor: str, days: int) -> str:
 def _dead_stock_worker(vendor: str, days: int, min_age_months: int):
     """Ejecuta el analisis de stock muerto en 3 fases."""
     try:
-        # Esperar a que la API tenga capacidad (otros procesos pueden estar usandola)
-        _job["phase"] = "waiting"
-        _wait_for_api_capacity()
-
         # Fase 1: Productos del vendor con stock
+        # El throttler compartido (_shopify_throttler) se encarga de esperar
+        # capacidad real antes de cada query. No se necesita un ping previo.
         _job["phase"] = "products"
         print(f"[DEAD-STOCK] === FASE 1: Productos de '{vendor}' ===", flush=True)
         vendor_variants = _fetch_vendor_products(vendor, min_age_months)

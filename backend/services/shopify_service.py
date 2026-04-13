@@ -23,60 +23,135 @@ def _sanitize_graphql_value(value: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Rate limiter reactivo
+# Rate limiter reactivo — basado en puntos reales del bucket de Shopify
 # ---------------------------------------------------------------------------
 
 class ShopifyThrottler:
-    """Rate limiter reactivo para la API de Shopify."""
+    """
+    Rate limiter reactivo para la API GraphQL de Shopify.
 
-    def __init__(self, low_threshold: float = 0.2, critical_threshold: float = 0.1):
+    Shopify usa un bucket de puntos por combinacion app+tienda:
+      - Plan estandar:  max ~1,000 pts, restore ~50 pts/s
+      - Shopify Plus:   max ~10,000 pts, restore ~500 pts/s
+
+    Este throttler rastrea los puntos disponibles reales desde
+    extensions.cost en cada respuesta y bloquea el siguiente request
+    hasta que haya suficiente capacidad estimada.
+
+    IMPORTANTE: funciona correctamente solo con 1 worker de uvicorn.
+    Con multiples workers, cada proceso tiene su propia instancia y
+    no comparten estado — lo que causaba throttling al inicio.
+    """
+
+    # Capacidad conservadora asumida al inicio (50% del minimo conocido)
+    _DEFAULT_AVAILABLE = 500.0
+    _DEFAULT_MAXIMUM = 1000.0
+    # Puntos a reservar como buffer de seguridad antes de cada query
+    _SAFETY_BUFFER = 100.0
+    # Estimacion conservadora del costo de queries grandes (products+variants+inventory)
+    _HEAVY_QUERY_COST_ESTIMATE = 300.0
+    # Restore rate conservador (puntos/segundo) para plan estandar
+    _RESTORE_RATE = 50.0
+
+    def __init__(self):
         self._lock = threading.Lock()
-        self._available_ratio = 1.0
-        self._low_threshold = low_threshold
-        self._critical_threshold = critical_threshold
+        self._available = self._DEFAULT_AVAILABLE
+        self._maximum = self._DEFAULT_MAXIMUM
+        self._restore_rate = self._RESTORE_RATE
+        self._last_update_time = time.monotonic()
+
+    def _estimate_current_available(self) -> float:
+        """Estima puntos actuales considerando el tiempo transcurrido desde la ultima actualizacion."""
+        elapsed = time.monotonic() - self._last_update_time
+        restored = elapsed * self._restore_rate
+        return min(self._maximum, self._available + restored)
 
     def update_from_response(self, response: requests.Response):
-        """Lee headers de rate limit y actualiza estado interno."""
-        limit_header = response.headers.get("X-Shopify-Shop-Api-Call-Limit")
-        if limit_header and "/" in limit_header:
-            try:
-                used, total = limit_header.split("/")
-                with self._lock:
-                    self._available_ratio = 1.0 - (int(used) / int(total))
-            except (ValueError, ZeroDivisionError):
-                pass
-            return
-
+        """
+        Lee extensions.cost de la respuesta GraphQL y actualiza estado interno.
+        Este es el unico lugar donde se obtienen datos reales del bucket.
+        """
+        # REST API usa X-Shopify-Shop-Api-Call-Limit (bucket separado, ignorar para GraphQL)
         try:
             body = response.json()
             cost = body.get("extensions", {}).get("cost", {})
-            available = cost.get("throttleStatus", {}).get("currentlyAvailable", 0)
-            maximum = cost.get("throttleStatus", {}).get("maximumAvailable", 1000)
-            if maximum > 0:
+            throttle = cost.get("throttleStatus", {})
+            available = throttle.get("currentlyAvailable")
+            maximum = throttle.get("maximumAvailable")
+            restore_rate = throttle.get("restoreRate")
+
+            if available is not None and maximum and maximum > 0:
                 with self._lock:
-                    self._available_ratio = available / maximum
+                    self._available = float(available)
+                    self._maximum = float(maximum)
+                    if restore_rate:
+                        self._restore_rate = float(restore_rate)
+                    self._last_update_time = time.monotonic()
+                    logger.debug(
+                        f"[throttler] bucket: {available:.0f}/{maximum:.0f} pts "
+                        f"(restore {self._restore_rate:.0f}/s)"
+                    )
         except Exception:
             pass
 
-    def wait_if_needed(self):
-        """Bloquea si la cuota esta baja."""
+    def wait_for_capacity(self, estimated_cost: float = 0.0):
+        """
+        Bloquea hasta que el bucket tenga capacidad suficiente para
+        el costo estimado de la proxima query + buffer de seguridad.
+
+        Si estimated_cost=0, usa una estimacion conservadora automatica.
+        """
+        required = (estimated_cost or self._HEAVY_QUERY_COST_ESTIMATE) + self._SAFETY_BUFFER
+        # Limitar required al maximo del bucket para no bloquearse para siempre
         with self._lock:
-            ratio = self._available_ratio
+            required = min(required, self._maximum * 0.8)
 
-        if ratio < self._critical_threshold:
-            time.sleep(1.0)
-        elif ratio < self._low_threshold:
-            time.sleep(0.5)
+        deadline = time.monotonic() + 120  # nunca esperar mas de 2 minutos
+        while time.monotonic() < deadline:
+            with self._lock:
+                estimated = self._estimate_current_available()
 
-    def handle_429(self, response: requests.Response) -> float:
-        """Retorna segundos a esperar ante un 429."""
-        retry_after = response.headers.get("Retry-After")
-        if retry_after:
+            if estimated >= required:
+                return
+
+            deficit = required - estimated
+            wait_seconds = deficit / max(self._restore_rate, 1.0)
+            # Esperar en intervalos de maximo 5s para actualizar estimaciones
+            sleep_time = min(wait_seconds, 5.0)
+            logger.info(
+                f"[throttler] esperando capacidad: {estimated:.0f}/{required:.0f} pts requeridos, "
+                f"durmiendo {sleep_time:.1f}s..."
+            )
+            time.sleep(sleep_time)
+
+    # Alias para compatibilidad con codigo existente
+    def wait_if_needed(self):
+        """Compatibilidad: usa la nueva espera basada en capacidad."""
+        self.wait_for_capacity()
+
+    def handle_throttled_error(self, retry_after_header: str | None = None) -> float:
+        """
+        Maneja un error THROTTLED de Shopify.
+        Actualiza el estado interno y retorna segundos a esperar.
+        """
+        with self._lock:
+            # Si recibimos THROTTLED, el bucket esta vacio o casi vacio
+            self._available = 0.0
+            self._last_update_time = time.monotonic()
+
+        if retry_after_header:
             try:
-                return float(retry_after)
+                return float(retry_after_header)
             except ValueError:
                 pass
-        return 2.0
+        # Esperar suficiente para que el bucket se llene al menos a mitad
+        with self._lock:
+            wait = (self._maximum * 0.5) / max(self._restore_rate, 1.0)
+        return max(wait, 10.0)
+
+    def handle_429(self, response: requests.Response) -> float:
+        """Retorna segundos a esperar ante un 429 HTTP."""
+        return self.handle_throttled_error(response.headers.get("Retry-After"))
 
 
 _throttler = ShopifyThrottler()
@@ -1748,7 +1823,8 @@ def get_vendors_from_shopify() -> list[dict]:
         }
         """ % after_clause
 
-        _throttler.wait_if_needed()
+        # products(first:250) con solo campo vendor: ~60 pts estimados
+        _throttler.wait_for_capacity(estimated_cost=60.0)
         try:
             resp = requests.post(
                 graphql_url,
@@ -1760,7 +1836,18 @@ def get_vendors_from_shopify() -> list[dict]:
             if resp.status_code != 200:
                 break
 
-            data = resp.json().get("data", {}).get("products", {})
+            body = resp.json()
+            # Manejar THROTTLED explicitamente (no solo ignorar)
+            if "errors" in body:
+                codes = [e.get("extensions", {}).get("code") for e in body.get("errors", [])]
+                if "THROTTLED" in codes:
+                    wait = _throttler.handle_throttled_error()
+                    logger.warning(f"[vendors] THROTTLED, esperando {wait:.1f}s")
+                    time.sleep(wait)
+                    continue
+                break
+
+            data = body.get("data", {}).get("products", {})
             for edge in data.get("edges", []):
                 vendor = (edge.get("node") or {}).get("vendor", "").strip()
                 if vendor:
@@ -1822,7 +1909,8 @@ def get_inventory_by_location(location_gid: str, vendor_filter: list[str] | None
         }
         """ % (location_gid, after_clause)
 
-        _throttler.wait_if_needed()
+        # location.inventoryLevels(first:250): ~100 pts estimados
+        _throttler.wait_for_capacity(estimated_cost=100.0)
         try:
             resp = requests.post(
                 graphql_url,
@@ -1834,7 +1922,17 @@ def get_inventory_by_location(location_gid: str, vendor_filter: list[str] | None
             if resp.status_code != 200:
                 break
 
-            location_data = resp.json().get("data", {}).get("location") or {}
+            body = resp.json()
+            if "errors" in body:
+                codes = [e.get("extensions", {}).get("code") for e in body.get("errors", [])]
+                if "THROTTLED" in codes:
+                    wait = _throttler.handle_throttled_error()
+                    logger.warning(f"[inventory_by_location] THROTTLED, esperando {wait:.1f}s")
+                    time.sleep(wait)
+                    continue
+                break
+
+            location_data = body.get("data", {}).get("location") or {}
             inv_levels = location_data.get("inventoryLevels", {})
 
             for edge in inv_levels.get("edges", []):
