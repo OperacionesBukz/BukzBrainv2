@@ -151,6 +151,12 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
                         <tr key={`${log.id}-detail`}>
                           <td colSpan={8} className="px-3 py-2 bg-muted/30">
                             {logItems && logItems.length > 0 ? (
+                              (() => {
+                                // Recopilar columnas extras únicas de todos los items
+                                const extraKeys = Array.from(
+                                  new Set(logItems.flatMap((i) => Object.keys(i.extras ?? {})))
+                                );
+                                return (
                               <>
                                 <div className="rounded border overflow-auto max-h-[300px]">
                                   <table className="w-full text-xs">
@@ -160,6 +166,9 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
                                         <th className="text-left px-2 py-1">ISBN</th>
                                         <th className="text-left px-2 py-1">Título</th>
                                         <th className="text-right px-2 py-1">Cantidad</th>
+                                        {extraKeys.map((k) => (
+                                          <th key={k} className="text-left px-2 py-1">{k}</th>
+                                        ))}
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -169,6 +178,11 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
                                           <td className="px-2 py-1 font-mono">{item.isbn ?? "—"}</td>
                                           <td className="px-2 py-1">{item.titulo ?? "—"}</td>
                                           <td className="px-2 py-1 text-right">{item.cantidad}</td>
+                                          {extraKeys.map((k) => (
+                                            <td key={k} className="px-2 py-1 text-muted-foreground">
+                                              {item.extras?.[k] ?? "—"}
+                                            </td>
+                                          ))}
                                         </tr>
                                       ))}
                                     </tbody>
@@ -202,6 +216,8 @@ export default function HistorialTab({ highlightCodigo }: { highlightCodigo?: st
                                   </Button>
                                 </div>
                               </>
+                                );
+                              })()
                             ) : (
                               <p className="text-xs text-muted-foreground py-2">Sin detalle de items</p>
                             )}
