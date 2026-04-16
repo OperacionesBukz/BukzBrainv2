@@ -262,12 +262,15 @@ async def enviar_devolucion_sede(
     archivo_bytes = await archivo.read()
     nombre_archivo = archivo.filename or "devolucion.xlsx"
 
+    cc_list = ["cedi@bukz.co"] if correo_sede != "cedi@bukz.co" else None
+
     try:
         send_email(
             to=[correo_sede],
             subject=asunto,
             html_body=html_body,
             sender_name=remitente,
+            cc=cc_list,
             attachments=[(nombre_archivo, archivo_bytes)],
         )
     except Exception as e:
@@ -276,7 +279,7 @@ async def enviar_devolucion_sede(
     return {
         "success": True,
         "destinatario": sede,
-        "correos": [correo_sede],
+        "correos": [correo_sede] + (cc_list or []),
         "asunto": asunto,
     }
 
