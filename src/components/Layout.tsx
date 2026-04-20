@@ -562,6 +562,7 @@ export function Layout({ children }: { children: ReactNode }) {
                             <NavLink
                               key={sub.path}
                               to={sub.path}
+                              onClick={() => setActiveSubMenu(null)}
                               className={cn(
                                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                                 location.pathname === sub.path
@@ -580,6 +581,7 @@ export function Layout({ children }: { children: ReactNode }) {
                       <NavLink
                         key={sub.path}
                         to={sub.path}
+                        onClick={() => setActiveSubMenu(null)}
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                           location.pathname === sub.path
