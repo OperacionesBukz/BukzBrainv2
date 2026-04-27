@@ -9,6 +9,7 @@ interface EditableCellProps {
   type?: "text" | "number";
   align?: "left" | "right";
   disabled?: boolean;
+  bold?: boolean;
 }
 
 export default function EditableCell({
@@ -18,6 +19,7 @@ export default function EditableCell({
   type = "text",
   align = "left",
   disabled = false,
+  bold = false,
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -44,7 +46,7 @@ export default function EditableCell({
 
   if (disabled) {
     return (
-      <span className={cn("text-sm", align === "right" && "text-right block")}>
+      <span className={cn("text-sm", align === "right" && "text-right block", bold && "font-bold")}>
         {type === "number" && value ? `$${value}` : value || "—"}
       </span>
     );
@@ -82,6 +84,7 @@ export default function EditableCell({
         "w-full text-sm px-1.5 py-0.5 rounded cursor-pointer text-left transition-colors",
         "hover:bg-muted/50 hover:ring-1 hover:ring-ring/20",
         align === "right" && "text-right",
+        bold && "font-bold",
         isModified && "bg-yellow-100 dark:bg-yellow-900/30 ring-1 ring-yellow-400/50",
       )}
     >

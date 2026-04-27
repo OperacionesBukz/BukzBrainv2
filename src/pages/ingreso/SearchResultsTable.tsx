@@ -198,6 +198,7 @@ export default function SearchResultsTable({
                         }
                         isModified={editing.isFieldModified(row.ISBN, "Vendor")}
                         disabled={!found}
+                        bold
                       />
                     </TableCell>
                     <TableCell className="text-right">
