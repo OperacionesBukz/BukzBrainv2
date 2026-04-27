@@ -238,12 +238,19 @@ export default function InventoryPreview({
                                 isModified={editing.isFieldModified(isbn, h)}
                                 type={h === "Precio" ? "number" : "text"}
                                 align={h === "Precio" ? "right" : "left"}
+                                bold={h === "Vendor"}
                               />
                             </TableCell>
                           );
                         }
                         return (
-                          <TableCell key={h} className="whitespace-nowrap">
+                          <TableCell
+                            key={h}
+                            className={cn(
+                              "whitespace-nowrap",
+                              h === "Vendor" && "font-bold",
+                            )}
+                          >
                             {h === "Titulo" &&
                             originalValue === "No encontrado" ? (
                               <Badge variant="destructive">
