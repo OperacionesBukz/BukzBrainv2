@@ -99,7 +99,30 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        // No interceptar APIs: backend EasyPanel, Firestore, Firebase Auth, Shopify
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /easypanel\.host/,
+          /firestore\.googleapis\.com/,
+          /identitytoolkit\.googleapis\.com/,
+          /securetoken\.googleapis\.com/,
+        ],
         runtimeCaching: [
+          // Backend API: NUNCA cachear, ir siempre a la red. Esto evita que
+          // el SW corrompa POST multipart (uploads de Excel) o devuelva
+          // respuestas opacas que el navegador interpreta como error de CORS.
+          {
+            urlPattern: ({ url }) =>
+              url.hostname.endsWith("easypanel.host"),
+            handler: "NetworkOnly",
+            method: "GET",
+          },
+          {
+            urlPattern: ({ url }) =>
+              url.hostname.endsWith("easypanel.host"),
+            handler: "NetworkOnly",
+            method: "POST",
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "CacheFirst",
