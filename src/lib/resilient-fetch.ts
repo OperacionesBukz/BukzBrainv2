@@ -114,6 +114,16 @@ export async function resilientFetch(
         );
       }
 
+      // Network error (TypeError) after exhausting retries → conexión rechazada
+      // o backend caído. El navegador suele reportarlo como CORS cuando en
+      // realidad no hubo respuesta alguna.
+      if (err instanceof TypeError) {
+        throw new Error(
+          `No se pudo conectar al servidor (${new URL(url).pathname}). ` +
+            `Reintentá en unos segundos; si persiste, el backend puede estar reiniciándose.`,
+        );
+      }
+
       throw err;
     }
   }

@@ -42,7 +42,7 @@ export async function enviarPedidoSede(
     await resilientFetch(`${API_BASE}/api/pedidos/sedes`, {
       method: "POST",
       body: form,
-      timeout: 60_000,
+      timeout: 120_000,
     }),
   );
 }
@@ -69,7 +69,7 @@ export async function enviarPedidoCiudad(
     await resilientFetch(`${API_BASE}/api/pedidos/ciudad`, {
       method: "POST",
       body: form,
-      timeout: 60_000,
+      timeout: 120_000,
     }),
   );
 }
