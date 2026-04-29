@@ -4,14 +4,27 @@ Migrado desde Panel-Operaciones/Modulos/Pedidos.py.
 Proveedores se leen de la colección Firestore 'directory' (type=proveedor, estado=Activo).
 """
 import asyncio
+import base64
 from datetime import datetime
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 from services.email_service import send_email
 from services.firebase_service import get_firestore_db
 
 router = APIRouter(prefix="/api/pedidos", tags=["pedidos"])
+
+
+class PedidoJSONPayload(BaseModel):
+    proveedor: str = Field(..., min_length=1)
+    destino: str = Field(..., min_length=1, description="Sede o Ciudad según endpoint")
+    tipo: str = Field(..., min_length=1)
+    mes: str = Field(..., min_length=1)
+    anio: str = Field(..., min_length=1)
+    remitente: str = Field(..., min_length=1)
+    archivo_b64: str = Field(..., description="Excel codificado en base64")
+    archivo_nombre: str = Field(default="pedido.xlsx")
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -285,6 +298,123 @@ async def enviar_pedido_ciudad(
     return {
         "success": True,
         "proveedor": proveedor,
+        "ciudad": ciudad,
+        "correos": correos,
+        "asunto": asunto,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Endpoints JSON (alternativos a multipart/form-data)
+# Necesarios cuando AV/firewalls corporativos bloquean POST multipart pero
+# permiten POST application/json. El archivo viene base64-encoded en el body.
+# ---------------------------------------------------------------------------
+
+def _decode_archivo_b64(b64_str: str) -> bytes:
+    """Decodifica el archivo base64. Acepta el prefijo data:URI opcional."""
+    if "," in b64_str and b64_str.lstrip().startswith("data:"):
+        b64_str = b64_str.split(",", 1)[1]
+    try:
+        return base64.b64decode(b64_str, validate=True)
+    except Exception as e:
+        raise HTTPException(400, detail=f"archivo_b64 inválido: {e}")
+
+
+@router.post("/sedes-json")
+async def enviar_pedido_sede_json(payload: PedidoJSONPayload):
+    """Variante JSON de /sedes — el Excel viene como base64 en el body."""
+    sede = payload.destino
+    if sede not in SEDES:
+        raise HTTPException(404, detail=f"Sede '{sede}' no encontrada")
+
+    proveedores = await asyncio.to_thread(_get_proveedores_from_directory)
+    if not proveedores:
+        raise HTTPException(503, detail="No se pudo cargar la lista de proveedores. Intente de nuevo.")
+    if payload.proveedor not in proveedores:
+        raise HTTPException(404, detail=f"Proveedor '{payload.proveedor}' no encontrado")
+
+    archivo_bytes = _decode_archivo_b64(payload.archivo_b64)
+
+    sede_info = SEDES[sede]
+    fecha_str = datetime.now().strftime("%d %b %Y")
+    asunto = f"Pedido BUKZ {payload.tipo} - Sede: {sede} - {payload.proveedor} - {fecha_str}"
+    html_body = _build_sede_html(sede, sede_info)
+
+    correos = list(proveedores[payload.proveedor])
+    if payload.tipo == "B2B":
+        correos = correos + DESTINATARIOS_B2B
+
+    fecha_file = datetime.now().strftime("%d_%m_%Y")
+    nombre_archivo = payload.archivo_nombre or f"Pedido_{sede}_{payload.mes}_{payload.anio}_{fecha_file}.xlsx"
+
+    try:
+        await asyncio.to_thread(
+            send_email,
+            [correos[0]],
+            asunto,
+            html_body,
+            payload.remitente,
+            correos[1:] if len(correos) > 1 else None,
+            [(nombre_archivo, archivo_bytes)],
+        )
+    except Exception as e:
+        raise HTTPException(502, detail=f"Error al enviar email: {e}")
+
+    return {
+        "success": True,
+        "proveedor": payload.proveedor,
+        "sede": sede,
+        "correos": correos,
+        "asunto": asunto,
+    }
+
+
+@router.post("/ciudad-json")
+async def enviar_pedido_ciudad_json(payload: PedidoJSONPayload):
+    """Variante JSON de /ciudad — el Excel viene como base64 en el body."""
+    ciudad = payload.destino
+    if ciudad not in CIUDADES:
+        raise HTTPException(400, detail=f"Ciudad '{ciudad}' no válida. Opciones: {', '.join(CIUDADES)}")
+
+    proveedores = await asyncio.to_thread(_get_proveedores_from_directory)
+    if not proveedores:
+        raise HTTPException(503, detail="No se pudo cargar la lista de proveedores. Intente de nuevo.")
+    if payload.proveedor not in proveedores:
+        raise HTTPException(404, detail=f"Proveedor '{payload.proveedor}' no encontrado")
+
+    archivo_bytes = _decode_archivo_b64(payload.archivo_b64)
+
+    asunto = f"Pedido {payload.mes} Bukz {ciudad} {payload.anio} - {payload.proveedor}"
+    if payload.tipo == "Novedad":
+        asunto = f"Novedad - {asunto}"
+    elif payload.tipo == "B2B":
+        asunto = f"PEDIDOS B2B - {asunto}"
+
+    html_body = _build_ciudad_html(ciudad)
+
+    correos = list(proveedores[payload.proveedor])
+    if payload.tipo == "B2B":
+        correos = correos + DESTINATARIOS_B2B
+
+    fecha_file = datetime.now().strftime("%d_%m_%Y")
+    nombre_archivo = payload.archivo_nombre or f"Pedido_{ciudad}_{payload.mes}_{payload.anio}_{fecha_file}.xlsx"
+
+    try:
+        await asyncio.to_thread(
+            send_email,
+            [correos[0]],
+            asunto,
+            html_body,
+            payload.remitente,
+            correos[1:] if len(correos) > 1 else None,
+            [(nombre_archivo, archivo_bytes)],
+        )
+    except Exception as e:
+        raise HTTPException(502, detail=f"Error al enviar email: {e}")
+
+    return {
+        "success": True,
+        "proveedor": payload.proveedor,
         "ciudad": ciudad,
         "correos": correos,
         "asunto": asunto,
