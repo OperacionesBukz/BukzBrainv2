@@ -42,37 +42,36 @@ _processor_lock = threading.Lock()
 
 
 def _claim_doc(doc_ref) -> bool:
-    """Marca un doc como 'processing' atómicamente. True si se reclamó."""
-    db = get_firestore_db()
+    """Marca un doc como 'processing'. Returns True si se reclamó.
 
-    @db.transactional
-    def _txn(transaction):
-        snap = doc_ref.get(transaction=transaction)
-        if not snap.exists:
-            return False
-        data = snap.to_dict() or {}
-        status = data.get("status")
-        # Reclamamos pendings o processings vencidos (timeout)
-        if status == "pending":
-            transaction.update(
-                doc_ref,
-                {"status": "processing", "claimed_at": SERVER_TIMESTAMP},
-            )
-            return True
-        if status == "processing":
-            claimed_at = data.get("claimed_at")
-            if claimed_at:
+    No usa transacción porque APScheduler corre con max_instances=1 y
+    uvicorn con un solo worker → no hay procesos concurrentes que
+    compitan por el mismo doc.
+    """
+    snap = doc_ref.get()
+    if not snap.exists:
+        return False
+    data = snap.to_dict() or {}
+    status = data.get("status")
+    if status == "pending":
+        doc_ref.update(
+            {"status": "processing", "claimed_at": SERVER_TIMESTAMP}
+        )
+        return True
+    if status == "processing":
+        claimed_at = data.get("claimed_at")
+        if claimed_at:
+            try:
                 age = datetime.now(timezone.utc) - claimed_at
                 if age > timedelta(minutes=PROCESSING_TTL_MINUTES):
-                    transaction.update(
-                        doc_ref,
-                        {"status": "processing", "claimed_at": SERVER_TIMESTAMP},
+                    doc_ref.update(
+                        {"status": "processing", "claimed_at": SERVER_TIMESTAMP}
                     )
                     return True
-        return False
-
-    transaction = db.transaction()
-    return _txn(transaction)
+            except TypeError:
+                # claimed_at sin tzinfo o sentinel sin resolver → ignorar
+                pass
+    return False
 
 
 def _process_doc(doc_id: str, data: dict) -> None:
