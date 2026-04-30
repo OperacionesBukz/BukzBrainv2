@@ -37,7 +37,7 @@ SEDES: dict[str, dict[str, str]] = {
         "horario": "10:00 am a 5:00 pm Lunes a Viernes",
     },
     "Bukz Viva Envigado": {
-        "direccion": "Centro Comercial Viva Envigado, Zona 1 Muelle de Carga G, Cl. 32B Sur #48-100 - Local 357 Piso 3, Envigado, Antioquia",
+        "direccion": "Centro Comercial Viva, Cra. 48 #32B Sur-139, Local 357 Zona 1, Envigado, Antioquia",
         "horario": "10:00 am a 12:00 pm - 2:00 pm a 5:00 pm | Lunes a Viernes",
     },
     "Bukz Museo de Antioquia": {
