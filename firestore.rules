@@ -106,6 +106,16 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ─── Pedidos Outbox (cola Firestore para envío de pedidos) ──
+    // Frontend crea el doc con status='pending' + archivo en base64.
+    // Backend (Admin SDK) lee, procesa y actualiza status a sent/error.
+    // Esta cola existe para esquivar AV/firewalls que bloquean POSTs
+    // directos al backend.
+    match /pedidos_outbox/{docId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
     // ─── Devoluciones Log ─────────────────────────────────────
     // Historial de envíos de devoluciones. Lectura abierta, escritura solo admin/backend.
     match /devoluciones_log/{logId} {

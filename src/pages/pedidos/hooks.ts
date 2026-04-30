@@ -30,6 +30,7 @@ export function useEnviarPedidoSede() {
       anio: string;
       remitente: string;
       archivo: File;
+      enviadoPor?: string;
     }) =>
       enviarPedidoSede(
         params.proveedor,
@@ -39,6 +40,7 @@ export function useEnviarPedidoSede() {
         params.anio,
         params.remitente,
         params.archivo,
+        params.enviadoPor ?? "",
       ),
   });
 }
@@ -53,6 +55,7 @@ export function useEnviarPedidoCiudad() {
       anio: string;
       remitente: string;
       archivo: File;
+      enviadoPor?: string;
     }) =>
       enviarPedidoCiudad(
         params.proveedor,
@@ -62,6 +65,7 @@ export function useEnviarPedidoCiudad() {
         params.anio,
         params.remitente,
         params.archivo,
+        params.enviadoPor ?? "",
       ),
   });
 }

@@ -44,7 +44,16 @@ export default function CiudadTab() {
 
     setStep("processing");
     mutation.mutate(
-      { proveedor, ciudad, tipo, mes, anio, remitente, archivo },
+      {
+        proveedor,
+        ciudad,
+        tipo,
+        mes,
+        anio,
+        remitente,
+        archivo,
+        enviadoPor: user?.email ?? "",
+      },
       {
         onSuccess: (data) => {
           setResponse(data);

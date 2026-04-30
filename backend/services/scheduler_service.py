@@ -330,8 +330,22 @@ def start_scheduler():
             max_instances=1,
             misfire_grace_time=300,
         )
+        # Procesador de la cola pedidos_outbox — corre cada 8s para latencia baja.
+        from services.pedidos_outbox import process_outbox_tick
+        _scheduler.add_job(
+            process_outbox_tick,
+            "interval",
+            seconds=8,
+            next_run_time=datetime.now(timezone.utc) + timedelta(seconds=5),
+            id="pedidos_outbox",
+            max_instances=1,
+            misfire_grace_time=30,
+        )
         _scheduler.start()
-        logger.info("Scheduler iniciado: inventory_refresh cada 4h, sales_pre_refresh cada 1h, product_catalog cada 24h")
+        logger.info(
+            "Scheduler iniciado: inventory_refresh cada 4h, sales_pre_refresh cada 1h, "
+            "product_catalog cada 24h, pedidos_outbox cada 8s"
+        )
 
 
 def stop_scheduler():

@@ -49,7 +49,16 @@ export default function SedesTab() {
 
     setStep("processing");
     mutation.mutate(
-      { proveedor, sede, tipo, mes, anio, remitente, archivo },
+      {
+        proveedor,
+        sede,
+        tipo,
+        mes,
+        anio,
+        remitente,
+        archivo,
+        enviadoPor: user?.email ?? "",
+      },
       {
         onSuccess: (data) => {
           setResponse(data);
