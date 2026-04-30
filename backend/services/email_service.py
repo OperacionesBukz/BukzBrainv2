@@ -196,6 +196,32 @@ def build_no_ventas_html(mes: str) -> str:
 </ul>"""
 
 
+_EMAIL_SPLIT_RE = re.compile(r"[;,\s]+")
+
+
+def _normalize_recipients(values) -> list[str]:
+    """Aplana listas/strings con múltiples emails pegados con `;` `,` o
+    espacios. Sanitiza, deduplica y filtra inválidos."""
+    if not values:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    flat: list[str] = []
+    for v in values:
+        if not v:
+            continue
+        if isinstance(v, str):
+            flat.extend(_EMAIL_SPLIT_RE.split(v))
+    seen: set[str] = set()
+    out: list[str] = []
+    for e in flat:
+        e = e.strip().strip("<>").lower()
+        if e and "@" in e and e not in seen:
+            seen.add(e)
+            out.append(e)
+    return out
+
+
 def send_email(
     to: list[str],
     subject: str,
@@ -207,6 +233,9 @@ def send_email(
     """
     Envía un email vía SMTP_SSL de Gmail.
 
+    Sanitiza automáticamente las listas `to` y `cc`: si vienen strings con
+    múltiples correos pegados (e.g. "a@x.com; b@y.com"), los desempaca.
+
     Args:
         to: lista de destinatarios principales
         subject: asunto del email
@@ -216,17 +245,25 @@ def send_email(
         attachments: lista de (filename, bytes_content) opcionales
     Raises:
         RuntimeError si las credenciales no están configuradas
+        ValueError si tras sanitizar no hay destinatarios válidos
         smtplib.SMTPException si falla el envío
     """
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         raise RuntimeError("Credenciales SMTP no configuradas en el servidor")
 
+    to_clean = _normalize_recipients(to)
+    cc_clean = _normalize_recipients(cc) if cc else []
+    # Quitar de cc cualquier dirección ya presente en to.
+    cc_clean = [c for c in cc_clean if c not in set(to_clean)]
+    if not to_clean:
+        raise ValueError("No hay destinatarios válidos tras sanitizar la lista")
+
     msg = MIMEMultipart()
     msg["From"] = f"{sender_name} <{settings.SMTP_USER}>"
-    msg["To"] = ", ".join(to)
+    msg["To"] = ", ".join(to_clean)
     msg["Subject"] = subject
-    if cc:
-        msg["Cc"] = ", ".join(cc)
+    if cc_clean:
+        msg["Cc"] = ", ".join(cc_clean)
 
     msg.attach(MIMEText(html_body, "html"))
 
@@ -238,7 +275,7 @@ def send_email(
             part.add_header("Content-Disposition", "attachment", filename=fname)
             msg.attach(part)
 
-    all_recipients = list(to) + (cc or [])
+    all_recipients = to_clean + cc_clean
     with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT) as server:
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.sendmail(settings.SMTP_USER, all_recipients, msg.as_string())

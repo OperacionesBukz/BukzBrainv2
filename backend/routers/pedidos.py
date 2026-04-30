@@ -5,6 +5,7 @@ Proveedores se leen de la colección Firestore 'directory' (type=proveedor, esta
 """
 import asyncio
 import base64
+import re
 from datetime import datetime
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -69,11 +70,39 @@ DESTINATARIOS_B2B = ["camilo.atehortua@bukz.co", "empresasqueleen@bukz.co"]
 # Firestore — proveedores desde colección 'directory'
 # ---------------------------------------------------------------------------
 
+_EMAIL_SEPARATORS_RE = re.compile(r"[;,\s]+")
+
+
+def _split_emails(value) -> list[str]:
+    """Acepta str con separadores (`;`, `,`, espacios) o list y devuelve
+    la lista limpia de correos individuales. Filtra strings vacíos y
+    duplicados conservando el orden."""
+    if not value:
+        return []
+    raw_parts: list[str] = []
+    if isinstance(value, list):
+        for item in value:
+            if isinstance(item, str):
+                raw_parts.extend(_EMAIL_SEPARATORS_RE.split(item))
+    elif isinstance(value, str):
+        raw_parts.extend(_EMAIL_SEPARATORS_RE.split(value))
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in raw_parts:
+        p = p.strip().strip("<>").lower()
+        if p and "@" in p and p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
 def _get_proveedores_from_directory() -> dict[str, list[str]]:
     """Lee proveedores activos de la colección 'directory' en Firestore.
 
     Returns:
-        dict de empresa -> [correo, *correos_cc]
+        dict de empresa -> [correo_principal, *correos_cc]
+        Cada string se sanitiza/desempaqueta si trae múltiples correos
+        pegados con `;`, `,` o espacios.
     """
     try:
         db = get_firestore_db()
@@ -87,10 +116,16 @@ def _get_proveedores_from_directory() -> dict[str, list[str]]:
         for doc in docs:
             data = doc.to_dict()
             empresa = data.get("empresa", "")
-            correo = data.get("correo", "")
-            cc = data.get("correos_cc", [])
-            if empresa and correo:
-                result[empresa] = [correo] + [c for c in cc if c]
+            principales = _split_emails(data.get("correo", ""))
+            cc = _split_emails(data.get("correos_cc", []))
+            todos: list[str] = []
+            seen: set[str] = set()
+            for e in principales + cc:
+                if e and e not in seen:
+                    seen.add(e)
+                    todos.append(e)
+            if empresa and todos:
+                result[empresa] = todos
         return result
     except Exception as e:
         print(f"[pedidos] Error al leer proveedores de Firestore: {e}")
