@@ -18,7 +18,9 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+from firebase_admin import firestore as fb_firestore
+
+SERVER_TIMESTAMP = fb_firestore.SERVER_TIMESTAMP
 
 from routers.pedidos import (
     SEDES,
