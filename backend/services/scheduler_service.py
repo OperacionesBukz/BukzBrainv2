@@ -148,20 +148,17 @@ def write_product_catalog(items: list[dict]):
 
 def read_product_catalog(check_ttl: bool = True) -> tuple[list[dict] | None, dict | None]:
     """
-    Lee catálogo de productos desde Firestore.
+    Lee catálogo de productos desde PostgreSQL.
     Returns (items, meta) si cache existe y tiene <TTL horas (o check_ttl=False).
     Returns (None, None) si no existe o esta vencido.
     """
-    db = _get_firestore()
-    doc_ref = db.collection(PRODUCT_CATALOG_COLLECTION).document(PRODUCT_CATALOG_DOC)
-
+    from services.database import pg_read_product_catalog_full
     try:
-        snap = doc_ref.get()
-        if not snap.exists:
+        items, meta = pg_read_product_catalog_full()
+        if items is None or not meta:
             return None, None
 
-        meta = snap.to_dict()
-        cached_at_str = meta.get("cached_at", "")
+        cached_at_str = meta.get("cached_at")
         if not cached_at_str:
             return None, None
 
@@ -170,23 +167,10 @@ def read_product_catalog(check_ttl: bool = True) -> tuple[list[dict] | None, dic
             if cached_at.tzinfo is None:
                 cached_at = cached_at.replace(tzinfo=timezone.utc)
             age_hours = (datetime.now(timezone.utc) - cached_at).total_seconds() / 3600
-
             if age_hours > PRODUCT_CATALOG_TTL_HOURS:
                 return None, None
 
-        # Leer datos inline
-        if not meta.get("chunked", False) and "data" in meta:
-            return meta["data"], meta
-
-        # Leer datos chunked
-        if meta.get("chunked"):
-            items = []
-            chunks = doc_ref.collection("chunks").stream()
-            for chunk in sorted(chunks, key=lambda c: int(c.id)):
-                items.extend(chunk.to_dict().get("data", []))
-            return items, meta
-
-        return None, None
+        return items, meta
     except Exception as e:
         logger.warning(f"[product_catalog] Error leyendo cache: {e}")
         return None, None

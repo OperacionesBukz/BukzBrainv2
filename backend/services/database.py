@@ -223,6 +223,19 @@ def pg_read_product_catalog() -> list[dict] | None:
         return row["products"]
 
 
+def pg_read_product_catalog_full() -> tuple[list[dict] | None, dict | None]:
+    """Lee catalogo + meta (sku_count, cached_at). Retorna (items, meta) o (None, None)."""
+    with get_cursor() as cur:
+        cur.execute("SELECT products, sku_count, cached_at FROM product_catalog WHERE id = 'global'")
+        row = cur.fetchone()
+        if not row:
+            return None, None
+        return row["products"], {
+            "sku_count": row["sku_count"],
+            "cached_at": row["cached_at"].isoformat() if row["cached_at"] else None,
+        }
+
+
 def pg_read_inventory_all() -> list[dict]:
     """Lee inventario de TODAS las sedes (para resumen)."""
     with get_cursor() as cur:
