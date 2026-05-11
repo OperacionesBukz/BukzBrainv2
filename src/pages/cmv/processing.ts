@@ -117,6 +117,97 @@ export function calculateTotals(products: CmvProduct[]): CmvTotals {
   };
 }
 
+// --- Auto-enriquecer: margen del vendor + clasificacion de descuento + costo ---
+
+function normalizeVendorName(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function classifyDiscount(
+  descuentoPct: number,
+  discountCode: string,
+): "BUKZ" | "PROVEEDOR" | "COMFAMA" | "VACIO" {
+  if (descuentoPct === 0 && !discountCode) return "VACIO";
+
+  const code = (discountCode || "").toUpperCase();
+  if (code.includes("COMFAMA")) return "COMFAMA";
+  if (
+    code.includes("BUKZ") ||
+    code.includes("REGALO") ||
+    code.includes("OBSEQUIO") ||
+    code.includes("3X2") ||
+    code.includes("2X1") ||
+    code.includes("CORTESIA")
+  ) {
+    return "BUKZ";
+  }
+  if (code) return "PROVEEDOR";
+  // Hay descuento pero sin code Shopify => default conservador BUKZ
+  return "BUKZ";
+}
+
+function computeCost(
+  margen: number,
+  descuento: "BUKZ" | "PROVEEDOR" | "COMFAMA" | "VACIO",
+  valorUnitario: number,
+  valorTotal: number,
+  cantidad: number,
+): { costo: number; costoTotal: number } {
+  if (margen <= 0) return { costo: 0, costoTotal: 0 };
+  let costoTotal = 0;
+  if (margen > 1) {
+    costoTotal = Math.round(valorTotal / margen);
+  } else {
+    const usesUnitPrice = descuento === "BUKZ" || descuento === "COMFAMA";
+    const base = usesUnitPrice ? valorUnitario * cantidad : valorTotal;
+    costoTotal = Math.round(base * (1 - margen));
+  }
+  const costo = cantidad > 0 ? Math.round(costoTotal / cantidad) : costoTotal;
+  return { costo, costoTotal };
+}
+
+export function autoEnrichProducts(
+  products: CmvProduct[],
+  vendorMargins: Map<string, number>, // normalizedVendorName -> margin (0-1)
+  discountCodes: Map<string, string>, // orderName -> discount code
+): { products: CmvProduct[]; missingMargin: CmvProduct[] } {
+  const enriched: CmvProduct[] = [];
+  const missingMargin: CmvProduct[] = [];
+
+  for (const p of products) {
+    const code = p.numeroPedido ? discountCodes.get(p.numeroPedido) || "" : "";
+    const descuento = classifyDiscount(p.descuentoPct, code);
+
+    const margen = vendorMargins.get(normalizeVendorName(p.vendor)) ?? 0;
+    const { costo, costoTotal } = computeCost(
+      margen,
+      descuento,
+      p.valorUnitario,
+      p.valorTotal,
+      p.cantidad,
+    );
+
+    const out: CmvProduct = {
+      ...p,
+      descuento,
+      discountCode: code,
+      margen,
+      costo,
+      costoTotal,
+    };
+
+    if (margen === 0) missingMargin.push(out);
+    else enriched.push(out);
+  }
+
+  return { products: enriched, missingMargin };
+}
+
 // --- Breakdown por bodega (sede/tienda) ---
 
 export function groupByBodega(products: CmvProduct[]): BodegaBreakdown[] {

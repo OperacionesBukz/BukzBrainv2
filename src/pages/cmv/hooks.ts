@@ -21,7 +21,7 @@ import type {
   VendorBreakdown,
 } from "./types";
 import { INITIAL_CMV_STATE } from "./types";
-import { parseExcelFiles, processCmvFromRecords, calculateTotals, groupByBodega } from "./processing";
+import { parseExcelFiles, processCmvFromRecords, calculateTotals, groupByBodega, autoEnrichProducts } from "./processing";
 import { parseCompletedCmvExcel } from "./excel-utils";
 
 // --- Hook: Vendors (lee proveedores del Directorio) ---
@@ -198,7 +198,7 @@ export function useCmvHistory() {
 
 // --- Hook: Procesador CMV (estado del wizard) ---
 
-export function useCmvProcessor() {
+export function useCmvProcessor(vendors: Vendor[] = []) {
   const [state, setState] = useState<CmvState>(INITIAL_CMV_STATE);
   const { user } = useAuth();
   const dataReady = true;
@@ -256,52 +256,81 @@ export function useCmvProcessor() {
       console.log("[CMV] Discount lookup returned:", discountMap.size, "orders total,", withCodes.length, "with discount codes");
       console.log("[CMV] Has #186905?", discountMap.has("#186905"), "value:", discountMap.get("#186905"));
 
-      // Asignar discount code de Shopify a cada producto
-      const applyDiscounts = (products: typeof allProducts) =>
-        products.map((p) => {
-          const code = discountMap.get(p.numeroPedido) || "";
-          return { ...p, discountCode: code };
-        });
+      // 5. Auto-enriquecer: margen del directorio + clasificacion descuento + costo
+      const vendorMargins = new Map<string, number>();
+      for (const v of vendors) {
+        const norm = v.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+        if (norm) vendorMargins.set(norm, v.margin);
+      }
+      const enriched = autoEnrichProducts(result.products, vendorMargins, discountMap);
+      const unknownEnriched = result.unknownVendorProducts.map((p) => ({
+        ...p,
+        discountCode: discountMap.get(p.numeroPedido) || "",
+      }));
 
-      const productsWithDiscounts = applyDiscounts(result.products);
-      const unknownWithDiscounts = applyDiscounts(result.unknownVendorProducts);
+      // Productos finales con costos calculados (los que tienen vendor + margen)
+      // Productos sin margen quedan como excepcion para revision
+      const finalProducts = enriched.products;
+      const exceptionsCombined = [...unknownEnriched, ...enriched.missingMargin];
+      const totals = calculateTotals(finalProducts);
+      const hasExceptions = exceptionsCombined.length > 0;
 
-      const hasExceptions = unknownWithDiscounts.length > 0;
+      console.log("[CMV] Auto-enriched:", finalProducts.length, "completos,", enriched.missingMargin.length, "sin margen,", unknownEnriched.length, "sin vendor");
 
       setState((s) => ({
         ...s,
-        products: productsWithDiscounts,
-        unknownVendorProducts: unknownWithDiscounts,
-        stats: result.stats,
-        totals: result.totals,
+        products: finalProducts,
+        unknownVendorProducts: exceptionsCombined,
+        stats: { ...result.stats, unknownVendors: exceptionsCombined.length },
+        totals,
         isProcessing: false,
         step: hasExceptions ? "review" : "results",
       }));
 
       if (hasExceptions) {
         toast.warning(
-          `Procesado con ${result.unknownVendorProducts.length} productos sin vendor por resolver`
+          `Procesado: ${finalProducts.length} con costo calculado, ${exceptionsCombined.length} por revisar`
         );
       } else {
-        toast.success("CMV procesado exitosamente");
+        toast.success(`CMV procesado y calculado: ${finalProducts.length} productos`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido";
       setState((s) => ({ ...s, isProcessing: false, error: message, step: "upload" }));
       toast.error(`Error al procesar: ${message}`);
     }
-  }, [state.salesFile, state.notesFile]);
+  }, [state.salesFile, state.notesFile, vendors]);
 
-  // Resolver excepciones: asignar vendor a productos desconocidos
+  // Resolver excepciones: asignar vendor + recalcular costo desde margen del directorio
   const resolveVendorException = useCallback(
     (isbn: string, vendorName: string) => {
+      // Buscar margen del vendor seleccionado
+      const v = vendors.find((x) => x.name === vendorName);
+      const margin = v?.margin ?? 0;
+
       setState((s) => {
+        const vendorMargins = new Map<string, number>();
+        for (const ven of vendors) {
+          const norm = ven.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+          if (norm) vendorMargins.set(norm, ven.margin);
+        }
+
         const resolved: CmvProduct[] = [];
         const stillUnknown: CmvProduct[] = [];
 
         for (const p of s.unknownVendorProducts) {
           if (p.isbn === isbn) {
-            resolved.push({ ...p, vendor: vendorName });
+            const updated = { ...p, vendor: vendorName, margen: margin };
+            // Recalcular costo con la formula
+            if (margin > 0) {
+              const usesUnitPrice = updated.descuento === "BUKZ" || updated.descuento === "COMFAMA";
+              const base = margin > 1 ? updated.valorTotal : (usesUnitPrice ? updated.valorUnitario * updated.cantidad : updated.valorTotal);
+              const costoTotal = margin > 1 ? Math.round(updated.valorTotal / margin) : Math.round(base * (1 - margin));
+              const costo = updated.cantidad > 0 ? Math.round(costoTotal / updated.cantidad) : costoTotal;
+              updated.costo = costo;
+              updated.costoTotal = costoTotal;
+            }
+            resolved.push(updated);
           } else {
             stillUnknown.push(p);
           }

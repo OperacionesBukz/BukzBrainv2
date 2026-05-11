@@ -46,6 +46,8 @@ function formatCurrency(value: number): string {
 
 const CMV = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { vendors, loading: vendorsLoading } = useVendors();
+
   const {
     state,
     setSalesFile,
@@ -58,9 +60,7 @@ const CMV = () => {
     goToStep,
     userEmail,
     dataReady,
-  } = useCmvProcessor();
-
-  const { vendors, loading: vendorsLoading } = useVendors();
+  } = useCmvProcessor(vendors);
   const { history, loading: historyLoading, saveToHistory, deleteFromHistory } = useCmvHistory();
   const deleteRecord = deleteId ? history.find((r) => r.id === deleteId) : null;
 
