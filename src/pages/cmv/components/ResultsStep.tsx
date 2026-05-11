@@ -255,17 +255,17 @@ export function ResultsStep({
         </Card>
       </div>
 
-      {/* Desglose por Bodega (tienda/sede) */}
+      {/* Desglose por Sede (tienda/centro de costo) */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Desglose por Bodega</CardTitle>
+          <CardTitle className="text-base">Desglose por Sede</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Bodega</TableHead>
+                  <TableHead>Sede</TableHead>
                   <TableHead className="text-right">Items</TableHead>
                   <TableHead className="text-right">Ventas</TableHead>
                   {hasCostData && <TableHead className="text-right">Costo</TableHead>}
@@ -282,7 +282,7 @@ export function ResultsStep({
                 ) : (
                   bodegaBreakdown.map((b) => (
                     <TableRow key={b.bodega}>
-                      <TableCell className="font-medium">{b.bodega}</TableCell>
+                      <TableCell className="font-medium">{b.bodega || "Sin sede"}</TableCell>
                       <TableCell className="text-right">{b.items.toLocaleString("es-CO")}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">{formatCop(b.ventas)}</TableCell>
                       {hasCostData && (

@@ -212,7 +212,7 @@ export function mapRawToProduct(row: RawSaleRecord): Partial<CmvProduct> {
     fecha: findField(row, "fecha elaboracion", "fecha creacion", "fecha", "fecha factura", "fecha comprobante"),
     tercero: findField(row, "identificacion", "tercero", "nit"),
     terceroNombre: findField(row, "nombre tercero", "nombre contacto", "tercero nombre", "cliente", "razon social"),
-    bodega: findField(row, "bodega", "almacen", "sede"),
+    bodega: findField(row, "centro costo", "centro de costo", "centro_costo", "bodega", "almacen", "sede"),
     concepto: findField(row, "tipo transaccion", "concepto", "tipo concepto"),
     isbn: findField(row, "codigo", "referencia", "isbn", "ref", "sku"),
     producto: findField(row, "nombre", "referencia nombre", "producto", "nombre producto", "descripcion"),
@@ -275,7 +275,7 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     "Fecha": p.fecha,
     "Tercero": p.tercero,
     "Tercero Nombre": p.terceroNombre,
-    "Bodega": p.bodega,
+    "Sede": p.bodega,
     "ISBN": p.isbn,
     "Producto": p.producto,
     "Cantidad": p.cantidad,
@@ -338,13 +338,13 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
   const wb = utils.book_new();
   utils.book_append_sheet(wb, ws, "CMV");
 
-  // Hoja adicional: Resumen por Bodega
+  // Hoja adicional: Resumen por Sede (Centro de costo de Siigo)
   const wsBodega = utils.aoa_to_sheet([
-    ["Bodega", "Productos", "Ventas", "Costo", "Margen"],
+    ["Sede", "Productos", "Ventas", "Costo", "Margen"],
     ...bodegaRows,
   ]);
   wsBodega["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
-  utils.book_append_sheet(wb, wsBodega, "Resumen por Bodega");
+  utils.book_append_sheet(wb, wsBodega, "Resumen por Sede");
 
   const monthNames = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -431,7 +431,7 @@ export function parseCompletedCmvExcel(file: ArrayBuffer): CmvProduct[] {
         fecha: findStr("Fecha"),
         tercero: findStr("Tercero", "Identificacion"),
         terceroNombre: findStr("Tercero Nombre", "Nombre tercero"),
-        bodega: findStr("Bodega"),
+        bodega: findStr("Centro costo", "Centro de costo", "Sede", "Tienda", "Bodega"),
         concepto: "",
         isbn: findStr("ISBN", "Codigo"),
         producto: findStr("Producto", "Nombre"),
