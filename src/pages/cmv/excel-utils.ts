@@ -105,7 +105,34 @@ function colToLetter(col: number): string {
 export function parseNotesExcel(file: ArrayBuffer): CreditNote[] {
   const wb = read(new Uint8Array(file));
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const raw = utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+  // Fix: ERPs exportan con celdas mergeadas en las primeras filas (titulo, empresa, etc.)
+  const merges = sheet["!merges"] || [];
+  if (merges.length > 0) {
+    const maxCol = Math.max(...merges.map((m: { e: { c: number } }) => m.e.c));
+    const ref = sheet["!ref"] || "A1:A1";
+    const lastRow = ref.match(/:[A-Z]+(\d+)$/)?.[1] || "1";
+    const colLetter = colToLetter(maxCol);
+    sheet["!ref"] = `A1:${colLetter}${lastRow}`;
+  }
+
+  // Encontrar fila de headers: primera fila con 5+ celdas no vacías
+  const allRows = utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+  let headerRow = 0;
+  for (let i = 0; i < Math.min(allRows.length, 50); i++) {
+    const row = allRows[i];
+    if (!Array.isArray(row)) continue;
+    const nonEmpty = row.filter((c) => String(c).trim() !== "").length;
+    if (nonEmpty >= 5) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  const raw = utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: "",
+    range: headerRow,
+  });
 
   return raw
     .map((row) => {
