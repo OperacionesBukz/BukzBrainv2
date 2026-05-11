@@ -2009,6 +2009,10 @@ def get_all_products_catalog() -> list[dict]:
                   edges {
                     node {
                       sku
+                      price
+                      inventoryItem {
+                        unitCost { amount }
+                      }
                     }
                   }
                 }
@@ -2115,10 +2119,25 @@ def get_all_products_catalog() -> list[dict]:
                 if not sku:
                     continue
                 parent = products_by_id.get(parent_id, {})
+                # Extraer costo unitario si Shopify lo tiene cargado
+                cost_obj = row.get("inventoryItem", {}) or {}
+                unit_cost = cost_obj.get("unitCost") or {}
+                cost_str = unit_cost.get("amount") if isinstance(unit_cost, dict) else None
+                try:
+                    cost = float(cost_str) if cost_str else None
+                except (TypeError, ValueError):
+                    cost = None
+                # Precio (PVP)
+                try:
+                    price = float(row.get("price")) if row.get("price") else None
+                except (TypeError, ValueError):
+                    price = None
                 results.append({
                     "sku": sku,
                     "vendor": parent.get("vendor", ""),
                     "title": parent.get("title", ""),
+                    "cost": cost,
+                    "price": price,
                 })
 
     except Exception as e:

@@ -572,33 +572,43 @@ def get_catalog_status():
 @router.post("/catalog/lookup")
 def catalog_lookup(body: dict):
     """
-    Recibe una lista de SKUs y devuelve el vendor de cada uno.
+    Recibe una lista de SKUs y devuelve el vendor + costo de cada uno.
     Body: {"skus": ["9788413140025", "9789584238597", ...]}
-    Returns: {"9788413140025": "Bukz España", "9789584238597": "Grupo Editorial Planeta", ...}
+    Returns: {"9788413140025": {"vendor": "Bukz España", "cost": 49200.0, "price": 82000.0}, ...}
+
+    Mantiene retrocompatibilidad: si body incluye {"format": "legacy"}, devuelve solo vendor.
     """
     from services.scheduler_service import read_product_catalog
     skus = body.get("skus", [])
+    fmt = body.get("format", "full")
     if not skus:
         return {}
 
-    items, meta = read_product_catalog(check_ttl=False)
+    items, _meta = read_product_catalog(check_ttl=False)
     if not items:
         return {}
 
-    # Construir mapa SKU→vendor en el servidor
-    sku_vendor_map = {}
+    # Construir mapa SKU -> {vendor, cost, price}
+    sku_map: dict[str, dict] = {}
     for item in items:
         sku = (item.get("sku") or "").strip()
         if sku:
-            sku_vendor_map[sku] = item.get("vendor", "")
+            sku_map[sku] = {
+                "vendor": item.get("vendor", "") or "",
+                "cost": item.get("cost"),  # None si no esta cargado
+                "price": item.get("price"),
+            }
 
-    # Devolver solo los vendors de los SKUs solicitados
     result = {}
     for sku in skus:
         s = str(sku).strip()
-        if s in sku_vendor_map:
-            result[s] = sku_vendor_map[s]
-
+        if s not in sku_map:
+            continue
+        info = sku_map[s]
+        if fmt == "legacy":
+            result[s] = info["vendor"]
+        else:
+            result[s] = info
     return result
 
 

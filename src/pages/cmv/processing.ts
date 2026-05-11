@@ -175,6 +175,7 @@ export function autoEnrichProducts(
   products: CmvProduct[],
   vendorMargins: Map<string, number>, // normalizedVendorName -> margin (0-1)
   discountCodes: Map<string, string>, // orderName -> discount code
+  shopifyCosts?: Map<string, number>,  // sku -> unitCost cargado en Shopify
 ): { products: CmvProduct[]; missingMargin: CmvProduct[] } {
   const enriched: CmvProduct[] = [];
   const missingMargin: CmvProduct[] = [];
@@ -183,14 +184,25 @@ export function autoEnrichProducts(
     const code = p.numeroPedido ? discountCodes.get(p.numeroPedido) || "" : "";
     const descuento = classifyDiscount(p.descuentoPct, code);
 
-    const margen = vendorMargins.get(normalizeVendorName(p.vendor)) ?? 0;
-    const { costo, costoTotal } = computeCost(
-      margen,
-      descuento,
-      p.valorUnitario,
-      p.valorTotal,
-      p.cantidad,
-    );
+    // Fuente del costo: 1) Shopify unitCost si esta cargado, 2) margen del Directorio
+    const shopifyCost = shopifyCosts?.get(p.isbn);
+    let margen = 0;
+    let costo = 0;
+    let costoTotal = 0;
+
+    if (shopifyCost !== undefined && shopifyCost > 0) {
+      // Costo viene directo de Shopify (es el costo unitario real)
+      costo = Math.round(shopifyCost);
+      costoTotal = Math.round(shopifyCost * p.cantidad);
+      // Calcular el margen efectivo retroactivamente (para mostrar en reporte)
+      margen = p.valorTotal > 0 ? Math.round((1 - costoTotal / p.valorTotal) * 1000) / 1000 : 0;
+    } else {
+      // Fallback: margen del Directorio + formula
+      margen = vendorMargins.get(normalizeVendorName(p.vendor)) ?? 0;
+      const c = computeCost(margen, descuento, p.valorUnitario, p.valorTotal, p.cantidad);
+      costo = c.costo;
+      costoTotal = c.costoTotal;
+    }
 
     const out: CmvProduct = {
       ...p,
@@ -201,7 +213,8 @@ export function autoEnrichProducts(
       costoTotal,
     };
 
-    if (margen === 0) missingMargin.push(out);
+    // Esta en excepciones solo si NO hay costo Shopify Y NO hay margen del directorio
+    if (costoTotal === 0) missingMargin.push(out);
     else enriched.push(out);
   }
 

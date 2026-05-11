@@ -69,8 +69,14 @@ export function useVendors() {
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
 
-async function lookupVendorsBatch(skus: string[]): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+export interface CatalogEntry {
+  vendor: string;
+  cost: number | null;
+  price: number | null;
+}
+
+async function lookupCatalogBatch(skus: string[]): Promise<Map<string, CatalogEntry>> {
+  const map = new Map<string, CatalogEntry>();
   if (skus.length === 0) return map;
 
   try {
@@ -82,9 +88,18 @@ async function lookupVendorsBatch(skus: string[]): Promise<Map<string, string>> 
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-    const data: Record<string, string> = await resp.json();
-    for (const [sku, vendor] of Object.entries(data)) {
-      map.set(sku, vendor);
+    const data: Record<string, CatalogEntry | string> = await resp.json();
+    for (const [sku, entry] of Object.entries(data)) {
+      if (typeof entry === "string") {
+        // Fallback retrocompat: backend antiguo devolviendo solo vendor
+        map.set(sku, { vendor: entry, cost: null, price: null });
+      } else {
+        map.set(sku, {
+          vendor: entry.vendor || "",
+          cost: typeof entry.cost === "number" ? entry.cost : null,
+          price: typeof entry.price === "number" ? entry.price : null,
+        });
+      }
     }
   } catch (err) {
     console.error("Error en catalog lookup:", err);
@@ -227,21 +242,25 @@ export function useCmvProcessor(vendors: Vendor[] = []) {
       const { rawRecords, creditNotes, uniqueIsbns } = parseExcelFiles(salesBuffer, notesBuffer);
       console.log("[CMV] Parsed:", rawRecords.length, "records,", uniqueIsbns.length, "unique ISBNs");
 
-      // 2. Lookup de vendors via backend (envía ~3K ISBNs, recibe ~3K vendors)
-      const skuVendorMap = await lookupVendorsBatch(uniqueIsbns);
-      console.log("[CMV] Lookup returned:", skuVendorMap.size, "vendors");
+      // 2. Lookup de vendors + costos via backend
+      const catalogMap = await lookupCatalogBatch(uniqueIsbns);
+      const withCost = [...catalogMap.values()].filter((e) => e.cost !== null).length;
+      console.log("[CMV] Catalog lookup:", catalogMap.size, "matches,", withCost, "con costo Shopify");
 
       // Validar que el catálogo retornó suficientes resultados
-      const matchRate = uniqueIsbns.length > 0 ? skuVendorMap.size / uniqueIsbns.length : 1;
+      const matchRate = uniqueIsbns.length > 0 ? catalogMap.size / uniqueIsbns.length : 1;
       if (matchRate < 0.8) {
         setState((s) => ({ ...s, isProcessing: false, step: "upload" }));
         toast.error(
-          `El catálogo solo encontró ${skuVendorMap.size} de ${uniqueIsbns.length} SKUs (${Math.round(matchRate * 100)}%). Puede estar actualizándose. Intenta de nuevo en unos minutos.`
+          `El catálogo solo encontró ${catalogMap.size} de ${uniqueIsbns.length} SKUs (${Math.round(matchRate * 100)}%). Puede estar actualizándose. Intenta de nuevo en unos minutos.`
         );
         return;
       }
 
       // 3. Procesar con los datos ya parseados (sin márgenes)
+      // processCmvFromRecords espera un Map<sku, vendor> simple
+      const skuVendorMap = new Map<string, string>();
+      for (const [sku, entry] of catalogMap) skuVendorMap.set(sku, entry.vendor);
       const result = processCmvFromRecords(rawRecords, creditNotes, skuVendorMap);
       console.log("[CMV] Result:", result.products.length, "assigned,", result.unknownVendorProducts.length, "unknown");
 
@@ -256,13 +275,18 @@ export function useCmvProcessor(vendors: Vendor[] = []) {
       console.log("[CMV] Discount lookup returned:", discountMap.size, "orders total,", withCodes.length, "with discount codes");
       console.log("[CMV] Has #186905?", discountMap.has("#186905"), "value:", discountMap.get("#186905"));
 
-      // 5. Auto-enriquecer: margen del directorio + clasificacion descuento + costo
+      // 5. Auto-enriquecer: costo directo de Shopify (preferido) o margen del directorio
       const vendorMargins = new Map<string, number>();
       for (const v of vendors) {
         const norm = v.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
         if (norm) vendorMargins.set(norm, v.margin);
       }
-      const enriched = autoEnrichProducts(result.products, vendorMargins, discountMap);
+      // Mapa SKU -> costo unitario Shopify (si esta cargado)
+      const skuCostMap = new Map<string, number>();
+      for (const [sku, entry] of catalogMap) {
+        if (entry.cost !== null) skuCostMap.set(sku, entry.cost);
+      }
+      const enriched = autoEnrichProducts(result.products, vendorMargins, discountMap, skuCostMap);
       const unknownEnriched = result.unknownVendorProducts.map((p) => ({
         ...p,
         discountCode: discountMap.get(p.numeroPedido) || "",
