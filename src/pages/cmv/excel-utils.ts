@@ -318,8 +318,33 @@ export function exportCmvToExcel(products: CmvProduct[], month: number, year: nu
     ["% Margen", `${pctMargen}%`],
   ], { origin: `A${summaryStartRow}` });
 
+  // Agrupar por bodega para el resumen
+  const bodegaMap = new Map<string, { ventas: number; costo: number; items: number }>();
+  for (const p of products) {
+    const key = (p.bodega || "Sin bodega").trim() || "Sin bodega";
+    const cur = bodegaMap.get(key) || { ventas: 0, costo: 0, items: 0 };
+    cur.ventas += p.valorTotal;
+    cur.costo += p.costoTotal;
+    cur.items += 1;
+    bodegaMap.set(key, cur);
+  }
+  const bodegaRows = Array.from(bodegaMap.entries())
+    .sort((a, b) => b[1].ventas - a[1].ventas)
+    .map(([bodega, v]) => {
+      const margen = v.ventas > 0 ? Math.round(((v.ventas - v.costo) / v.ventas) * 1000) / 10 : 0;
+      return [bodega, v.items, v.ventas, v.costo, `${margen}%`];
+    });
+
   const wb = utils.book_new();
   utils.book_append_sheet(wb, ws, "CMV");
+
+  // Hoja adicional: Resumen por Bodega
+  const wsBodega = utils.aoa_to_sheet([
+    ["Bodega", "Productos", "Ventas", "Costo", "Margen"],
+    ...bodegaRows,
+  ]);
+  wsBodega["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
+  utils.book_append_sheet(wb, wsBodega, "Resumen por Bodega");
 
   const monthNames = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

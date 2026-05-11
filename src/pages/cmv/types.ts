@@ -66,6 +66,14 @@ export interface VendorBreakdown {
   margen: number;
 }
 
+export interface BodegaBreakdown {
+  bodega: string;
+  ventas: number;
+  costo: number;
+  items: number;
+  margen: number;
+}
+
 export interface CmvHistoryRecord {
   id: string;
   month: number;
@@ -75,6 +83,7 @@ export interface CmvHistoryRecord {
   margenPromedio: number;
   totalProductos: number;
   vendorBreakdown: VendorBreakdown[];
+  bodegaBreakdown?: BodegaBreakdown[];
   processedAt: Timestamp;
   processedBy: string;
 }

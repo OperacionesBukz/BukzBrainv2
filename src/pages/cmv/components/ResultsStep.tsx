@@ -30,7 +30,8 @@ import { Separator } from "@/components/ui/separator";
 import FileUploadZone from "@/pages/ingreso/FileUploadZone";
 import { SummaryCards } from "./SummaryCards";
 import { CmvTable } from "./CmvTable";
-import type { CmvProduct, CmvTotals, VendorBreakdown } from "../types";
+import type { CmvProduct, CmvTotals, VendorBreakdown, BodegaBreakdown } from "../types";
+import { groupByBodega } from "../processing";
 
 interface ResultsStepProps {
   products: CmvProduct[];
@@ -94,6 +95,12 @@ export function ResultsStep({
   }, [products]);
 
   const hasCostData = totals.totalCosto > 0;
+
+  // Breakdown por bodega (tienda/sede)
+  const bodegaBreakdown = useMemo<BodegaBreakdown[]>(
+    () => groupByBodega(products),
+    [products]
+  );
 
   // Top 10 vendors para el gráfico
   const chartData = useMemo(
@@ -247,6 +254,51 @@ export function ResultsStep({
           </CardContent>
         </Card>
       </div>
+
+      {/* Desglose por Bodega (tienda/sede) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Desglose por Bodega</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Bodega</TableHead>
+                  <TableHead className="text-right">Items</TableHead>
+                  <TableHead className="text-right">Ventas</TableHead>
+                  {hasCostData && <TableHead className="text-right">Costo</TableHead>}
+                  {hasCostData && <TableHead className="text-right">Margen %</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bodegaBreakdown.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={hasCostData ? 5 : 3} className="text-center py-6 text-muted-foreground">
+                      Sin datos
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  bodegaBreakdown.map((b) => (
+                    <TableRow key={b.bodega}>
+                      <TableCell className="font-medium">{b.bodega}</TableCell>
+                      <TableCell className="text-right">{b.items.toLocaleString("es-CO")}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{formatCop(b.ventas)}</TableCell>
+                      {hasCostData && (
+                        <TableCell className="text-right whitespace-nowrap">{formatCop(b.costo)}</TableCell>
+                      )}
+                      {hasCostData && (
+                        <TableCell className="text-right">{b.margen.toFixed(1)}%</TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabla de productos completa */}
       <Card>

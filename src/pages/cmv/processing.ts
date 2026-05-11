@@ -4,6 +4,8 @@ import type {
   CmvProduct,
   CmvTotals,
   ProcessingStats,
+  BodegaBreakdown,
+  VendorBreakdown,
 } from "./types";
 import {
   parseSalesExcel,
@@ -115,6 +117,52 @@ export function calculateTotals(products: CmvProduct[]): CmvTotals {
   };
 }
 
+// --- Breakdown por bodega (sede/tienda) ---
+
+export function groupByBodega(products: CmvProduct[]): BodegaBreakdown[] {
+  const groups = new Map<string, { ventas: number; costo: number; items: number }>();
+  for (const p of products) {
+    const key = (p.bodega || "Sin bodega").trim() || "Sin bodega";
+    const cur = groups.get(key) || { ventas: 0, costo: 0, items: 0 };
+    cur.ventas += p.valorTotal;
+    cur.costo += p.costoTotal;
+    cur.items += 1;
+    groups.set(key, cur);
+  }
+  return Array.from(groups.entries())
+    .map(([bodega, v]) => ({
+      bodega,
+      ventas: Math.round(v.ventas),
+      costo: Math.round(v.costo),
+      items: v.items,
+      margen: v.ventas > 0 ? Math.round(((v.ventas - v.costo) / v.ventas) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.ventas - a.ventas);
+}
+
+// --- Breakdown por vendor (editorial) ---
+
+export function groupByVendor(products: CmvProduct[]): VendorBreakdown[] {
+  const groups = new Map<string, { ventas: number; costo: number; items: number }>();
+  for (const p of products) {
+    const key = (p.vendor || "Sin vendor").trim() || "Sin vendor";
+    const cur = groups.get(key) || { ventas: 0, costo: 0, items: 0 };
+    cur.ventas += p.valorTotal;
+    cur.costo += p.costoTotal;
+    cur.items += 1;
+    groups.set(key, cur);
+  }
+  return Array.from(groups.entries())
+    .map(([vendor, v]) => ({
+      vendor,
+      ventas: Math.round(v.ventas),
+      costo: Math.round(v.costo),
+      items: v.items,
+      margen: v.ventas > 0 ? Math.round(((v.ventas - v.costo) / v.ventas) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.ventas - a.ventas);
+}
+
 // --- Procesamiento principal ---
 
 export interface ProcessResult {
@@ -190,10 +238,14 @@ export function processCmvFromRecords(
   });
 
   // 4b. Descartar filas sin ISBN y productos excluidos del CMV
-  const EXCLUDED_PRODUCTS = ["bono de regalo"];
+  const EXCLUDED_PRODUCTS = ["bono de regalo", "reteica"];
+  const EXCLUDED_ISBN_PREFIXES = ["reteica"];
   const withIsbn = mapped.filter((p) => {
     if (!p.isbn.trim()) return false;
-    if (EXCLUDED_PRODUCTS.some((ex) => p.producto.toLowerCase().includes(ex))) return false;
+    const prod = p.producto.toLowerCase();
+    const isbnLower = p.isbn.toLowerCase();
+    if (EXCLUDED_PRODUCTS.some((ex) => prod.includes(ex))) return false;
+    if (EXCLUDED_ISBN_PREFIXES.some((ex) => isbnLower.startsWith(ex))) return false;
     return true;
   });
 

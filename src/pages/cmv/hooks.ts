@@ -21,7 +21,7 @@ import type {
   VendorBreakdown,
 } from "./types";
 import { INITIAL_CMV_STATE } from "./types";
-import { parseExcelFiles, processCmvFromRecords, calculateTotals } from "./processing";
+import { parseExcelFiles, processCmvFromRecords, calculateTotals, groupByBodega } from "./processing";
 import { parseCompletedCmvExcel } from "./excel-utils";
 
 // --- Hook: Vendors (lee proveedores del Directorio) ---
@@ -170,6 +170,8 @@ export function useCmvHistory() {
       margen: v.ventas > 0 ? Math.round(((v.ventas - v.costo) / v.ventas) * 1000) / 10 : 0,
     }));
 
+    const bodegaBreakdown = groupByBodega(products);
+
     await addDoc(collection(db, "cmv_history"), {
       month,
       year,
@@ -178,6 +180,7 @@ export function useCmvHistory() {
       margenPromedio: totals.margenPromedio,
       totalProductos: totals.totalProductos,
       vendorBreakdown,
+      bodegaBreakdown,
       processedAt: serverTimestamp(),
       processedBy,
     });
