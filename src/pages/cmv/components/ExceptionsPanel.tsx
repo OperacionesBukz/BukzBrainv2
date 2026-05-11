@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
@@ -17,6 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { CmvProduct, Vendor } from "../types";
 
 interface ExceptionsPanelProps {
@@ -60,21 +63,102 @@ export default function ExceptionsPanel({
     [unknownVendorProducts],
   );
 
+  const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkVendor, setBulkVendor] = useState<string>("");
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return isbnGroups;
+    return isbnGroups.filter(
+      (g) =>
+        g.isbn.toLowerCase().includes(q) || g.producto.toLowerCase().includes(q),
+    );
+  }, [isbnGroups, filter]);
+
   if (isbnGroups.length === 0) return null;
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((g) => selected.has(g.isbn));
+
+  const toggleAll = () => {
+    if (allFilteredSelected) {
+      const next = new Set(selected);
+      filtered.forEach((g) => next.delete(g.isbn));
+      setSelected(next);
+    } else {
+      const next = new Set(selected);
+      filtered.forEach((g) => next.add(g.isbn));
+      setSelected(next);
+    }
+  };
+
+  const toggleOne = (isbn: string) => {
+    const next = new Set(selected);
+    if (next.has(isbn)) next.delete(isbn);
+    else next.add(isbn);
+    setSelected(next);
+  };
+
+  const applyBulk = () => {
+    if (!bulkVendor || selected.size === 0) return;
+    for (const isbn of selected) onResolveVendor(isbn, bulkVendor);
+    setSelected(new Set());
+    setBulkVendor("");
+  };
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          Productos sin Vendor ({unknownVendorProducts.length})
+          Productos sin Vendor ({unknownVendorProducts.length} items · {isbnGroups.length} ISBNs)
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        {/* Bulk controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            placeholder="Filtrar por ISBN o producto..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="max-w-xs"
+          />
+          <div className="flex-1" />
+          <span className="text-sm text-muted-foreground">
+            {selected.size} seleccionados
+          </span>
+          <Select value={bulkVendor} onValueChange={setBulkVendor}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Asignar vendor..." />
+            </SelectTrigger>
+            <SelectContent>
+              {vendors.map((v) => (
+                <SelectItem key={v.id} value={v.name}>
+                  {v.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={applyBulk}
+            disabled={!bulkVendor || selected.size === 0}
+          >
+            Aplicar a {selected.size}
+          </Button>
+        </div>
+
         <ScrollArea className="w-full">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={allFilteredSelected}
+                    onCheckedChange={toggleAll}
+                    aria-label="Seleccionar todos los visibles"
+                  />
+                </TableHead>
                 <TableHead>ISBN</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead className="text-right">Cant.</TableHead>
@@ -83,12 +167,19 @@ export default function ExceptionsPanel({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isbnGroups.map((group) => (
+              {filtered.map((group) => (
                 <TableRow key={group.isbn}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(group.isbn)}
+                      onCheckedChange={() => toggleOne(group.isbn)}
+                      aria-label={`Seleccionar ${group.isbn}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-sm">
                     {group.isbn}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
+                  <TableCell className="max-w-[200px] truncate" title={group.producto}>
                     {group.producto}
                   </TableCell>
                   <TableCell className="text-right">
