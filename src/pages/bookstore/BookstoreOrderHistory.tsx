@@ -4,7 +4,10 @@ import {
     Eye,
     Calendar,
     StickyNote,
+    Send,
+    Loader2,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,6 +38,8 @@ interface BookstoreOrderHistoryProps {
     isDeletingOrder: string | null;
     isMobile: boolean;
     formatDate: (timestamp: { toDate: () => Date } | null | undefined) => string;
+    onConsolidatePapyser: () => void;
+    isConsolidating: boolean;
 }
 
 const BookstoreOrderHistory = ({
@@ -46,11 +51,39 @@ const BookstoreOrderHistory = ({
     isDeletingOrder,
     isMobile,
     formatDate,
-}: BookstoreOrderHistoryProps) => (
+    onConsolidatePapyser,
+    isConsolidating,
+}: BookstoreOrderHistoryProps) => {
+    const pendingCount = orders.filter((o) => o.status === "pending").length;
+    return (
     <Card>
-        <CardHeader>
-            <CardTitle>Historial de Pedidos</CardTitle>
-            <CardDescription>Seguimiento de solicitudes recibidas</CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+                <CardTitle>Historial de Pedidos</CardTitle>
+                <CardDescription>Seguimiento de solicitudes recibidas</CardDescription>
+            </div>
+            <Button
+                onClick={onConsolidatePapyser}
+                disabled={pendingCount === 0 || isConsolidating}
+                className="gap-2 self-start sm:self-auto"
+            >
+                {isConsolidating ? (
+                    <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Enviando...
+                    </>
+                ) : (
+                    <>
+                        <Send className="h-4 w-4" />
+                        Consolidar Papyser
+                        {pendingCount > 0 && (
+                            <Badge variant="secondary" className="ml-1">
+                                {pendingCount}
+                            </Badge>
+                        )}
+                    </>
+                )}
+            </Button>
         </CardHeader>
         <CardContent>
             {!isMobile ? (
@@ -243,6 +276,7 @@ const BookstoreOrderHistory = ({
             </DialogContent>
         </Dialog>
     </Card>
-);
+    );
+};
 
 export default BookstoreOrderHistory;

@@ -30,3 +30,13 @@ dist-ssr
 
 # MCP config (contains tokens)
 .mcp.json
+
+# Firebase service account (credenciales backend)
+**/firebase-service-account.json
+**/*-service-account.json
+
+# Python
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc

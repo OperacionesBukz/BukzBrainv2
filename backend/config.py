@@ -37,6 +37,11 @@ class Settings:
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
 
+    # Evolution API (WhatsApp)
+    EVOLUTION_API_URL: str = os.getenv("EVOLUTION_API_URL", "https://bukzapp-evolution-api.lyr10r.easypanel.host")
+    EVOLUTION_API_KEY: str = os.getenv("EVOLUTION_API_KEY", "")
+    EVOLUTION_INSTANCE: str = os.getenv("EVOLUTION_INSTANCE", "bukz-agent")
+
     @classmethod
     def get_shopify_headers(cls) -> dict:
         return {

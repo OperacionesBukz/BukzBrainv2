@@ -58,6 +58,7 @@ const BookstoreRequests = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
+    const [isConsolidating, setIsConsolidating] = useState(false);
 
     const { isAdmin } = useAuth();
     const isOperations = isAdmin;
@@ -308,6 +309,41 @@ const BookstoreRequests = () => {
         }
     };
 
+    const handleConsolidatePapyser = async () => {
+        const API_URL = import.meta.env.VITE_API_URL ?? "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host";
+        setIsConsolidating(true);
+        try {
+            const previewRes = await resilientFetch(`${API_URL}/api/papyser/preview`);
+            if (!previewRes.ok) {
+                throw new Error(`Error al obtener preview (HTTP ${previewRes.status})`);
+            }
+            const preview = await previewRes.json();
+            if (!preview.pedidos_pendientes) {
+                toast.info("No hay pedidos pendientes para consolidar");
+                return;
+            }
+
+            const msg = `Vas a enviar a Papyser:\n• ${preview.pedidos_pendientes} pedidos consolidados\n• ${preview.productos_distintos} productos distintos\n• ${preview.total_items} unidades en total\n• Sedes: ${preview.sedes.join(", ")}\n\n¿Confirmas el envío por WhatsApp a Leidy?`;
+            if (!confirm(msg)) return;
+
+            const consolidateRes = await resilientFetch(`${API_URL}/api/papyser/consolidate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+            if (!consolidateRes.ok) {
+                const body = await consolidateRes.json().catch(() => ({ detail: "Error desconocido" }));
+                throw new Error(body.detail || `HTTP ${consolidateRes.status}`);
+            }
+            const result = await consolidateRes.json();
+            toast.success(`Pedido enviado a Papyser: ${result.pedidos_consolidados} pedidos, ${result.total_items} unidades`);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : "Error desconocido";
+            toast.error("Error al consolidar: " + msg);
+        } finally {
+            setIsConsolidating(false);
+        }
+    };
+
     const handleDeleteOrder = async (orderId: string) => {
         if (!confirm("¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.")) return;
         setIsDeletingOrder(orderId);
@@ -380,6 +416,8 @@ const BookstoreRequests = () => {
                                 isDeletingOrder={isDeletingOrder}
                                 isMobile={isMobile}
                                 formatDate={formatDate}
+                                onConsolidatePapyser={handleConsolidatePapyser}
+                                isConsolidating={isConsolidating}
                             />
                         </TabsContent>
                         <TabsContent value="products" className="mt-0">
