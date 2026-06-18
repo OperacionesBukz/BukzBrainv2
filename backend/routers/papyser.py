@@ -20,7 +20,6 @@ from services.whatsapp_service import send_media
 router = APIRouter(prefix="/api/papyser", tags=["Papyser"])
 
 PAPYSER_WHATSAPP = "+57 4 444 6969"
-PAPYSER_CONTACTO = "Leidy"
 
 _consolidate_lock = threading.Lock()
 
@@ -82,7 +81,7 @@ def _construir_caption(agregado: dict) -> str:
     fecha = datetime.now().strftime("%d/%m/%Y")
     total_items = sum(info["total"] for info in agregado.values())
     return (
-        f"Hola {PAPYSER_CONTACTO}, te paso el pedido de Bukz para hoy {fecha}.\n\n"
+        f"Hola, te paso el pedido de Bukz para hoy {fecha}.\n\n"
         f"📋 Resumen:\n"
         f"• {len(agregado)} productos distintos\n"
         f"• {total_items} unidades en total\n\n"
