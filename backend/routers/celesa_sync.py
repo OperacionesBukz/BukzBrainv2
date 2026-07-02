@@ -84,7 +84,7 @@ def _get_cutoff_date(existing_numbers: set[str]) -> str:
 # Cost: 5 orders × 5 fulfillmentOrders × 20 lineItems = 500 points max
 ORDERS_QUERY = """
 {
-  orders(first: 5, query: "fulfillment_status:unfulfilled created_at:>=%s"%s) {
+  orders(first: 5, query: "fulfillment_status:unfulfilled,partial created_at:>=%s"%s) {
     edges {
       node {
         name
