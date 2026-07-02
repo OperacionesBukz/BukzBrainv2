@@ -10,7 +10,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from pydantic import BaseModel
 
@@ -323,3 +323,72 @@ def import_orders(req: ImportRequest):
 
     print(f"[CELESA-SYNC] Importados {count} pedidos a celesa_orders", flush=True)
     return {"success": True, "message": f"{count} pedidos importados", "imported": count}
+
+
+# -- Registro del webhook orders/paid ----------------------------------------
+
+CELESA_WEBHOOK_CALLBACK = (
+    "https://operaciones-bkz-panel-operaciones.lyr10r.easypanel.host"
+    "/api/webhooks/shopify/orders-paid"
+)
+
+_EXISTING_PAID_HOOKS = """
+{
+  webhookSubscriptions(first: 50, topics: [ORDERS_PAID]) {
+    edges {
+      node {
+        id
+        endpoint { __typename ... on WebhookHttpEndpoint { callbackUrl } }
+      }
+    }
+  }
+}
+"""
+
+_CREATE_PAID_HOOK = """
+mutation($callbackUrl: URL!) {
+  webhookSubscriptionCreate(
+    topic: ORDERS_PAID,
+    webhookSubscription: { callbackUrl: $callbackUrl, format: JSON }
+  ) {
+    webhookSubscription { id topic }
+    userErrors { field message }
+  }
+}
+"""
+
+
+@router.post("/register-orders-paid-webhook")
+def register_orders_paid_webhook():
+    """Registra (idempotente) el webhook orders/paid apuntando al backend.
+
+    Usa las credenciales del propio backend, así el webhook queda firmado con el
+    mismo SHOPIFY_WEBHOOK_SECRET que el backend verifica en /api/webhooks. Se
+    dispara una sola vez tras el deploy.
+    """
+    data = gql(_EXISTING_PAID_HOOKS)
+    for edge in data.get("webhookSubscriptions", {}).get("edges", []):
+        endpoint = edge["node"].get("endpoint") or {}
+        if endpoint.get("callbackUrl") == CELESA_WEBHOOK_CALLBACK:
+            return {
+                "success": True,
+                "already_registered": True,
+                "id": edge["node"]["id"],
+                "callbackUrl": CELESA_WEBHOOK_CALLBACK,
+            }
+
+    result = gql(_CREATE_PAID_HOOK, variables={"callbackUrl": CELESA_WEBHOOK_CALLBACK})
+    payload = result.get("webhookSubscriptionCreate", {})
+    errors = payload.get("userErrors", [])
+    if errors:
+        raise HTTPException(status_code=502, detail=f"Shopify rechazó el registro: {errors}")
+
+    sub = payload.get("webhookSubscription") or {}
+    print(f"[CELESA-SYNC] Webhook orders/paid registrado: {sub.get('id')}", flush=True)
+    return {
+        "success": True,
+        "already_registered": False,
+        "id": sub.get("id"),
+        "topic": sub.get("topic"),
+        "callbackUrl": CELESA_WEBHOOK_CALLBACK,
+    }
