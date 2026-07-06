@@ -7,14 +7,15 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from html import escape as _esc
 
 from fastapi import APIRouter, HTTPException, Header, Request
+from fastapi.concurrency import run_in_threadpool
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from config import settings
-from services.celesa_common import VENDOR_FILTER
+from services.celesa_common import VENDOR_FILTER, get_dropshipping_line_quantities
 from services.firebase_service import get_firestore_db
 
 logger = logging.getLogger(__name__)
@@ -260,9 +261,73 @@ async def handle_orders_paid(
         logger.warning("Webhook orders/paid sin campo 'name' en payload")
         return {"status": "ignored", "reason": "no order name"}
 
+    if payload.get("test"):
+        return {"status": "ignored", "order_name": order_name, "reason": "test order"}
+
     celesa_lines = _resolve_celesa_lines(payload.get("line_items", []))
     if not celesa_lines:
         return {"status": "ok", "order_name": order_name, "celesa_lines": 0}
+
+    # El vendor solo dice que el libro ES de Celesa, no que se vaya a PEDIR a
+    # Celesa: si una sede tiene stock, Shopify enruta la línea a la sede y no
+    # hay nada que gestionar. La fuente de verdad es el fulfillmentOrder: solo
+    # las líneas enrutadas a 'Dropshipping [España]' se piden a Celesa — eso
+    # incluye compras pagadas en tienda física (POS) de libros sin stock local.
+    order_id = payload.get("id")
+    order_gid = payload.get("admin_graphql_api_id") or (
+        f"gid://shopify/Order/{order_id}" if order_id else ""
+    )
+    if not order_gid:
+        logger.warning("Pedido %s: payload sin id ni admin_graphql_api_id — ignorado", order_name)
+        return {"status": "ignored", "order_name": order_name, "reason": "sin order id"}
+    try:
+        # En threadpool: gql duerme (throttling) y bloquearía el event loop.
+        ds_qty, fo_status = await run_in_threadpool(get_dropshipping_line_quantities, order_gid)
+    except Exception as e:
+        # 500 → Shopify reintenta con backoff (~48h). Seguro por la idempotencia
+        # por (numeroPedido, isbn). OJO: fallos consecutivos sostenidos degradan
+        # la suscripción del webhook (registrada a mano en Admin > Notifications,
+        # nadie la re-crea por código) — por eso los casos no transitorios de
+        # abajo responden 200 y solo el fallo transitorio real llega aquí.
+        logger.error("Pedido %s: fallo verificando fulfillmentOrders: %s", order_name, e)
+        raise HTTPException(status_code=500, detail="Verificación de fulfillment orders falló")
+
+    if fo_status == "no_order":
+        logger.warning("Pedido %s ya no existe en Shopify — ignorado", order_name)
+        return {"status": "ignored", "order_name": order_name, "reason": "pedido no existe"}
+    if fo_status == "cancelled":
+        return {"status": "ignored", "order_name": order_name, "reason": "pedido cancelado"}
+    if fo_status == "no_fos":
+        # El order routing es asíncrono y puede no haber corrido aún (típico en
+        # POS, donde creación y pago son simultáneos). 200 aquí perdería el
+        # pedido para siempre; con 500 Shopify reintenta en ~5 min. Tope de 30
+        # min por edad del pedido para no reintentar 48h un caso sin arreglo.
+        age_min = None
+        try:
+            created = datetime.fromisoformat(
+                (payload.get("created_at") or "").replace("Z", "+00:00")
+            )
+            age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
+        except ValueError:
+            pass
+        if age_min is not None and age_min > 30:
+            logger.error(
+                "Pedido %s sin fulfillmentOrders tras %.0f min — revisar a mano en celesa-seguimiento",
+                order_name,
+                age_min,
+            )
+            return {"status": "ignored", "order_name": order_name, "reason": "sin fulfillment orders"}
+        logger.warning("Pedido %s: aún sin fulfillmentOrders (routing pendiente) — reintento", order_name)
+        raise HTTPException(status_code=500, detail="Fulfillment orders aún no disponibles")
+
+    celesa_lines = [li for li in celesa_lines if li.get("id") in ds_qty]
+    if not celesa_lines:
+        logger.info(
+            "Pedido %s: líneas %s sin enrutar a Dropshipping [España] (stock local) — ignorado",
+            order_name,
+            VENDOR_FILTER,
+        )
+        return {"status": "ok", "order_name": order_name, "celesa_lines": 0, "reason": "sin dropshipping"}
 
     # Datos del pedido
     cust = payload.get("customer") or {}
@@ -293,7 +358,9 @@ async def handle_orders_paid(
     for li in celesa_lines:
         isbn = (li.get("sku") or "").strip()
         title = li.get("title") or ""
-        qty = li.get("quantity", 1) or 1
+        # Cantidad enrutada a dropshipping, no la del payload: respeta splits
+        # parciales (p. ej. 2 unidades: 1 de stock local + 1 pedida a Celesa).
+        qty = ds_qty.get(li.get("id")) or li.get("quantity", 1) or 1
 
         if isbn and isbn in existing_isbns:
             continue  # ya registrado (manual o webhook previo)
