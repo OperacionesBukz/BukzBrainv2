@@ -49,7 +49,9 @@ SEDES: dict[str, dict[str, str]] = {
         "horario": "8:00 am a 4:00 pm Lunes a Viernes",
     },
     "Bukz Bogota 109": {
-        "direccion": "Cl. 109 #18-39 Local 2, Bogotá",
+        # Dirección temporal Zona G (Chapinero) — hasta nueva orden (2026-07-16).
+        # Anterior: "Cl. 109 #18-39 Local 2, Bogotá".
+        "direccion": "Carrera 5 # 69A-30, Chapinero, Bogotá",
         "horario": "10:00 am a 5:00 pm Lunes a Viernes",
     },
 }
@@ -185,7 +187,7 @@ def _build_ciudad_html(ciudad: str) -> str:
     return """<html><body>
 <p>Estimados, buen@s d&iacute;as/tardes:</p>
 
-<p>Agradecemos enviar los pedidos adjuntos para la sede Bogot&aacute;, con direcci&oacute;n Cl. 109 #18-39 Local 2, entre las 10 am y las 8pm. Por favor nos env&iacute;en la remisi&oacute;n del pedido en excel, por este medio.</p>
+<p>Agradecemos enviar los pedidos adjuntos para la sede Bogot&aacute;, con direcci&oacute;n Carrera 5 # 69A-30, Chapinero, entre las 10 am y las 8pm. Por favor nos env&iacute;en la remisi&oacute;n del pedido en excel, por este medio.</p>
 
 <p>Adjunto se encuentra:</p>
 <ul>
