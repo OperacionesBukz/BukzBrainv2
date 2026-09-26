@@ -48,10 +48,15 @@ SEDES: dict[str, dict[str, str]] = {
         "direccion": "Cra 30a # 10D- 52, Medellín",
         "horario": "8:00 am a 4:00 pm Lunes a Viernes",
     },
-    "Bukz Bogota 109": {
-        # Dirección temporal Zona G (Chapinero) — hasta nueva orden (2026-07-16).
-        # Anterior: "Cl. 109 #18-39 Local 2, Bogotá".
+    "Bukz Zona G": {
+        # Sede de Bogotá en Zona G (Chapinero). Hasta 2026-09-26 se llamó "Bukz Bogota 109"
+        # (dirección original: "Cl. 109 #18-39 Local 2, Bogotá").
         "direccion": "Carrera 5 # 69A-30, Chapinero, Bogotá",
+        "horario": "10:00 am a 5:00 pm Lunes a Viernes",
+    },
+    "Bukz Bogotá 122": {
+        "direccion": "Calle 122 # 16-24, Local 4, Barrio Santa Bárbara Central, Bogotá",
+        # Horario provisional, copiado de Zona G (2026-09-26) hasta confirmar el propio.
         "horario": "10:00 am a 5:00 pm Lunes a Viernes",
     },
 }
