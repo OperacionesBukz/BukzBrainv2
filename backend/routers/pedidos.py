@@ -70,7 +70,7 @@ MESES = [
 
 CIUDADES = ["Medellín", "Bogotá"]
 
-DESTINATARIOS_B2B = ["camilo.atehortua@bukz.co", "empresasqueleen@bukz.co"]
+DESTINATARIOS_B2B = ["camilo.atehortua@bukz.co"]
 
 
 # ---------------------------------------------------------------------------
